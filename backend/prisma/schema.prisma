@@ -1,0 +1,675 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Empresa {
+  id        Int       @id @default(autoincrement())
+  nome      String
+  cnpj      String?   @unique
+  setor     String?
+  porte     String?
+  telefone  String?
+  email     String?
+  endereco  String?
+  website   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  usuarios  Usuario[]
+  projetos  Projeto[]
+  diagnosticosRapidos DiagnosticoRapido[]
+  arquiteturasReferencia ArquiteturaReferencia[]
+}
+
+model Usuario {
+  id        Int       @id @default(autoincrement())
+  nome      String
+  email     String    @unique
+  senha     String?
+  cargo     String?
+  telefone  String?
+  // admin | gestor | avaliador | negocios | ti | sysmap (fase 2: negocios/ti/sysmap = perfil na empresa)
+  role      String    @default("avaliador")
+  /// Prioridade no consolidado de maturidade do projeto (1 = mais alta). Filtro cumulativo: nível F inclui 1..F.
+  nivelPrioridadeMapeamentoMaturidade Int @default(1)
+  empresaId Int
+  ativo     Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  empresa   Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  avaliacoes Avaliacao[]
+  avaliacoesProduto AvaliacaoProduto[]
+  convitesRecebidos ConviteAvaliacao[]
+  especificacoesGeradas EspecificacaoProduto[] @relation("EspecificacaoGeradaPor")
+  especificacoesAprovadas EspecificacaoProduto[] @relation("EspecificacaoAprovadaPor")
+  relatoriosIAGerados RelatorioIA[] @relation("RelatoriosIAGerados")
+  relatoriosIAJobs RelatorioIAJob[] @relation("RelatoriosIAJobs")
+  presenca UsuarioPresenca?
+}
+
+/// Última rota e atividade (heartbeat) para observabilidade admin
+model UsuarioPresenca {
+  usuarioId    Int      @id
+  ultimoPath   String   @default("")
+  rotuloPagina String   @default("")
+  ultimaAcao   String?
+  atualizadoEm DateTime @updatedAt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("UsuarioPresenca")
+}
+
+model ConviteAvaliacao {
+  id            Int       @id @default(autoincrement())
+  token         String    @unique
+  avaliadorId   Int
+  tipo          String    // 'projeto' ou 'produto'
+  projetoId     Int?
+  produtoId     Int?
+  areasSelecionadas String? // JSON array de IDs das áreas selecionadas para projeto
+  enviadoPor    Int
+  status        String    @default("pendente") // pendente, aceito, expirado
+  dataExpiracao DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  avaliador     Usuario   @relation(fields: [avaliadorId], references: [id], onDelete: Cascade)
+  projeto       Projeto?  @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  produto       Produto?  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+}
+
+/// Auditoria de lembretes por e-mail (avaliação projeto ou produto)
+model LogLembreteAvaliacao {
+  id                    Int      @id @default(autoincrement())
+  escopoTipo            String   // projeto | produto
+  projetoId             Int?
+  produtoId             Int?
+  destinatarioUsuarioId Int
+  destinatarioEmail     String
+  destinatarioNome      String
+  enviadoPorUsuarioId   Int?
+  modo                  String   // individual | lote | cron
+  sucesso               Boolean
+  erro                  String?  @db.Text
+  emailSimulado         Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  @@index([projetoId, createdAt])
+  @@index([produtoId, createdAt])
+  @@map("LogLembreteAvaliacao")
+}
+
+model Projeto {
+  id                  Int       @id @default(autoincrement())
+  nome                String
+  descricao           String?
+  vertical            String?
+  audienciaPrimaria   String?
+  lentesPrioritarias  String?
+  // Faturamento anual (12m) do escopo do projeto na organização — base para % de referência de ROI nos relatórios
+  faturamentoAnualProjeto Float?
+  status              String    @default("ativo")
+  empresaId           Int
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  empresa     Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  avaliacoes  Avaliacao[]
+  produtos    Produto[]
+  convites    ConviteAvaliacao[]
+  relatoriosIA RelatorioIA[]
+  relatoriosIAJobs RelatorioIAJob[]
+}
+
+model Area {
+  id        Int       @id @default(autoincrement())
+  nome      String    @unique
+  descricao String?
+  ordem     Int       @default(0)
+  peso      Float     @default(0.125)
+  
+  perguntas Pergunta[]
+}
+
+model Pergunta {
+  id              Int       @id @default(autoincrement())
+  numero          Int
+  texto           String
+  criterios       String
+  areaId          Int
+  
+  area            Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  respostas       Resposta[]
+}
+
+model Avaliacao {
+  id            Int       @id @default(autoincrement())
+  projetoId     Int
+  usuarioId     Int
+  status        String    @default("em_andamento")
+  scoreGeral    Float?
+  nivelGeral    String?
+  areasSelecionadas String?
+  /// JSON array de areaIds: avaliador não apto a responder; área excluída dos cálculos
+  areasRecusadas String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  projeto         Projeto             @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  usuario         Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  respostas       Resposta[]
+  /// Bloco opcional "Desejos IA" (tabela à parte — evita ALTER em Avaliacao em ambientes com permissões restritas)
+  desejosIADados  AvaliacaoDesejosIA?
+}
+
+/// Respostas opcionais do bloco Desejos IA (roadmap); não entra no score de maturidade
+model AvaliacaoDesejosIA {
+  id          Int       @id @default(autoincrement())
+  avaliacaoId Int       @unique
+  payload     Json
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  avaliacao   Avaliacao @relation(fields: [avaliacaoId], references: [id], onDelete: Cascade)
+}
+
+model Resposta {
+  id          Int       @id @default(autoincrement())
+  avaliacaoId Int
+  perguntaId  Int
+  pontuacao   Int?
+  semInformacao Boolean @default(false)
+  observacoes String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  avaliacao   Avaliacao @relation(fields: [avaliacaoId], references: [id], onDelete: Cascade)
+  pergunta    Pergunta  @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+  
+  @@unique([avaliacaoId, perguntaId])
+}
+
+// ==========================================
+// MÓDULO DE PRODUTO IA-FIRST (MIT CISR)
+// ==========================================
+
+// Perguntas Obrigatórias Universais de Transformação Agêntica
+// Estas 8 perguntas são aplicadas a TODOS os produtos, independente da vertical
+model PerguntaObrigatoriaProduto {
+  id          Int       @id @default(autoincrement())
+  numero      Int
+  categoria   String
+  texto       String
+  criterios   String?
+  peso        Float     @default(0.125)
+  ordem       Int       @default(0)
+  
+  respostas   RespostaObrigatoriaProduto[]
+}
+
+model RespostaObrigatoriaProduto {
+  id                  Int       @id @default(autoincrement())
+  avaliacaoProdutoId  Int
+  perguntaObrigatoriaId Int
+  pontuacao           Int?
+  observacoes         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  avaliacaoProduto    AvaliacaoProduto @relation(fields: [avaliacaoProdutoId], references: [id], onDelete: Cascade)
+  perguntaObrigatoria PerguntaObrigatoriaProduto @relation(fields: [perguntaObrigatoriaId], references: [id], onDelete: Cascade)
+  
+  @@unique([avaliacaoProdutoId, perguntaObrigatoriaId])
+}
+
+model VerticalProduto {
+  id        Int       @id @default(autoincrement())
+  nome      String    @unique
+  descricao String?
+  foco      String?
+  icone     String?
+  ordem     Int       @default(0)
+  
+  perguntas PerguntaProduto[]
+  produtos  Produto[]
+}
+
+model PerguntaProduto {
+  id          Int       @id @default(autoincrement())
+  numero      Int
+  categoria   String    @default("Geral")
+  texto       String
+  verticalId  Int
+  
+  vertical    VerticalProduto @relation(fields: [verticalId], references: [id], onDelete: Cascade)
+  respostas   RespostaProduto[]
+}
+
+model Produto {
+  id            Int       @id @default(autoincrement())
+  nome          String
+  descricao     String?
+  status        String    @default("ativo")
+  projetoId     Int
+  verticalId    Int?
+  scoreRelevancia Float?
+  scoreObrigatorio Float?
+  scoreBlueprint Float?              // Score do Blueprint (projeto) no momento da avaliação
+  scorePrioridadeEstrategica Float?  // Score combinado: 60% Produto + 40% Blueprint
+  classificacao Int?
+  
+  // Campos Descritivos do Produto
+  problemaResolve       String?   // Qual problema o produto resolve
+  publicoAlvo           String?   // Público-alvo do produto
+  tecnologias           String?   // JSON array: ["LLM", "RAG", "Computer Vision", etc.]
+  faseAtual             String?   @default("ideia") // ideia, mvp, piloto, producao
+  complexidade          String?   @default("media") // baixa, media, alta
+  diferencialCompetitivo String?  // O que torna único no mercado
+  principaisRiscos      String?   // Principais riscos identificados
+  dependenciasExternas  String?   // Dependências de terceiros, APIs, etc.
+  
+  // Métricas de Sucesso (KPIs)
+  metricaPrincipal      String?   // KPI principal de sucesso
+  baselineAtual         String?   // Valor atual da métrica
+  metaEsperada          String?   // Meta a ser atingida
+  prazoMeta             DateTime? // Prazo para atingir a meta
+  
+  // Campos Financeiros e de Cronograma
+  custoHoraHomem           Float?    @default(150) // Custo médio por hora-homem em R$ (para cálculo de estimativas)
+  produtividadeTradicional Float?    @default(40) // Story Points/mês/dev em desenvolvimento tradicional
+  produtividadeAgentica    Float?    @default(120) // Story Points/mês/dev com Fábrica Agêntica (IA)
+  custoEstimado            Float?    // Custo de construção estimado em R$
+  retornoAnualEsperado  Float?    // Retorno esperado anual quando ativado em R$
+  dataInicioConstrucao  DateTime? // Data de início de construção
+  dataFimConstrucao     DateTime? // Data fim de construção prevista
+  dataAtivacaoProducao  DateTime? // Data de ativação em produção
+  statusConstrucao      String?   @default("planejado") // planejado, em_construcao, em_teste, ativo, suspenso, cancelado
+  observacoesCronograma String?   // Observações sobre o cronograma
+
+  /// Conteúdo da aba "Informações adicionais" na tela de especificação (requisitos, integrações, restrições, observações)
+  informacoesAdicionaisEspecificacao Json?
+
+  /// Fase A — idealização / design sprint (antes da especificação); estrutura livre validada na API
+  idealizacaoProduto Json?
+
+  /// Como o produto foi iniciado: fluxo completo por etapas vs. linha design thinking + idealização
+  modeloCriacao String @default("convencional") // convencional | design_thinking
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  projeto       Projeto   @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  vertical      VerticalProduto? @relation(fields: [verticalId], references: [id])
+  arquiteturaReferenciaId Int?
+  arquiteturaReferencia ArquiteturaReferencia? @relation(fields: [arquiteturaReferenciaId], references: [id], onDelete: SetNull)
+  avaliacoes    AvaliacaoProduto[]
+  convites      ConviteAvaliacao[]
+  especificacoes EspecificacaoProduto[]
+  arquivosReferencia ArquivoReferencia[]
+}
+
+/// Arquitetura de referência da empresa (padrões técnicos, CI/CD, topologia).
+model ArquiteturaReferencia {
+  id                     Int      @id @default(autoincrement())
+  empresaId              Int
+  nome                   String
+  descricao              String?  @db.Text
+  tipoArquitetura        String   @default("layered")
+  ciCd                   String?  @db.Text
+  tecnologia             String?  @db.Text
+  topologia              String?  @db.Text
+  padroesQualidade       String?  @db.Text
+  segurancaCompliance    String?  @db.Text
+  observabilidade        String?  @db.Text
+  ambientesImplantacao   String?  @db.Text
+  responsavelArquitetura String?
+  custoOperacionalNotas  String?  @db.Text
+  ativo                  Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  empresa  Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  arquivos ArquivoArquiteturaReferencia[]
+  produtos Produto[]
+}
+
+model ArquivoArquiteturaReferencia {
+  id                       Int      @id @default(autoincrement())
+  arquiteturaReferenciaId  Int
+  nomeOriginal             String
+  nomeArmazenado           String
+  mimeType                 String
+  tamanho                  Int
+  categoria                String   @default("referencia_arquitetura")
+  conteudoExtraido        String?   @db.Text
+  descricao                String?
+  ativo                    Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  arquiteturaReferencia ArquiteturaReferencia @relation(fields: [arquiteturaReferenciaId], references: [id], onDelete: Cascade)
+}
+
+model AvaliacaoProduto {
+  id                  Int       @id @default(autoincrement())
+  produtoId           Int
+  usuarioId           Int
+  verticaisSelecionadas String?
+  status              String    @default("em_andamento")
+  scoreObrigatorio    Float?
+  scoreVerticais      Float?
+  scoreRelevancia     Float?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  produto             Produto   @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  usuario             Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  respostasObrigatorias RespostaObrigatoriaProduto[]
+  respostasVerticais  RespostaProduto[]
+}
+
+model RespostaProduto {
+  id                  Int       @id @default(autoincrement())
+  avaliacaoProdutoId  Int
+  perguntaProdutoId   Int
+  pontuacao           Int?
+  observacoes         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  avaliacaoProduto    AvaliacaoProduto @relation(fields: [avaliacaoProdutoId], references: [id], onDelete: Cascade)
+  perguntaProduto     PerguntaProduto  @relation(fields: [perguntaProdutoId], references: [id], onDelete: Cascade)
+  
+  @@unique([avaliacaoProdutoId, perguntaProdutoId])
+}
+
+// ==========================================
+// MÓDULO DE ESPECIFICAÇÃO AUTOMÁTICA (IA)
+// Geração automática de documentação técnica
+// ==========================================
+
+model EspecificacaoProduto {
+  id              Int       @id @default(autoincrement())
+  produtoId       Int
+  versao          Int       @default(1)
+  status          String    @default("gerando") // gerando, concluido, erro, revisando, aprovado
+  
+  // Metadados da geração
+  modeloIA        String?   // claude-3-opus, claude-3-sonnet, etc.
+  tokensUsados    Int?
+  tempoGeracao    Int?      // em segundos
+  custoEstimadoIA Float?    // custo da API em USD
+  
+  // Estimativas geradas - Desenvolvimento Tradicional
+  storyPointsTotais        Int?      // Total de Story Points estimados
+  horasTradicional         Float?    // Horas estimadas (tradicional)
+  custoTradicional         Float?    // Custo em R$ (tradicional)
+  prazoTradicional         Int?      // Prazo em semanas (tradicional)
+  equipeTradicional        Int?      // Tamanho da equipe (tradicional)
+  produtividadeTradicional Float?    // SP/mês/dev usada (tradicional)
+  
+  // Estimativas geradas - Fábrica Agêntica (com IA)
+  horasAgentica            Float?    // Horas estimadas (agêntica)
+  custoAgentica            Float?    // Custo em R$ (agêntica)
+  prazoAgentica            Int?      // Prazo em semanas (agêntica)
+  equipeAgentica           Int?      // Tamanho da equipe (agêntica)
+  produtividadeAgentica    Float?    // SP/mês/dev usada (agêntica)
+  
+  // Resumo executivo gerado
+  resumoExecutivo     String?
+  
+  geradoPorId     Int
+  aprovadoPorId   Int?
+  dataAprovacao   DateTime?
+  observacoes     String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  produto         Produto   @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  geradoPor       Usuario   @relation("EspecificacaoGeradaPor", fields: [geradoPorId], references: [id])
+  aprovadoPor     Usuario?  @relation("EspecificacaoAprovadaPor", fields: [aprovadoPorId], references: [id])
+  documentos      DocumentoEspecificacao[]
+}
+
+model DocumentoEspecificacao {
+  id                  Int       @id @default(autoincrement())
+  especificacaoId     Int
+  tipo                String    // prd, requisitos_funcionais, requisitos_nao_funcionais, arquitetura, cronograma, blueprint
+  titulo              String
+  conteudo            String    // Markdown content
+  ordem               Int       @default(0)
+  status              String    @default("pendente") // pendente, gerando, concluido, erro
+  
+  // Controle de versão do documento
+  versaoDocumento     Int       @default(1)
+  editadoManualmente  Boolean   @default(false)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  especificacao       EspecificacaoProduto @relation(fields: [especificacaoId], references: [id], onDelete: Cascade)
+  
+  @@unique([especificacaoId, tipo, versaoDocumento])
+}
+
+// Histórico de gerações para análise e melhoria
+model HistoricoGeracaoIA {
+  id              Int       @id @default(autoincrement())
+  produtoId       Int
+  tipoDocumento   String
+  promptUsado     String
+  respostaIA      String
+  modeloIA        String
+  tokensEntrada   Int?
+  tokensSaida     Int?
+  tempoResposta   Int?      // em ms
+  sucesso         Boolean   @default(true)
+  erroMensagem    String?
+  
+  createdAt       DateTime  @default(now())
+}
+
+// Configurações de custo por perfil profissional
+model ConfiguracaoCusto {
+  id              Int       @id @default(autoincrement())
+  perfil          String    @unique // dev_junior, dev_pleno, dev_senior, tech_lead, arquiteto, po, designer, qa
+  descricao       String?
+  custoHora       Float     // Custo por hora em R$
+  ativo           Boolean   @default(true)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Configurações persistentes de IA (provedor ativo e API keys criptografadas)
+model ConfiguracaoIA {
+  chave       String   @id
+  valor       String
+  criptografado Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==========================================
+// ARQUIVOS DE REFERÊNCIA PARA ESPECIFICAÇÃO
+// Permite anexar documentos e imagens para
+// enriquecer o contexto da geração IA
+// ==========================================
+
+model ArquivoReferencia {
+  id              Int       @id @default(autoincrement())
+  produtoId       Int
+  
+  // Informações do arquivo
+  nomeOriginal    String    // Nome original do arquivo enviado
+  nomeArmazenado  String    // Nome único gerado para armazenamento
+  mimeType        String    // image/png, application/pdf, text/plain, etc.
+  tamanho         Int       // Tamanho em bytes
+  categoria       String    @default("geral") // geral, mockup, fluxo, requisito, referencia
+  
+  // Conteúdo extraído (para documentos de texto)
+  conteudoExtraido String?  // Texto extraído de PDFs, docs, etc.
+  
+  // Metadados
+  descricao       String?   // Descrição opcional do arquivo
+  ativo           Boolean   @default(true)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  produto         Produto   @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// MÓDULO DE DIAGNÓSTICO RÁPIDO
+// Versão reduzida para demonstração (20-25 perguntas)
+// Aplicável em 30 minutos - Ferramenta de entrada
+// ==========================================
+
+model DimensaoDiagnostico {
+  id          Int       @id @default(autoincrement())
+  nome        String    @unique
+  descricao   String?
+  icone       String?   // Emoji ou ícone
+  ordem       Int       @default(0)
+  peso        Float     @default(0.20) // 5 dimensões = 20% cada
+  
+  perguntas   PerguntaDiagnostico[]
+}
+
+model PerguntaDiagnostico {
+  id          Int       @id @default(autoincrement())
+  numero      Int
+  texto       String
+  criterios   String    // Critérios 1-5 separados por \n
+  dimensaoId  Int
+  ordem       Int       @default(0)
+  
+  dimensao    DimensaoDiagnostico @relation(fields: [dimensaoId], references: [id], onDelete: Cascade)
+  respostas   RespostaDiagnostico[]
+}
+
+model DiagnosticoRapido {
+  id                  Int       @id @default(autoincrement())
+  
+  // Pode ser vinculado a empresa OU ser avulso (demonstração)
+  empresaId           Int?
+  
+  // Dados do respondente (quando avulso)
+  nomeResponsavel     String
+  emailResponsavel    String?
+  cargoResponsavel    String?
+  nomeEmpresa         String?
+  setorEmpresa        String?
+  porteEmpresa        String?
+  verticalSelecionada String?   // Vertical específica do cliente
+  
+  // Status e Scores
+  status              String    @default("em_andamento") // em_andamento, finalizado
+  scoreGeral          Float?    // Score consolidado 1-5
+  nivelMaturidade     String?   // Iniciante, Explorador, Praticante, Avançado, Líder
+  
+  // Gaps identificados (JSON array dos 3 principais)
+  principaisGaps      String?   // JSON: [{dimensao, score, gap}]
+  
+  // Recomendação gerada
+  recomendacaoProximoPasso String?
+  
+  // Metadados
+  duracaoMinutos      Int?      // Tempo real de aplicação
+  conduzidoPor        String?   // Nome do Gerente de Relacionamento
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  empresa             Empresa?  @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  respostas           RespostaDiagnostico[]
+}
+
+model RespostaDiagnostico {
+  id              Int       @id @default(autoincrement())
+  diagnosticoId   Int
+  perguntaId      Int
+  pontuacao       Int?      // 1-5
+  observacoes     String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  diagnostico     DiagnosticoRapido @relation(fields: [diagnosticoId], references: [id], onDelete: Cascade)
+  pergunta        PerguntaDiagnostico @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+  
+  @@unique([diagnosticoId, perguntaId])
+}
+
+// ==================== RELATÓRIOS GERADOS POR IA ====================
+// Armazena versões dos relatórios IA (executivo C-Level e book de trabalho completo)
+// para evitar regeneração e permitir consulta histórica
+model RelatorioIA {
+  id              Int       @id @default(autoincrement())
+  projetoId       Int
+  tipo            String    // "executivo" | "completo" | "completo_rapido"
+  titulo          String
+  conteudoMd      String    @db.Text  // Markdown do relatório completo
+  
+  // Metadados da geração IA
+  provider        String?   // "anthropic" | "openai" | "groq"
+  modelo          String?
+  tokensEntrada   Int?
+  tokensSaida     Int?
+  tempoGeracaoMs  Int?
+  chunksGerados   Int?      // Para o tipo "completo" (multi-chunk)
+  totalChunks     Int?
+  
+  // Snapshot dos dados usados na geração
+  dadosSnapshot   String?   @db.Text  // JSON com scores, top5, bottom5, setor etc.
+  scoreGeral      Float?
+  nivel           Int?
+  setor           String?
+  
+  // Auditoria
+  geradoPorId     Int?      // Usuario que disparou a geração
+  versao          Int       @default(1)  // Numero sequencial da versão
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  projeto         Projeto   @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  geradoPor       Usuario?  @relation("RelatoriosIAGerados", fields: [geradoPorId], references: [id], onDelete: SetNull)
+  jobs            RelatorioIAJob[]
+  
+  @@index([projetoId, tipo])
+  @@index([createdAt])
+}
+
+model RelatorioIAJob {
+  id              Int       @id @default(autoincrement())
+  projetoId       Int
+  tipo            String    // "executivo" | "completo" | "completo_rapido"
+  status          String    @default("queued") // queued | running | completed | failed
+  progresso       Int       @default(0)
+  etapa           String?
+  erro            String?   @db.Text
+  relatorioId     Int?
+  solicitadoPorId Int?
+  metadata        String?   @db.Text
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  projeto         Projeto   @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  relatorio       RelatorioIA? @relation(fields: [relatorioId], references: [id], onDelete: SetNull)
+  solicitadoPor   Usuario?  @relation("RelatoriosIAJobs", fields: [solicitadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([projetoId, tipo, status])
+  @@index([createdAt])
+}

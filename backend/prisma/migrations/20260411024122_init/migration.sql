@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "RespostaObrigatoriaProduto_avaliacaoProdutoId_perguntaObrigator" RENAME TO "RespostaObrigatoriaProduto_avaliacaoProdutoId_perguntaObrig_key";

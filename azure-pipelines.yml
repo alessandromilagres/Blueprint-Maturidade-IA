@@ -1,0 +1,132 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  # Secrets (azureTenantId, azureClientId, azureClientSecret) vêm do
+  # Key Vault via Variable Group blueprint-agentica-secrets
+  - group: 'blueprint-agentica-secrets'
+
+  # Configuração de infra (não-sensíveis)
+  - name: resourceGroupName
+    value: "rg-blueagentic-devops-prod"
+  - name: vmName
+    value: "vm-app-prod"
+  - name: deployPath
+    value: "/mnt/dados/blueprint-agentica"
+
+  # Configuração de envio de email (não-sensíveis)
+  - name: emailProvider
+    value: "graph"
+  - name: mailSenderAddress
+    value: "blueprint.agentica@sysmap.com.br"
+  - name: baseUrl
+    value: "https://agentica.sysmap.com.br"
+
+stages:
+- stage: Deploy
+  displayName: Deploy Application
+  jobs:
+  - deployment: DeployToVM
+    displayName: Deploy containers to VM
+    environment: 'production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            persistCredentials: true
+
+          - task: AzureCLI@2
+            displayName: Deploy via git pull na VM
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              # Secrets do Variable Group precisam ser expostos via env
+              # (não são interpolados automaticamente em scripts inline)
+              AZURE_TENANT_ID: $(azureTenantId)
+              AZURE_CLIENT_ID: $(azureClientId)
+              AZURE_CLIENT_SECRET: $(azureClientSecret)
+            inputs:
+              azureSubscription: "sc-azure-wif-infra-devops"
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -e
+
+                # URL montada aqui no step, onde o token já está disponível
+                REPO_URL="https://token:${SYSTEM_ACCESSTOKEN}@dev.azure.com/sysmap-devops/Blueprint%20Agentica/_git/app-agentica"
+
+                az vm run-command invoke \
+                  --resource-group $(resourceGroupName) \
+                  --name $(vmName) \
+                  --command-id RunShellScript \
+                  --scripts "
+                    set -e
+
+                    if ! mountpoint -q /mnt/dados; then
+                      echo 'ERRO: /mnt/dados nao esta montado!'
+                      exit 1
+                    fi
+
+                    sudo -u azureadmin bash -c '
+                      set -e
+
+                      if [ ! -d $(deployPath)/.git ]; then
+                        echo \">>> Clonando repositorio\"
+                        git clone $REPO_URL $(deployPath)
+                      else
+                        echo \">>> Atualizando repositorio\"
+                        cd $(deployPath)
+                        git remote set-url origin $REPO_URL
+                        git fetch --all
+                        git reset --hard origin/main
+                      fi
+
+                      cd $(deployPath)
+
+                      # Remove token da URL remota imediatamente após o pull
+                      git remote set-url origin \"https://dev.azure.com/SUA_ORG/SEU_PROJETO/_git/SEU_REPO\"
+
+                      echo \">>> Garantindo variaveis de email no .env\"
+                      ENV_FILE=\"$(deployPath)/.env\"
+                      touch \"\$ENV_FILE\"
+                      # Remove linhas existentes das chaves que vamos definir
+                      for k in EMAIL_PROVIDER MAIL_SENDER_ADDRESS BASE_URL AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET; do
+                        grep -v \"^\${k}=\" \"\$ENV_FILE\" > \"\${ENV_FILE}.tmp\" || true
+                        mv \"\${ENV_FILE}.tmp\" \"\$ENV_FILE\"
+                      done
+                      # Adiciona as variaveis (printf com aspas duplas escapadas)
+                      {
+                        printf \"EMAIL_PROVIDER=%s\\n\"      \"$(emailProvider)\"
+                        printf \"MAIL_SENDER_ADDRESS=%s\\n\" \"$(mailSenderAddress)\"
+                        printf \"BASE_URL=%s\\n\"            \"$(baseUrl)\"
+                        printf \"AZURE_TENANT_ID=%s\\n\"     \"${AZURE_TENANT_ID}\"
+                        printf \"AZURE_CLIENT_ID=%s\\n\"     \"${AZURE_CLIENT_ID}\"
+                        printf \"AZURE_CLIENT_SECRET=%s\\n\" \"${AZURE_CLIENT_SECRET}\"
+                      } >> \"\$ENV_FILE\"
+                      chmod 600 \"\$ENV_FILE\"
+                      echo \">>> Variaveis de email configuradas no .env\"
+
+                      echo \">>> Parando containers\"
+                      docker compose -f docker-compose.prod.yml down --remove-orphans || true
+
+                      echo \">>> Subindo containers\"
+                      docker compose -f docker-compose.prod.yml up -d --build
+
+                      echo \">>> Aguardando inicializacao\"
+                      sleep 15
+
+                      echo \">>> Migracoes do banco\"
+                      docker exec blueprint-ia-backend-prod npx prisma migrate deploy || true
+
+                      echo \">>> Limpando imagens antigas\"
+                      docker image prune -f
+
+                      echo \">>> Status dos containers\"
+                      docker compose -f docker-compose.prod.yml ps
+
+                      echo \">>> Deploy concluido!\"
+                    '
+                  "

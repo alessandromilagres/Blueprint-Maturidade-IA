@@ -54,7 +54,8 @@ async function processarJobRelatorioIA({
   tipo,
   authHeader,
   baseUrl,
-  filtroNivelMax = 3
+  filtroNivelMax = 3,
+  versaoId = null
 }) {
   const startedAt = new Date();
   try {
@@ -77,12 +78,13 @@ async function processarJobRelatorioIA({
     });
 
     const nivelQ = queryNivelPrioridadeMapeamentoMaturidade(filtroNivelMax);
+    const versaoQ = versaoId ? `&projetoVersaoId=${encodeURIComponent(String(versaoId))}` : '';
     const endpoint =
       tipo === 'completo' || tipo === 'completo_rapido'
-        ? `/api/dashboard/projeto/${projetoId}/relatorio-ia-completo?reuse=false&jobId=${jobId}&${nivelQ}${
+        ? `/api/dashboard/projeto/${projetoId}/relatorio-ia-completo?reuse=false&jobId=${jobId}&${nivelQ}${versaoQ}${
             tipo === 'completo_rapido' ? '&mode=rapido' : ''
           }`
-        : `/api/dashboard/projeto/${projetoId}/relatorio-ia?reuse=false&${nivelQ}`;
+        : `/api/dashboard/projeto/${projetoId}/relatorio-ia?reuse=false&${nivelQ}${versaoQ}`;
 
     await prisma.relatorioIAJob.update({
       where: { id: jobId },
@@ -154,7 +156,7 @@ async function processarJobRelatorioIA({
     if (httpFailed) {
       // Espera adicional (algumas tentativas) para a rota terminar de salvar
       const tentativas =
-        tipo === 'completo' ? 60 : tipo === 'completo_rapido' ? 35 : 20; // ~10min / ~35min rápido / exec
+        tipo === 'completo' ? 80 : tipo === 'completo_rapido' ? 50 : 20; // book: 16 dims · rápido ~21 blocos
       const intervaloMs = 10_000;
       let salvo = null;
 
@@ -283,8 +285,9 @@ router.post('/:id/cancel', async (req, res) => {
 // POST /api/relatorios-ia-jobs/start
 router.post('/start', async (req, res) => {
   try {
-    const { projetoId, tipo, nivelPrioridadeMapeamentoMaturidade } = req.body || {};
+    const { projetoId, tipo, nivelPrioridadeMapeamentoMaturidade, versaoId } = req.body || {};
     const projetoIdNum = Number(projetoId);
+    const versaoIdNum = versaoId ? Number(versaoId) : null;
     const filtroNivelMax = filtroNivelPrioridadeFromRaw(nivelPrioridadeMapeamentoMaturidade);
     if (!projetoIdNum || Number.isNaN(projetoIdNum)) {
       return res.status(400).json({ error: 'projetoId inválido' });
@@ -303,7 +306,10 @@ router.post('/start', async (req, res) => {
     });
     const existente = jobsAtivos.find((j) => {
       const meta = parseJsonSeguro(j.metadata);
-      return filtroNivelRelatorioIACompativel(meta, filtroNivelMax);
+      return (
+        filtroNivelRelatorioIACompativel(meta, filtroNivelMax) &&
+        Number(meta?.versaoId || 0) === Number(versaoIdNum || 0)
+      );
     });
 
     if (existente) {
@@ -321,7 +327,8 @@ router.post('/start', async (req, res) => {
         progresso: 0,
         etapa: 'Na fila',
         metadata: JSON.stringify({
-          filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax
+          filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+          versaoId: versaoIdNum
         }),
         solicitadoPorId: req.usuarioId || null
       }
@@ -336,7 +343,8 @@ router.post('/start', async (req, res) => {
         tipo,
         authHeader,
         baseUrl,
-        filtroNivelMax
+        filtroNivelMax,
+        versaoId: versaoIdNum
       });
     }, 50);
 

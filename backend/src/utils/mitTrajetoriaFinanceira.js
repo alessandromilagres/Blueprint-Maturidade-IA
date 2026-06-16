@@ -3,6 +3,7 @@
  * (alinhado às faixas usadas nas exportações / modelo interno).
  */
 import { percentualReferenciaRoi } from './roiPorFaturamento.js';
+import { nivelNumericoDeScore } from './nivelMaturidadeRubrica.js';
 
 export const MIT_ROI_POR_NIVEL = {
   1: { roiMin: -50, roiMax: 50, roiMed: 0, investPctMin: 0.5, investPctMax: 1, tempo: '18-24 meses' },
@@ -13,12 +14,7 @@ export const MIT_ROI_POR_NIVEL = {
 };
 
 export function nivelMitFromScore(scoreGeral) {
-  const s = Number(scoreGeral);
-  if (s < 1.5) return 1;
-  if (s < 2.5) return 2;
-  if (s < 3.5) return 3;
-  if (s < 4.5) return 4;
-  return 5;
+  return nivelNumericoDeScore(scoreGeral);
 }
 
 /**

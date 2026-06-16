@@ -1,0 +1,279 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 9: Valor por Unidade de Negócio
+Framework: McKinsey / BCG  ·  Peso no score: 5%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 9
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Valor por Unidade de Negócio — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+McKinsey / BCG
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Nenhum mapeamento de valor de IA por área da empresa
+	•	IA é responsabilidade de TI sem envolvimento das unidades de negócio
+	•	Cada área desconhece o potencial de IA em seus processos
+	•	IA tratada como solução de infraestrutura, não de negócio
+	•	Sem critério de qual área priorizar nos investimentos em IA
+	•	Investimentos concentrados por preferência técnica, não por valor de negócio
+
+O que você observa na prática
+	•	Oportunidades de alto valor em algumas áreas são completamente invisíveis
+	•	Investimentos vão para onde é mais fácil, não para onde é mais valioso
+	•	Resistência das unidades de negócio por falta de envolvimento
+	•	A empresa não tem mapa de onde IA pode gerar mais impacto
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Realizar workshops de mapeamento de valor de IA em cada unidade principal
+2
+Criar ranking simples das unidades por potencial de valor de IA: alta, média e baixa oportunidade
+3
+Designar ponto focal (champion de IA) em cada unidade de negócio principal
+4
+Realizar piloto de IA em ao menos 1 unidade não-TI escolhida por critério de valor
+5
+Criar relatório mensal simples de 'o que IA poderia fazer nesta área' para cada unidade
+
+Como confirmar que você atingiu o Nível 2
+	•	Mapeamento de potencial de valor realizado em ao menos 5 unidades principais
+	•	Ponto focal de IA designado em cada unidade
+	•	Piloto de IA em andamento em ao menos 1 área de negócio fora de TI
+
+
+NÍVEL
+2
+INICIAL
+Valor por Unidade de Negócio — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+McKinsey / BCG
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Mapeamento inicial de casos de uso em algumas áreas de negócio
+	•	Métricas de valor por área definidas informalmente em alguns projetos
+	•	Algumas unidades com projetos próprios iniciados por iniciativa individual
+	•	IA ainda percebida como coisa de TI na maioria das unidades
+	•	Poucas unidades com champion de IA com poder real
+	•	Compartilhamento de soluções entre unidades esporádico e não sistematizado
+
+O que você observa na prática
+	•	Algumas BUs geram valor com IA mas sem coordenação com o centro
+	•	Duplicação de esforços: diferentes unidades construindo soluções similares
+	•	Dificuldade de priorizar investimentos centrais vs. descentralizados
+	•	Unidades mais maduras avançam, as demais ficam para trás indefinidamente
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Implementar processo formal de mapeamento de casos de uso em TODAS as unidades
+2
+Criar metodologia padronizada de métricas de valor de IA por unidade para permitir comparação
+3
+Estabelecer processo cross-BU de priorização de investimentos com critério objetivo (ROI x esforço)
+4
+Criar catálogo de soluções de IA compartilhadas para evitar reinvenção entre unidades
+5
+Formalizar champions de IA em todas as unidades com dedicação de 20% do tempo
+6
+Criar fórum mensal de troca de experiências entre champions das diferentes unidades
+
+Como confirmar que você atingiu o Nível 3
+	•	Mapeamento formal em todas as unidades concluído
+	•	Metodologia padrão de métricas de valor por BU aprovada
+	•	Processo de priorização cross-BU operacional
+	•	Catálogo de soluções compartilhadas criado e acessível
+
+
+NÍVEL
+3
+DEFINIDO
+Valor por Unidade de Negócio — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+McKinsey / BCG
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Mapeamento formal de casos de uso e potencial de valor em todas as unidades
+	•	Métricas padronizadas de valor por unidade para comparação objetiva
+	•	Processo cross-BU de priorização com critério objetivo
+	•	Catálogo de soluções de IA compartilhadas para evitar duplicação
+	•	Champions formais em todas as unidades com tempo dedicado
+	•	Fórum mensal de troca de experiências entre unidades operacional
+
+O que você observa na prática
+	•	Cada unidade sabe seu potencial de IA e o que já foi realizado
+	•	Investimentos priorizados por impacto por unidade com dados, não por preferência
+	•	Reuso de soluções entre unidades evitando duplicação de esforço
+	•	MIT CISR Estágio 2–3: IA gera valor distribuído na organização
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Dar autonomia às unidades para iniciar projetos dentro de limites de budget pré-aprovados
+2
+Criar competição saudável com ranking de maturidade de IA por BU publicado internamente
+3
+Transformar o time central de IA em enabler: ensinar e suportar, não executar para as unidades
+4
+Criar programa de replicação: quando uma unidade descobre solução valiosa, replicar nas demais
+5
+Implementar métricas de valor de IA no scorecard de liderança de cada unidade
+6
+Criar portfólio de projetos auto-gerenciados pelas unidades com revisão trimestral do centro
+
+Como confirmar que você atingiu o Nível 4
+	•	Unidades com autonomia para iniciar projetos dentro de budget pré-aprovado
+	•	Ranking de maturidade de IA por BU publicado com atualização trimestral
+	•	Time central atuando como enabler em ao menos 3 unidades
+	•	Replicação de casos de uso realizada ao menos 3 vezes
+
+
+NÍVEL
+4
+GERENCIADO
+Valor por Unidade de Negócio — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+McKinsey / BCG
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	IA como alavanca estratégica em todas as unidades com metas próprias
+	•	Autonomia das unidades para iniciar projetos dentro de limites definidos
+	•	Time central de IA como enabler: suporte, ferramentas e governança, não execução
+	•	Competição saudável: ranking de maturidade de IA por BU publicado
+	•	Replicação sistematizada de casos de uso valiosos entre unidades
+	•	Métricas de valor de IA no scorecard de todos os líderes de unidade
+
+O que você observa na prática
+	•	Cada BU tem roadmap próprio de IA alinhado ao corporativo
+	•	Unidades lideram inovação vertical em IA para seus mercados específicos
+	•	A empresa tem bolsões de excelência em IA espalhados por todas as unidades
+	•	Top 11% MIT CISR: IA como valor distribuído e gerenciado
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Transformar as melhores unidades em labs de inovação vertical: desenvolver casos de uso que podem ser vendidos externamente
+2
+Criar programa de export de valor: soluções de IA de uma unidade viram produto para venda a clientes
+3
+Publicar externamente os melhores casos de uso por unidade como demonstração de capacidade
+4
+Criar estrutura de Federated AI: cada unidade tem time de IA próprio mas compartilha plataforma central
+5
+Desenvolver parcerias setor-específicas lideradas pelas unidades, não pelo time central
+
+Como confirmar que você atingiu o Nível 5
+	•	Ao menos 1 unidade com solução de IA sendo vendida externamente
+	•	Programa de export de valor com ao menos 3 casos publicados
+	•	Estrutura de Federated AI operacional com times descentralizados
+	•	Parcerias setor-específicas lideradas por ao menos 2 unidades de negócio
+
+
+NÍVEL
+5
+OTIMIZADO
+Valor por Unidade de Negócio — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+McKinsey / BCG
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	IA redefiniu o modelo operacional de todas as unidades de negócio
+	•	Unidades lideram inovação vertical em IA com soluções exportadas externamente
+	•	Federated AI: cada unidade com time de IA próprio compartilhando plataforma central
+	•	Casos de uso desenvolvidos por unidades vendidos para clientes externos
+	•	Parcerias setor-específicas lideradas pelas próprias unidades
+	•	Cada BU tem vantagem competitiva específica em IA que concorrentes não replicam
+
+O que você observa na prática
+	•	A empresa tem múltiplos centros de excelência em IA — um por vertical
+	•	Cada unidade pode ser benchmark de IA em seu setor específico
+	•	Top 4% MIT CISR: IA gera valor único e distribuído por toda a organização
+	•	IA por unidade é diferencial competitivo customizado e difícil de copiar
+
+
+Parabéns. Você atingiu o topo da Dimensão 9.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Criar holding de IA: separar as soluções mais valiosas em entidades independentes
+	•	Desenvolver marketplace de soluções: as melhores soluções de unidades vendidas para o mercado
+	•	Criar fundo de capital de risco para financiar spin-offs de IA a partir das unidades
+	•	Publicar relatório anual de valor por unidade de negócio como referência de gestão de portfólio de IA
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Nenhum mapeamento de valor de IA por área da empresa
+Realizar workshops de mapeamento de valor de IA em cada unidade principal
+2
+Inicial
+Inicial
+Mapeamento inicial de casos de uso em algumas áreas de negócio
+Implementar processo formal de mapeamento de casos de uso em TODAS as unidades
+3
+Definido
+Definido
+Mapeamento formal de casos de uso e potencial de valor em todas as unidades
+Dar autonomia às unidades para iniciar projetos dentro de limites de budget pré-aprovados
+4
+Gerenciado
+Gerenciado
+IA como alavanca estratégica em todas as unidades com metas próprias
+Transformar as melhores unidades em labs de inovação vertical: desenvolver casos de uso que podem ser vendidos externamente
+5
+Otimizado
+Otimizado
+IA redefiniu o modelo operacional de todas as unidades de negócio
+Criar holding de IA: separar as soluções mais valiosas em entidades independentes

@@ -8,6 +8,7 @@ export const PERFIS_EMPRESA_FASE2 = Object.freeze(['negocios', 'ti', 'sysmap']);
 export const ROLES_USUARIO = Object.freeze([
   'admin',
   'gestor',
+  'executivo',
   'avaliador',
   'negocios',
   'ti',

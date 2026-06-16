@@ -1,23 +1,22 @@
 import { areaContaParaAvaliacao } from './avaliacaoAreasRecusadas.js';
+import {
+  ordenarAreasPorFramework,
+  garantirTodasDimensoesFramework
+} from './ordemDimensoesFramework.js';
+import { nivelNumericoDeScore } from './nivelMaturidadeRubrica.js';
 
-/** Nível 1–5 usado nos prompts de relatório IA (escala do assessment). */
-export function nivelNumericoDeScore(score) {
-  if (score < 1.5) return 1;
-  if (score < 2.5) return 2;
-  if (score < 3.5) return 3;
-  if (score < 4.5) return 4;
-  return 5;
-}
+export { nivelNumericoDeScore };
 
 /**
  * Mesma agregação do GET /api/dashboard/projeto/:id:
  * média por área em cada avaliador → média entre avaliadores; por pergunta, média das respostas válidas.
  */
 export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas) {
-  const todasAreaIds = areas.map((a) => a.id);
+  const areasOrdenadas = ordenarAreasPorFramework(areas);
+  const todasAreaIds = areasOrdenadas.map((a) => a.id);
   const totalAvaliadores = avaliacoesFinalizadas.length;
 
-  const scoresPorArea = areas.map((area) => {
+  const scoresPorArea = areasOrdenadas.map((area) => {
     let somaScores = 0;
     let countAvaliacoes = 0;
 
@@ -56,7 +55,7 @@ export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas
         score: parseFloat(scorePergunta.toFixed(2)),
         totalRespostas: countRespostas
       };
-    }).filter((p) => p.totalRespostas > 0);
+    });
 
     return {
       areaId: area.id,
@@ -66,7 +65,8 @@ export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas
       nivel: nivelNumericoDeScore(mediaArea),
       avaliadoresCobriram: countAvaliacoes,
       totalAvaliadores,
-      perguntas
+      perguntas,
+      semDadosConsolidados: countAvaliacoes === 0
     };
   });
 
@@ -76,8 +76,13 @@ export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas
       ? areasComScore.reduce((acc, a) => acc + a.score, 0) / areasComScore.length
       : 0;
 
+  const todasDimensoes = garantirTodasDimensoesFramework(areasOrdenadas, scoresPorArea);
+
   return {
+    /** Dimensões com score > 0 (média do projeto, top/bottom gaps). */
     scoresPorArea: areasComScore,
+    /** Todas as 16 dimensões na ordem oficial do framework. */
+    todasDimensoes,
     scoreGeral: parseFloat(scoreGeral.toFixed(2)),
     totalAvaliadores
   };

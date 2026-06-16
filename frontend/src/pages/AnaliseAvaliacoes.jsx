@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   FolderKanban,
+  GitBranch,
   HelpCircle,
   Loader2,
   Search,
@@ -126,6 +127,9 @@ export default function AnaliseAvaliacoes() {
   const [projetos, setProjetos] = useState([]);
   const [avaliacoes, setAvaliacoes] = useState([]);
   const [projetoId, setProjetoId] = useState('');
+  const [versoesInfo, setVersoesInfo] = useState(null);
+  const [versaoId, setVersaoId] = useState('');
+  const [loadingVersoes, setLoadingVersoes] = useState(false);
   const [busca, setBusca] = useState('');
   const [idsSelecionados, setIdsSelecionados] = useState([]);
   const [detalhesPorId, setDetalhesPorId] = useState({});
@@ -161,7 +165,45 @@ export default function AnaliseAvaliacoes() {
   useEffect(() => {
     setIdsSelecionados([]);
     setRespostasAbertas({});
+    setVersaoId('');
+    setVersoesInfo(null);
   }, [projetoId]);
+
+  useEffect(() => {
+    if (!projetoId) return undefined;
+    let cancelled = false;
+    async function carregarVersoesProjeto() {
+      try {
+        setLoadingVersoes(true);
+        const data = await projetosApi.versoes(projetoId);
+        if (cancelled) return;
+        setVersoesInfo(data);
+        const versoes = data?.versoes || [];
+        const abertaComFinalizadas =
+          data?.versaoAtual?.finalizadas > 0 ? data.versaoAtual : null;
+        const ultimaComFinalizadas = versoes.find((versao) => Number(versao.finalizadas || 0) > 0);
+        const versaoPreferida = abertaComFinalizadas || ultimaComFinalizadas || data?.versaoAtual || versoes[0];
+        setVersaoId(versaoPreferida?.id ? String(versaoPreferida.id) : 'todas');
+      } catch (e) {
+        if (!cancelled) {
+          setVersoesInfo(null);
+          setVersaoId('');
+          setErro(e.message || 'Erro ao carregar versões do projeto');
+        }
+      } finally {
+        if (!cancelled) setLoadingVersoes(false);
+      }
+    }
+    carregarVersoesProjeto();
+    return () => {
+      cancelled = true;
+    };
+  }, [projetoId]);
+
+  useEffect(() => {
+    setIdsSelecionados([]);
+    setRespostasAbertas({});
+  }, [versaoId]);
 
   useEffect(() => {
     const idsPendentes = idsSelecionados.filter((id) => !detalhesPorId[id]);
@@ -193,11 +235,30 @@ export default function AnaliseAvaliacoes() {
     };
   }, [detalhesPorId, idsSelecionados]);
 
+  const projetoSelecionado = projetos.find((p) => String(p.id) === String(projetoId));
+  const versaoSelecionada = (versoesInfo?.versoes || []).find((v) => String(v.id) === String(versaoId));
+  const escopoVersaoLabel = versaoSelecionada?.titulo || 'todas as versões';
+  const avaliacaoIdsVersaoSelecionada = new Set(
+    (versaoSelecionada?.avaliacaoFinalizadaIds || versaoSelecionada?.avaliacaoIds || []).map((id) => String(id))
+  );
+
   const avaliacoesDoProjeto = useMemo(() => {
     if (!projetoId) return [];
     const q = busca.trim().toLowerCase();
     return avaliacoes
       .filter((a) => String(a.projeto?.id) === String(projetoId))
+      .filter((a) => {
+        if (versaoId === 'todas' || !versaoId) return true;
+        if (avaliacaoIdsVersaoSelecionada.size > 0) {
+          return avaliacaoIdsVersaoSelecionada.has(String(a.id));
+        }
+        return (
+          String(a.projetoVersao?.id || '') === String(versaoId) ||
+          String(a.projetoVersao?.numero || '') === String(versaoSelecionada?.numero || '') ||
+          String(a.projetoVersao?.titulo || '').toLowerCase() ===
+            String(versaoSelecionada?.titulo || '').toLowerCase()
+        );
+      })
       .filter((a) => a.status === 'finalizada')
       .filter((a) => {
         if (!q) return true;
@@ -205,9 +266,7 @@ export default function AnaliseAvaliacoes() {
         return `${u.nome || ''} ${u.email || ''} ${u.cargo || ''}`.toLowerCase().includes(q);
       })
       .sort((a, b) => (a.usuario?.nome || '').localeCompare(b.usuario?.nome || '', 'pt-BR'));
-  }, [avaliacoes, busca, projetoId]);
-
-  const projetoSelecionado = projetos.find((p) => String(p.id) === String(projetoId));
+  }, [avaliacoes, busca, projetoId, versaoId, avaliacaoIdsVersaoSelecionada, versaoSelecionada]);
   const avaliacoesDetalhadasSelecionadas = idsSelecionados
     .map((id) => detalhesPorId[id])
     .filter(Boolean);
@@ -262,7 +321,7 @@ export default function AnaliseAvaliacoes() {
       )}
 
       <div className="card">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
           <div>
             <label className="label">Projeto</label>
             <select
@@ -279,12 +338,32 @@ export default function AnaliseAvaliacoes() {
           </div>
 
           <div>
+            <label className="label">Versão da pesquisa</label>
+            <select
+              className="input"
+              value={versaoId}
+              onChange={(e) => setVersaoId(e.target.value)}
+              disabled={!projetoId || loadingVersoes || !(versoesInfo?.versoes || []).length}
+            >
+              <option value="">
+                {loadingVersoes ? 'Carregando versões...' : 'Selecione a versão'}
+              </option>
+              <option value="todas">Todas as versões</option>
+              {(versoesInfo?.versoes || []).map((versao) => (
+                <option key={versao.id} value={versao.id}>
+                  {versao.titulo} · {versao.status} · {versao.finalizadas || 0} finalizada(s)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="label">Adicionar avaliador pelo combo</label>
             <select
               className="input"
               value=""
               onChange={(e) => adicionarPeloCombo(e.target.value)}
-              disabled={!projetoId || avaliacoesDoProjeto.length === 0}
+              disabled={!projetoId || !versaoId || avaliacoesDoProjeto.length === 0}
             >
               <option value="">Marcar um avaliador finalizado</option>
               {avaliacoesDoProjeto.map((a) => (
@@ -304,7 +383,7 @@ export default function AnaliseAvaliacoes() {
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder="Nome, e-mail ou cargo"
-                disabled={!projetoId}
+                disabled={!projetoId || !versaoId}
               />
             </div>
           </div>
@@ -344,6 +423,18 @@ export default function AnaliseAvaliacoes() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {projetoSelecionado?.empresa?.nome || ''}
                   </p>
+                  {versaoSelecionada && (
+                    <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
+                      <GitBranch className="h-3 w-3" />
+                      {versaoSelecionada.titulo} · {versaoSelecionada.status}
+                    </p>
+                  )}
+                  {versaoId === 'todas' && (
+                    <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                      <GitBranch className="h-3 w-3" />
+                      Todas as versões
+                    </p>
+                  )}
                 </div>
                 <div className="rounded-xl bg-primary-50 px-3 py-2 text-center dark:bg-primary-900/30">
                   <p className="text-2xl font-bold text-primary-700 dark:text-primary-300">
@@ -376,13 +467,13 @@ export default function AnaliseAvaliacoes() {
                   )}
                 </div>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Marque um ou mais avaliadores para recalcular o consolidado.
+                  Marque um ou mais avaliadores da versão selecionada para recalcular o consolidado.
                 </p>
               </div>
 
               {avaliacoesDoProjeto.length === 0 ? (
                 <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                  Nenhuma avaliação finalizada encontrada para este projeto.
+                  Nenhuma avaliação finalizada encontrada para {escopoVersaoLabel}.
                 </div>
               ) : (
                 <div className="max-h-[620px] overflow-y-auto">
@@ -415,6 +506,10 @@ export default function AnaliseAvaliacoes() {
                                 </p>
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                   {avaliacao.usuario?.cargo || 'Cargo não informado'}
+                                </p>
+                                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">
+                                  <GitBranch className="h-3 w-3" />
+                                  {avaliacao.projetoVersao?.titulo || versaoSelecionada?.titulo || 'Versão 1'}
                                 </p>
                               </div>
                               <StatusBadge status={avaliacao.status} />
@@ -493,6 +588,18 @@ export default function AnaliseAvaliacoes() {
                       Média ponderada consolidada por dimensão
                     </h2>
                   </div>
+                  {versaoSelecionada && (
+                    <p className="mb-4 inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
+                      <GitBranch className="h-3 w-3" />
+                      Análise da {versaoSelecionada.titulo} · {versaoSelecionada.status}
+                    </p>
+                  )}
+                  {versaoId === 'todas' && (
+                    <p className="mb-4 inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                      <GitBranch className="h-3 w-3" />
+                      Análise considerando todas as versões
+                    </p>
+                  )}
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>

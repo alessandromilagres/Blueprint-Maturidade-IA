@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Blueprint IA Avaliador",
+    "slug": "blueprint-ia-avaliador",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "blueprintavaliador",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.blueprintia.avaliador"
+    },
+    "android": {
+      "package": "com.blueprintia.avaliador"
+    },
+    "extra": {
+      "apiUrl": "http://localhost:3001/api"
+    }
+  }
+}

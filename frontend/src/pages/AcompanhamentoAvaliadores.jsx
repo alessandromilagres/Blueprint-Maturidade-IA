@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Navigate, Link, useLocation } from 'react-router-dom';
-import { AlertTriangle, Copy, Mail, RefreshCw, Users, Building2, FolderKanban, Send, Package, History } from 'lucide-react';
+import { AlertTriangle, Copy, Mail, RefreshCw, Users, Building2, FolderKanban, Send, Package, History, Download, FileText, Printer } from 'lucide-react';
 import { empresasApi, projetosApi, produtosApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -92,6 +92,19 @@ function labelAcaoLembrete(row) {
   return 'Lembrete';
 }
 
+function baixarCsv(nomeArquivo, linhas) {
+  const csv = linhas
+    .map((linha) => linha.map((valor) => `"${String(valor ?? '').replaceAll('"', '""')}"`).join(';'))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArquivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function AcompanhamentoAvaliadores() {
   const location = useLocation();
   const { usuario, isAdmin, isAvaliador } = useAuth();
@@ -114,6 +127,9 @@ export default function AcompanhamentoAvaliadores() {
   const [logs, setLogs] = useState([]);
   const [logsAberto, setLogsAberto] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [relatorioDimensoes, setRelatorioDimensoes] = useState(null);
+  const [relatorioDimensoesAberto, setRelatorioDimensoesAberto] = useState(false);
+  const [loadingRelatorioDimensoes, setLoadingRelatorioDimensoes] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState('todos');
   /** Filtro cumulativo no painel de maturidade (projeto): 0 = todos (sem filtro); 1–3 = até esse nível. */
   const [filtroNivelMapeamentoMaturidade, setFiltroNivelMapeamentoMaturidade] = useState(0);
@@ -213,6 +229,11 @@ export default function AcompanhamentoAvaliadores() {
     setUltimoLote(null);
   }, [escopo, projetoId, produtoId, filtroNivelMapeamentoMaturidade]);
 
+  useEffect(() => {
+    setRelatorioDimensoes(null);
+    setRelatorioDimensoesAberto(false);
+  }, [escopo, projetoId]);
+
   const carregarStatus = useCallback(async () => {
     const pid = escopo === 'projeto' ? parseInt(projetoId, 10) : parseInt(produtoId, 10);
     if (!pid) return;
@@ -250,6 +271,23 @@ export default function AcompanhamentoAvaliadores() {
       setLoadingLogs(false);
     }
   }, [escopo, projetoId, produtoId, toast]);
+
+  const carregarRelatorioDimensoes = useCallback(async () => {
+    const pid = parseInt(projetoId, 10);
+    if (!pid || escopo !== 'projeto') return;
+    setLoadingRelatorioDimensoes(true);
+    try {
+      const res = await projetosApi.avaliadoresDimensoes(pid, {
+        nivelPrioridadeMapeamentoMaturidade: filtroNivelMapeamentoMaturidade
+      });
+      setRelatorioDimensoes(res);
+      setRelatorioDimensoesAberto(true);
+    } catch (e) {
+      toast.error(e.message || 'Não foi possível carregar o relatório de dimensões.');
+    } finally {
+      setLoadingRelatorioDimensoes(false);
+    }
+  }, [escopo, projetoId, filtroNivelMapeamentoMaturidade, toast]);
 
   useEffect(() => {
     if (!selecionadoId) {
@@ -299,6 +337,32 @@ export default function AcompanhamentoAvaliadores() {
     } catch {
       toast.error('Não foi possível copiar o link.');
     }
+  }
+
+  function exportarRelatorioDimensoesCsv() {
+    if (!relatorioDimensoes) return;
+    const linhas = [
+      [
+        'Projeto',
+        'Empresa',
+        'Avaliador',
+        'Data avaliação final',
+        'Dimensões avaliadas',
+      ],
+    ];
+    for (const avaliador of relatorioDimensoes.avaliadores || []) {
+      linhas.push([
+        relatorioDimensoes.projeto?.nome,
+        relatorioDimensoes.empresa?.nome,
+        avaliador.nome,
+        avaliador.dataAvaliacaoFinal
+          ? new Date(avaliador.dataAvaliacaoFinal).toLocaleDateString('pt-BR')
+          : 'Não finalizada',
+        (avaliador.dimensoesAvaliadasNomes || []).join(', ') || 'Nenhuma',
+      ]);
+    }
+    const nomeProjeto = relatorioDimensoes.projeto?.nome || 'projeto';
+    baixarCsv(`relatorio-dimensoes-${nomeProjeto.replace(/\s+/g, '-').toLowerCase()}.csv`, linhas);
   }
 
   const pendentesLembrete = data?.avaliadores?.filter((r) => r.podeLembrar).length ?? 0;
@@ -378,6 +442,11 @@ export default function AcompanhamentoAvaliadores() {
           Maturidade (projeto) ou Produto IA-First: progresso, lembrete individual ou em lote, e histórico de
           envios.
         </p>
+        {escopo === 'projeto' && data?.projetoVersao && (
+          <p className="mt-2 inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
+            Versão da pesquisa: {data.projetoVersao.titulo} · {data.projetoVersao.status}
+          </p>
+        )}
       </div>
 
       <div className="card p-6 space-y-4">
@@ -538,6 +607,31 @@ export default function AcompanhamentoAvaliadores() {
                 </Link>
               </>
             )}
+          </div>
+        )}
+
+        {escopo === 'projeto' && projetoId && (
+          <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/60 dark:bg-primary-950/30">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+                  <FileText className="h-5 w-5 text-primary-600" />
+                  Relatório: avaliador x dimensões avaliadas
+                </h2>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  Gere uma visão simples mostrando quais dimensões cada avaliador avaliou neste projeto.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={carregarRelatorioDimensoes}
+                disabled={!projetoId || loadingRelatorioDimensoes}
+                className="btn btn-primary inline-flex items-center justify-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                {loadingRelatorioDimensoes ? 'Gerando relatório…' : 'Gerar relatório'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -722,6 +816,119 @@ export default function AcompanhamentoAvaliadores() {
         )}
       </div>
 
+      {relatorioDimensoesAberto && relatorioDimensoes && (
+        <div className="card p-5 space-y-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+                <FileText className="w-5 h-5 text-primary-600" />
+                Relatório de dimensões por avaliador
+              </h2>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                {relatorioDimensoes.projeto?.nome} · {relatorioDimensoes.empresa?.nome}
+              </p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Filtro de prioridade aplicado:{' '}
+                {relatorioDimensoes.filtroNivelPrioridadeMapeamentoMaturidadeAplicado == null ||
+                relatorioDimensoes.filtroNivelPrioridadeMapeamentoMaturidadeAplicado === 0
+                  ? 'Todos'
+                  : `Até prioridade ${relatorioDimensoes.filtroNivelPrioridadeMapeamentoMaturidadeAplicado}`}
+                {relatorioDimensoes.projetoVersao?.titulo
+                  ? ` · Versão: ${relatorioDimensoes.projetoVersao.titulo}`
+                  : ''}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={exportarRelatorioDimensoesCsv}
+                className="btn btn-secondary inline-flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="btn btn-secondary inline-flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Imprimir/PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setRelatorioDimensoesAberto(false)}
+                className="btn btn-secondary"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b text-left text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  <th className="pb-3 pr-4 font-medium">Avaliador</th>
+                  <th className="pb-3 pr-4 font-medium">Data da avaliação final</th>
+                  <th className="pb-3 font-medium">Dimensões avaliadas</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-gray-700">
+                {(relatorioDimensoes.avaliadores || []).map((avaliador) => {
+                  const avaliadas = avaliador.dimensoesAvaliadasNomes || [];
+
+                  return (
+                    <tr key={avaliador.usuarioId} className="align-top hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                      <td className="py-4 pr-4">
+                        <div className="font-medium text-gray-900 dark:text-white">{avaliador.nome}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{avaliador.email}</div>
+                        {avaliador.cargo && (
+                          <div className="text-xs text-gray-400">{avaliador.cargo}</div>
+                        )}
+                      </td>
+                      <td className="py-4 pr-4">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                          avaliador.dataAvaliacaoFinal
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-100'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100'
+                        }`}>
+                          {avaliador.dataAvaliacaoFinal
+                            ? new Date(avaliador.dataAvaliacaoFinal).toLocaleDateString('pt-BR')
+                            : 'Não finalizada'}
+                        </span>
+                      </td>
+                      <td className="py-4">
+                        {avaliadas.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {avaliadas.map((nome) => (
+                              <span
+                                key={nome}
+                                className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-100"
+                              >
+                                {nome}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">Nenhuma dimensão avaliada</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {(relatorioDimensoes.avaliadores || []).length === 0 && (
+            <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+              Nenhum avaliador encontrado para este projeto.
+            </div>
+          )}
+        </div>
+      )}
+
       {logsAberto && selecionadoId && (
         <div className="card p-4">
           <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
@@ -829,6 +1036,7 @@ export default function AcompanhamentoAvaliadores() {
                       </div>
                       <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         {ETAPA_LABEL[row.etapaConvite] || row.etapaConvite || '—'}
+                        {row.dimensaoAtual ? ` · Parou em: ${row.dimensaoAtual}` : ''}
                       </div>
                     </div>
                     <div>
@@ -934,6 +1142,7 @@ export default function AcompanhamentoAvaliadores() {
                         </div>
                         <div className="mt-1 text-xs text-gray-400">
                           Etapa: {ETAPA_LABEL[row.etapaConvite] || row.etapaConvite || '—'}
+                          {row.dimensaoAtual ? ` · Parou em: ${row.dimensaoAtual}` : ''}
                         </div>
                         {row.minutosAteConclusao != null && (
                           <div className="mt-1 text-xs text-gray-400">

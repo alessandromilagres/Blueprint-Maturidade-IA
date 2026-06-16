@@ -19,6 +19,7 @@ import { dashboardApi } from '../services/api';
 import { downloadWordDocument } from '../utils/generateReport';
 import { VERTICAIS } from './Projetos';
 import { useTheme } from '../contexts/ThemeContext';
+import { nivelNumericoDeScore } from '../utils/nivelMaturidadeRubrica.js';
 
 ChartJS.register(
   RadialLinearScale,
@@ -348,11 +349,7 @@ const CAUSAS_EFEITOS_POR_VERTICAL = {
 };
 
 function getMaturityLevelFromScore(score) {
-  if (score < 1.5) return 1;
-  if (score < 2.5) return 2;
-  if (score < 3.5) return 3;
-  if (score < 4.5) return 4;
-  return 5;
+  return nivelNumericoDeScore(score);
 }
 
 const categoriasAgrupadas = {

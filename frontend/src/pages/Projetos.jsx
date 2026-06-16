@@ -45,6 +45,23 @@ const LENTES_PRIORITARIAS = [
 
 export { VERTICAIS, AUDIENCIAS_PRIMARIAS, LENTES_PRIORITARIAS };
 
+function extrairPrazoDescricao(descricao) {
+  const texto = String(descricao || '');
+  const match = texto.match(/(?:prazo|data limite)\s*[:=]\s*(\d{4}-\d{2}-\d{2})/i);
+  return match ? match[1] : '';
+}
+
+function descricaoSemPrazo(descricao) {
+  return String(descricao || '')
+    .replace(/\n?\s*(?:prazo|data limite)\s*[:=]\s*\d{4}-\d{2}-\d{2}\s*/gi, '')
+    .trim();
+}
+
+function descricaoComPrazo(descricao, dataLimite) {
+  const base = descricaoSemPrazo(descricao);
+  return dataLimite ? `${base}${base ? '\n\n' : ''}prazo: ${dataLimite}` : base;
+}
+
 export default function Projetos() {
   const [projetos, setProjetos] = useState([]);
   const [empresas, setEmpresas] = useState([]);
@@ -58,6 +75,7 @@ export default function Projetos() {
     audienciaPrimaria: [],
     lentesPrioritarias: [],
     faturamentoAnualProjeto: '',
+    dataLimiteAvaliacao: '',
     status: 'ativo',
     empresaId: '',
   });
@@ -94,6 +112,7 @@ export default function Projetos() {
           projeto.faturamentoAnualProjeto != null && projeto.faturamentoAnualProjeto !== ''
             ? String(projeto.faturamentoAnualProjeto)
             : '',
+        dataLimiteAvaliacao: extrairPrazoDescricao(projeto.descricao),
         status: projeto.status || 'ativo',
         empresaId: projeto.empresaId?.toString() || '',
       });
@@ -106,6 +125,7 @@ export default function Projetos() {
         audienciaPrimaria: [],
         lentesPrioritarias: [],
         faturamentoAnualProjeto: '',
+        dataLimiteAvaliacao: '',
         status: 'ativo',
         empresaId: empresas[0]?.id?.toString() || '',
       });
@@ -119,6 +139,7 @@ export default function Projetos() {
       const data = { 
         ...formData, 
         empresaId: parseInt(formData.empresaId),
+        descricao: descricaoComPrazo(formData.descricao, formData.dataLimiteAvaliacao),
         vertical: formData.vertical || null,
         audienciaPrimaria: formData.audienciaPrimaria.length > 0 ? JSON.stringify(formData.audienciaPrimaria) : null,
         lentesPrioritarias: formData.lentesPrioritarias.length > 0 ? JSON.stringify(formData.lentesPrioritarias) : null,
@@ -234,8 +255,14 @@ export default function Projetos() {
                 </div>
               </div>
 
-              {projeto.descricao && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{projeto.descricao}</p>
+              {descricaoSemPrazo(projeto.descricao) && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{descricaoSemPrazo(projeto.descricao)}</p>
+              )}
+
+              {extrairPrazoDescricao(projeto.descricao) && (
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                  Data limite da avaliação: {new Date(`${extrairPrazoDescricao(projeto.descricao)}T12:00:00`).toLocaleDateString('pt-BR')}
+                </div>
               )}
 
               {projeto.vertical && (
@@ -311,6 +338,19 @@ export default function Projetos() {
               onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
               placeholder="Descreva o objetivo do projeto..."
             />
+          </div>
+
+          <div>
+            <label className="label">Data limite da avaliação</label>
+            <input
+              type="date"
+              className="input"
+              value={formData.dataLimiteAvaliacao}
+              onChange={(e) => setFormData({ ...formData, dataLimiteAvaliacao: e.target.value })}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Usada no dashboard para indicar atraso, vencimento próximo e controle de prazo dos avaliadores.
+            </p>
           </div>
 
           <div>

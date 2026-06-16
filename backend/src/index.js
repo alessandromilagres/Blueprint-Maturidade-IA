@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import {
   prisma,
   initPrismaUsuarioColumnProbe,
@@ -59,7 +60,22 @@ import { gerarApoioEspecificacaoDaIdealizacao } from './services/idealizacaoApoi
 import { adicionarIndiceAoBookMarkdown } from './utils/bookMarkdownIndice.js';
 import { percentualReferenciaRoi, projecaoFinanceiraRelatorio } from './utils/roiPorFaturamento.js';
 import { blocoTrajetoriaMitMarkdown } from './utils/mitTrajetoriaFinanceira.js';
-import { blocoDadosExtrasBookRapido, tabelaPerguntasDimensaoMarkdown } from './utils/bookModoRapidoMarkdown.js';
+import {
+  blocoEvolucaoVersoesMarkdown,
+  blocoLogicaMaturidadeMarkdown,
+  montarComparativoVersoesProjeto
+} from './utils/evolucaoVersoesProjeto.js';
+import {
+  blocoDadosExtrasBookRapido,
+  tabelaPerguntasDimensaoMarkdown,
+  dimensaoComScoreZero,
+  blocoDimensaoScoreZeroSecao3,
+  blocoFallbackErroSecao3Dimensao,
+  garantirBlocosSecao3Book,
+  instrucaoPromptSecao3SemCabecalhos,
+  montarBlocoSecao3Dimensao,
+  relatorioBookSecao3Completo
+} from './utils/bookModoRapidoMarkdown.js';
 import {
   parseAreasRecusadas,
   parseAreasSelecionadas,
@@ -87,6 +103,13 @@ import {
   calcularScoresConsolidadoMaturidade,
   nivelNumericoDeScore
 } from './utils/scoresConsolidadoProjetoMaturidade.js';
+import { NOMES_NIVEL_BLUEPRINT, faixaNivelPorScore } from './utils/nivelMaturidadeRubrica.js';
+import { blocoGuiaProgressaoDimensao } from './utils/guiasProgressaoFramework.js';
+import {
+  ordenarAreasPorFramework,
+  ordenarDimensoesPorFramework,
+  blocoOrdemDimensoesFrameworkMarkdown
+} from './utils/ordemDimensoesFramework.js';
 import { idsAreasSugeridasPorCargo } from './utils/mapaCargosDimensoesAvaliacao.js';
 import { getEstagioMitDeScore, mitCisrReferenciaDashboard } from './constants/mitCisrEnterpriseAiMaturity.js';
 import {
@@ -142,6 +165,7 @@ function dimensoesSelecionadasDoConvite(convite, areaPorId) {
 }
 
 let avaliacaoEventoTableReady = false;
+let projetoVersaoSchemaReady = false;
 
 async function ensureAvaliacaoEventoTable() {
   if (avaliacaoEventoTableReady) return;
@@ -168,6 +192,259 @@ async function ensureAvaliacaoEventoTable() {
     ON "AvaliacaoEvento" ("avaliacaoId", "createdAt")
   `);
   avaliacaoEventoTableReady = true;
+}
+
+async function ensureProjetoVersaoSchema() {
+  if (projetoVersaoSchemaReady) return;
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "ProjetoVersao" (
+      "id" SERIAL PRIMARY KEY,
+      "projetoId" INTEGER NOT NULL,
+      "numero" INTEGER NOT NULL,
+      "titulo" TEXT NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'aberta',
+      "iniciadaEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "fechadaEm" TIMESTAMP(3),
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "ProjetoVersao_projetoId_numero_key" UNIQUE ("projetoId", "numero")
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "ProjetoVersaoAvaliacao" (
+      "avaliacaoId" INTEGER PRIMARY KEY,
+      "projetoVersaoId" INTEGER NOT NULL,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "ProjetoVersaoConvite" (
+      "conviteId" INTEGER PRIMARY KEY,
+      "projetoVersaoId" INTEGER NOT NULL,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "ProjetoVersao_projetoId_numero_idx"
+    ON "ProjetoVersao" ("projetoId", "numero")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "ProjetoVersaoAvaliacao_projetoVersaoId_idx"
+    ON "ProjetoVersaoAvaliacao" ("projetoVersaoId")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "ProjetoVersaoConvite_projetoVersaoId_idx"
+    ON "ProjetoVersaoConvite" ("projetoVersaoId")
+  `);
+  projetoVersaoSchemaReady = true;
+}
+
+function normalizarProjetoVersao(row) {
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    projetoId: Number(row.projetoId),
+    numero: Number(row.numero),
+    titulo: row.titulo,
+    status: row.status,
+    iniciadaEm: row.iniciadaEm,
+    fechadaEm: row.fechadaEm,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+}
+
+async function obterOuCriarVersaoInicialProjeto(projetoId) {
+  await ensureProjetoVersaoSchema();
+  let versoes = await prisma.$queryRaw`
+    SELECT * FROM "ProjetoVersao"
+    WHERE "projetoId" = ${projetoId}
+    ORDER BY "numero" ASC
+  `;
+  if (versoes.length === 0) {
+    versoes = await prisma.$queryRaw`
+      INSERT INTO "ProjetoVersao" ("projetoId", "numero", "titulo", "status")
+      VALUES (${projetoId}, 1, 'Versão 1', 'aberta')
+      RETURNING *
+    `;
+  }
+  const primeira = normalizarProjetoVersao(versoes[0]);
+  await prisma.$executeRaw`
+    INSERT INTO "ProjetoVersaoAvaliacao" ("avaliacaoId", "projetoVersaoId")
+    SELECT a."id", ${primeira.id}
+    FROM "Avaliacao" a
+    LEFT JOIN "ProjetoVersaoAvaliacao" pva ON pva."avaliacaoId" = a."id"
+    WHERE a."projetoId" = ${projetoId} AND pva."avaliacaoId" IS NULL
+    ON CONFLICT ("avaliacaoId") DO NOTHING
+  `;
+  await prisma.$executeRaw`
+    INSERT INTO "ProjetoVersaoConvite" ("conviteId", "projetoVersaoId")
+    SELECT c."id", ${primeira.id}
+    FROM "ConviteAvaliacao" c
+    LEFT JOIN "ProjetoVersaoConvite" pvc ON pvc."conviteId" = c."id"
+    WHERE c."projetoId" = ${projetoId} AND pvc."conviteId" IS NULL
+    ON CONFLICT ("conviteId") DO NOTHING
+  `;
+  return primeira;
+}
+
+async function obterVersaoAtualProjeto(projetoId) {
+  await obterOuCriarVersaoInicialProjeto(projetoId);
+  const abertas = await prisma.$queryRaw`
+    SELECT * FROM "ProjetoVersao"
+    WHERE "projetoId" = ${projetoId} AND "status" = 'aberta'
+    ORDER BY "numero" DESC
+    LIMIT 1
+  `;
+  if (abertas.length > 0) return normalizarProjetoVersao(abertas[0]);
+  const ultimas = await prisma.$queryRaw`
+    SELECT * FROM "ProjetoVersao"
+    WHERE "projetoId" = ${projetoId}
+    ORDER BY "numero" DESC
+    LIMIT 1
+  `;
+  return normalizarProjetoVersao(ultimas[0]);
+}
+
+async function obterVersaoParaEscritaProjeto(projetoId) {
+  await obterOuCriarVersaoInicialProjeto(projetoId);
+  const abertas = await prisma.$queryRaw`
+    SELECT * FROM "ProjetoVersao"
+    WHERE "projetoId" = ${projetoId} AND "status" = 'aberta'
+    ORDER BY "numero" DESC
+    LIMIT 1
+  `;
+  if (abertas.length > 0) return normalizarProjetoVersao(abertas[0]);
+  return null;
+}
+
+async function obterVersaoAbertaProjetoOuErro(projetoId) {
+  const versao = await obterVersaoParaEscritaProjeto(projetoId);
+  if (!versao || versao.status !== 'aberta') {
+    const error = new Error('Não existe versão aberta para este projeto. Crie a próxima versão antes de enviar convites.');
+    error.statusCode = 409;
+    throw error;
+  }
+  return versao;
+}
+
+async function obterVersaoAnteriorFechadaProjeto(projetoId, versaoAtual) {
+  await obterOuCriarVersaoInicialProjeto(projetoId);
+  const rows = await prisma.$queryRaw`
+    SELECT *
+    FROM "ProjetoVersao"
+    WHERE "projetoId" = ${projetoId}
+      AND "status" = 'fechada'
+      AND "numero" < ${versaoAtual?.numero || 999999}
+    ORDER BY "numero" DESC
+    LIMIT 1
+  `;
+  return rows.length > 0 ? normalizarProjetoVersao(rows[0]) : null;
+}
+
+async function obterVersaoSelecionadaProjeto(req, projetoId) {
+  await obterOuCriarVersaoInicialProjeto(projetoId);
+  const rawVersaoId = req.query?.projetoVersaoId ?? req.query?.versaoId;
+  if (rawVersaoId != null && rawVersaoId !== '') {
+    const versaoId = parseInt(rawVersaoId, 10);
+    if (Number.isFinite(versaoId) && versaoId > 0) {
+      const rows = await prisma.$queryRaw`
+        SELECT * FROM "ProjetoVersao"
+        WHERE "id" = ${versaoId} AND "projetoId" = ${projetoId}
+        LIMIT 1
+      `;
+      if (rows.length > 0) return normalizarProjetoVersao(rows[0]);
+    }
+  }
+  return obterVersaoAtualProjeto(projetoId);
+}
+
+async function setProjetoVersaoEmAvaliacao(avaliacaoId, projetoVersaoId) {
+  if (!avaliacaoId || !projetoVersaoId) return;
+  await ensureProjetoVersaoSchema();
+  await prisma.$executeRaw`
+    INSERT INTO "ProjetoVersaoAvaliacao" ("avaliacaoId", "projetoVersaoId")
+    VALUES (${avaliacaoId}, ${projetoVersaoId})
+    ON CONFLICT ("avaliacaoId")
+    DO UPDATE SET "projetoVersaoId" = EXCLUDED."projetoVersaoId"
+  `;
+}
+
+async function setProjetoVersaoEmConvite(conviteId, projetoVersaoId) {
+  if (!conviteId || !projetoVersaoId) return;
+  await ensureProjetoVersaoSchema();
+  await prisma.$executeRaw`
+    INSERT INTO "ProjetoVersaoConvite" ("conviteId", "projetoVersaoId")
+    VALUES (${conviteId}, ${projetoVersaoId})
+    ON CONFLICT ("conviteId")
+    DO UPDATE SET "projetoVersaoId" = EXCLUDED."projetoVersaoId"
+  `;
+}
+
+async function obterVersaoDoConviteProjeto(convite) {
+  if (!convite?.id || !convite?.projetoId) return null;
+  await obterOuCriarVersaoInicialProjeto(convite.projetoId);
+  const rows = await prisma.$queryRaw`
+    SELECT v.*
+    FROM "ProjetoVersaoConvite" pvc
+    JOIN "ProjetoVersao" v ON v."id" = pvc."projetoVersaoId"
+    JOIN "ConviteAvaliacao" c ON c."id" = pvc."conviteId"
+    WHERE c."id" = ${convite.id}
+    LIMIT 1
+  `;
+  if (rows.length > 0) return normalizarProjetoVersao(rows[0]);
+  const versao = await obterVersaoAtualProjeto(convite.projetoId);
+  await setProjetoVersaoEmConvite(convite.id, versao.id);
+  return versao;
+}
+
+async function idsAvaliacoesDaVersao(projetoId, projetoVersaoId) {
+  await obterOuCriarVersaoInicialProjeto(projetoId);
+  const rows = await prisma.$queryRaw`
+    SELECT a."id"
+    FROM "Avaliacao" a
+    JOIN "ProjetoVersaoAvaliacao" pva ON pva."avaliacaoId" = a."id"
+    WHERE a."projetoId" = ${projetoId} AND pva."projetoVersaoId" = ${projetoVersaoId}
+  `;
+  return new Set(rows.map((row) => Number(row.id)));
+}
+
+async function idsConvitesDaVersao(projetoId, projetoVersaoId) {
+  await obterOuCriarVersaoInicialProjeto(projetoId);
+  const rows = await prisma.$queryRaw`
+    SELECT c."id"
+    FROM "ConviteAvaliacao" c
+    JOIN "ProjetoVersaoConvite" pvc ON pvc."conviteId" = c."id"
+    WHERE c."projetoId" = ${projetoId} AND pvc."projetoVersaoId" = ${projetoVersaoId}
+  `;
+  return new Set(rows.map((row) => Number(row.id)));
+}
+
+async function obterVersaoDaAvaliacao(avaliacao) {
+  if (!avaliacao?.id || !avaliacao?.projetoId) return null;
+  await obterOuCriarVersaoInicialProjeto(avaliacao.projetoId);
+  const rows = await prisma.$queryRaw`
+    SELECT v.*
+    FROM "ProjetoVersaoAvaliacao" pva
+    JOIN "ProjetoVersao" v ON v."id" = pva."projetoVersaoId"
+    WHERE pva."avaliacaoId" = ${avaliacao.id}
+    LIMIT 1
+  `;
+  if (rows.length > 0) return normalizarProjetoVersao(rows[0]);
+  const versao = await obterVersaoAtualProjeto(avaliacao.projetoId);
+  await setProjetoVersaoEmAvaliacao(avaliacao.id, versao.id);
+  return versao;
+}
+
+async function anexarVersoesEmAvaliacoes(avaliacoes) {
+  const out = [];
+  for (const avaliacao of avaliacoes || []) {
+    out.push({
+      ...avaliacao,
+      projetoVersao: await obterVersaoDaAvaliacao(avaliacao)
+    });
+  }
+  return out;
 }
 
 async function registrarEventoAvaliacao({
@@ -327,6 +604,191 @@ function calcularResumoAcompanhamento(linhas) {
     avaliacoesIniciadas,
     progressoMedio,
     taxaConclusao: total > 0 ? Math.round((finalizadas / total) * 100) : 0
+  };
+}
+
+function gerarPlanoAcaoPorDimensao(scoresPorArea) {
+  return (scoresPorArea || [])
+    .filter((area) => Number(area.score) > 0 && Number(area.score) < 3.5)
+    .sort((a, b) => Number(a.score) - Number(b.score))
+    .slice(0, 6)
+    .map((area) => {
+      const score = Number(area.score) || 0;
+      const criticidade = score < 2 ? 'critica' : score < 3 ? 'alta' : 'media';
+      const responsavelSugerido = area.area?.toLowerCase().includes('governança')
+        ? 'Sponsor executivo + Segurança/Compliance'
+        : area.area?.toLowerCase().includes('dados') || area.area?.toLowerCase().includes('tecnologia')
+          ? 'CTO / Head de Dados'
+          : area.area?.toLowerCase().includes('pessoas') || area.area?.toLowerCase().includes('cultura')
+            ? 'RH + Lideranças de negócio'
+            : 'Sponsor executivo + dono da dimensão';
+
+      return {
+        areaId: area.areaId,
+        area: area.area,
+        score: area.score,
+        nivel: area.nivel,
+        criticidade,
+        responsavelSugerido,
+        acoes30Dias: [
+          `Validar diagnóstico da dimensão "${area.area}" com os responsáveis.`,
+          'Definir dono, métrica de sucesso e evidências esperadas.',
+          'Priorizar 2 ações rápidas que reduzam risco ou desbloqueiem valor.'
+        ],
+        acoes90Dias: [
+          'Executar piloto controlado com acompanhamento quinzenal.',
+          'Formalizar processo, política ou ritual de governança necessário.',
+          'Medir avanço e preparar nova rodada de avaliação da dimensão.'
+        ]
+      };
+    });
+}
+
+function gerarResumoComentariosAvaliacoes(avaliacoes) {
+  const porArea = new Map();
+  for (const avaliacao of avaliacoes || []) {
+    for (const resposta of avaliacao.respostas || []) {
+      const texto = String(resposta.observacoes || '').trim();
+      if (!texto) continue;
+      const area = resposta.pergunta?.area?.nome || 'Outras';
+      if (!porArea.has(area)) porArea.set(area, []);
+      porArea.get(area).push(texto);
+    }
+  }
+
+  const palavrasChave = [
+    ['dados', 'dados'],
+    ['governança', 'governanca'],
+    ['processo', 'processos'],
+    ['cultura', 'cultura'],
+    ['treinamento', 'capacitacao'],
+    ['segurança', 'seguranca'],
+    ['roi', 'valor'],
+    ['integração', 'integracao'],
+    ['legado', 'legado']
+  ];
+
+  const areas = [...porArea.entries()].map(([area, comentarios]) => {
+    const textoCompleto = comentarios.join(' ').toLowerCase();
+    const temas = palavrasChave
+      .filter(([label, normalizado]) => textoCompleto.includes(label) || textoCompleto.includes(normalizado))
+      .map(([label]) => label);
+    return {
+      area,
+      totalComentarios: comentarios.length,
+      temas: temas.slice(0, 5),
+      exemplos: comentarios.slice(0, 3)
+    };
+  });
+
+  return {
+    totalComentarios: areas.reduce((acc, item) => acc + item.totalComentarios, 0),
+    areas: areas.sort((a, b) => b.totalComentarios - a.totalComentarios).slice(0, 6)
+  };
+}
+
+function calcularScoresPorAreaDaAvaliacao(avaliacao, areas) {
+  const todasAreaIds = (areas || []).map((area) => area.id);
+  return (areas || [])
+    .filter((area) => areaContaParaAvaliacao(avaliacao, area.id, todasAreaIds))
+    .map((area) => {
+      const respostasArea = (avaliacao.respostas || []).filter(
+        (r) => r.pergunta?.areaId === area.id && r.pontuacao !== null
+      );
+      const score = respostasArea.length > 0
+        ? respostasArea.reduce((acc, r) => acc + Number(r.pontuacao || 0), 0) / respostasArea.length
+        : 0;
+      return {
+        areaId: area.id,
+        area: area.nome,
+        score: parseFloat(score.toFixed(2)),
+        totalRespostas: respostasArea.length
+      };
+    })
+    .filter((area) => area.totalRespostas > 0);
+}
+
+function gerarComparativoAvaliacoesProjeto(avaliacoes, areas = []) {
+  const ordenadas = [...(avaliacoes || [])].sort((a, b) => new Date(a.updatedAt) - new Date(b.updatedAt));
+  if (ordenadas.length < 2) {
+    return { disponivel: false, mensagem: 'É necessário ter ao menos duas avaliações finalizadas no projeto.' };
+  }
+
+  const primeira = ordenadas[0];
+  const ultima = ordenadas[ordenadas.length - 1];
+  const delta = Number(ultima.scoreGeral || 0) - Number(primeira.scoreGeral || 0);
+  const scoresPrimeira = calcularScoresPorAreaDaAvaliacao(primeira, areas);
+  const scoresUltima = calcularScoresPorAreaDaAvaliacao(ultima, areas);
+  const scorePrimeiraPorArea = new Map(scoresPrimeira.map((item) => [item.areaId, item]));
+  const dimensoes = scoresUltima
+    .map((atual) => {
+      const anterior = scorePrimeiraPorArea.get(atual.areaId);
+      if (!anterior) return null;
+      const deltaArea = Number(atual.score || 0) - Number(anterior.score || 0);
+      return {
+        areaId: atual.areaId,
+        area: atual.area,
+        scoreInicial: anterior.score,
+        scoreFinal: atual.score,
+        delta: parseFloat(deltaArea.toFixed(2)),
+        tendencia: deltaArea > 0.15 ? 'evoluiu' : deltaArea < -0.15 ? 'regrediu' : 'estavel'
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.delta - b.delta);
+
+  return {
+    disponivel: true,
+    primeira: {
+      avaliacaoId: primeira.id,
+      avaliador: primeira.usuario?.nome,
+      data: primeira.updatedAt,
+      score: primeira.scoreGeral
+    },
+    ultima: {
+      avaliacaoId: ultima.id,
+      avaliador: ultima.usuario?.nome,
+      data: ultima.updatedAt,
+      score: ultima.scoreGeral
+    },
+    delta: parseFloat(delta.toFixed(2)),
+    tendencia: delta > 0.15 ? 'evoluiu' : delta < -0.15 ? 'regrediu' : 'estavel',
+    historico: ordenadas.map((a) => ({
+      avaliacaoId: a.id,
+      avaliador: a.usuario?.nome,
+      data: a.updatedAt,
+      score: a.scoreGeral,
+      nivel: a.nivelGeral,
+      scoresPorArea: calcularScoresPorAreaDaAvaliacao(a, areas)
+    })),
+    dimensoes
+  };
+}
+
+function extrairPrazoAvaliacaoProjeto(projeto) {
+  const texto = String(projeto?.descricao || '');
+  const match = texto.match(/(?:prazo|data limite)\s*[:=]\s*(\d{4}-\d{2}-\d{2})/i);
+  const dataLimite = match ? match[1] : null;
+  const base = dataLimite ? new Date(`${dataLimite}T23:59:59`) : null;
+  const hoje = new Date();
+  const diasRestantes = base ? Math.ceil((base.getTime() - hoje.getTime()) / 86400000) : null;
+  const criadoEm = projeto?.createdAt ? new Date(projeto.createdAt) : null;
+  const prazoSugerido = criadoEm && !Number.isNaN(criadoEm.getTime())
+    ? new Date(criadoEm.getTime() + 14 * 86400000).toISOString().slice(0, 10)
+    : null;
+
+  return {
+    dataLimite,
+    diasRestantes,
+    status: dataLimite == null
+      ? 'sem_prazo'
+      : diasRestantes < 0
+        ? 'atrasado'
+        : diasRestantes <= 2
+          ? 'vence_em_breve'
+          : 'no_prazo',
+    prazoSugerido,
+    instrucoes: 'Para definir prazo sem migração de banco, inclua na descrição do projeto: prazo: AAAA-MM-DD.'
   };
 }
 
@@ -1254,6 +1716,9 @@ app.post('/api/convites/enviar', async (req, res) => {
     let areaIdsArray = Array.isArray(areaIds)
       ? areaIds.map(id => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0)
       : [];
+    const projetoVersao = tipo === 'projeto'
+      ? await obterVersaoAbertaProjetoOuErro(parseInt(projetoId, 10))
+      : null;
     if (tipo === 'projeto') {
       const areas = await prisma.area.findMany({ select: { id: true, nome: true } });
       const areaIdsValidas = new Set(areas.map((a) => a.id));
@@ -1280,6 +1745,9 @@ app.post('/api/convites/enviar', async (req, res) => {
         produto: { include: { projeto: { include: { empresa: true } } } }
       }
     });
+    if (projetoVersao) {
+      await setProjetoVersaoEmConvite(convite.id, projetoVersao.id);
+    }
     
     const resultadoEmail = await enviarEmailConviteAvaliacao({
       destinatarioEmail: avaliador.email,
@@ -1312,7 +1780,151 @@ app.post('/api/convites/enviar', async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao enviar convite:', error);
-    res.status(400).json({ error: error.message });
+    res.status(error.statusCode || 400).json({ error: error.message });
+  }
+});
+
+app.post('/api/projetos/:id/versoes/reenviar-convites', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    const usuarioIdFiltro = req.body?.usuarioId ? parseInt(req.body.usuarioId, 10) : null;
+    if (!Number.isFinite(projetoId) || projetoId <= 0) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+
+    const projeto = await prisma.projeto.findUnique({
+      where: { id: projetoId },
+      include: { empresa: true }
+    });
+    if (!projeto) return res.status(404).json({ error: 'Projeto não encontrado' });
+    if (!usuarioPodeGerenciarProjeto(req, projeto)) {
+      return res.status(403).json({ error: 'Sem permissão para este projeto.' });
+    }
+
+    const versaoAberta = await obterVersaoAbertaProjetoOuErro(projetoId);
+    const versaoBase = await obterVersaoAnteriorFechadaProjeto(projetoId, versaoAberta);
+    if (!versaoBase) {
+      return res.status(400).json({
+        error: 'Não há versão fechada anterior para copiar os convites.'
+      });
+    }
+
+    const convitesBase = await prisma.$queryRaw`
+      SELECT DISTINCT ON (c."avaliadorId")
+        c."id", c."avaliadorId", c."areasSelecionadas", c."createdAt"
+      FROM "ConviteAvaliacao" c
+      JOIN "ProjetoVersaoConvite" pvc ON pvc."conviteId" = c."id"
+      WHERE c."projetoId" = ${projetoId}
+        AND c."tipo" = 'projeto'
+        AND pvc."projetoVersaoId" = ${versaoBase.id}
+        ${usuarioIdFiltro ? Prisma.sql`AND c."avaliadorId" = ${usuarioIdFiltro}` : Prisma.empty}
+      ORDER BY c."avaliadorId", c."createdAt" DESC
+    `;
+
+    if (convitesBase.length === 0) {
+      return res.status(404).json({ error: 'Nenhum convite encontrado na versão anterior para reenviar.' });
+    }
+
+    const remetente = await prisma.usuario.findUnique({ where: { id: req.usuarioId } });
+    const idsConvitesDestino = await idsConvitesDaVersao(projetoId, versaoAberta.id);
+    const resultados = [];
+    for (const conviteBase of convitesBase) {
+      const avaliador = await prisma.usuario.findUnique({
+        where: { id: Number(conviteBase.avaliadorId) },
+        include: { empresa: true }
+      });
+      if (!avaliador || avaliador.ativo === false) {
+        resultados.push({
+          avaliadorId: Number(conviteBase.avaliadorId),
+          sucesso: false,
+          erro: 'Avaliador não encontrado ou inativo.'
+        });
+        continue;
+      }
+
+      let convite = idsConvitesDestino.size > 0
+        ? await prisma.conviteAvaliacao.findFirst({
+            where: {
+              id: { in: [...idsConvitesDestino] },
+              avaliadorId: avaliador.id,
+              projetoId,
+              tipo: 'projeto'
+            },
+            orderBy: { createdAt: 'desc' }
+          })
+        : null;
+      const reutilizado = !!convite;
+      if (!convite) {
+        const token = gerarTokenConvite();
+        const dataExpiracao = new Date();
+        dataExpiracao.setDate(dataExpiracao.getDate() + 30);
+        convite = await prisma.conviteAvaliacao.create({
+          data: {
+            token,
+            avaliadorId: avaliador.id,
+            tipo: 'projeto',
+            projetoId,
+            produtoId: null,
+            areasSelecionadas: conviteBase.areasSelecionadas || null,
+            enviadoPor: req.usuarioId,
+            dataExpiracao
+          }
+        });
+        await setProjetoVersaoEmConvite(convite.id, versaoAberta.id);
+        idsConvitesDestino.add(Number(convite.id));
+      }
+
+      const resultadoEmail = await enviarEmailConviteAvaliacao({
+        destinatarioEmail: avaliador.email,
+        destinatarioNome: avaliador.nome,
+        remetenteNome: remetente?.nome,
+        empresaNome: projeto.empresa?.nome || '—',
+        tipo: 'projeto',
+        itemNome: projeto.nome,
+        token: convite.token,
+        loginUsuario: avaliador.email,
+        senhaTemporaria: null,
+        incluirMencaoDesejosIaNoConvite: true
+      });
+
+      await registrarEventoAvaliacao({
+        tipo: 'convite_enviado',
+        conviteId: convite.id,
+        projetoId,
+        usuarioId: avaliador.id,
+        metadata: {
+          origem: 'reenviar_versao',
+          versaoBaseId: versaoBase.id,
+          versaoDestinoId: versaoAberta.id,
+          conviteReutilizado: reutilizado,
+          emailSimulado: resultadoEmail?.simulado === true
+        },
+        req
+      });
+
+      resultados.push({
+        avaliadorId: avaliador.id,
+        avaliadorNome: avaliador.nome,
+        conviteId: convite.id,
+        sucesso: true,
+        reutilizado,
+        linkAvaliacao: resultadoEmail?.linkAvaliacao || `${getBaseUrlApp()}/avaliacao/acesso/${convite.token}`,
+        email: resultadoEmail
+      });
+    }
+
+    res.json({
+      projeto: { id: projeto.id, nome: projeto.nome },
+      versaoBase,
+      versaoDestino: versaoAberta,
+      total: resultados.length,
+      sucesso: resultados.filter((r) => r.sucesso).length,
+      falhas: resultados.filter((r) => !r.sucesso).length,
+      resultados
+    });
+  } catch (error) {
+    console.error('reenviar-convites-versao:', error);
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 });
 
@@ -1411,10 +2023,15 @@ app.post('/api/convite-avaliacao/acesso/:token', async (req, res) => {
       req
     });
 
+    const projetoVersao = await obterVersaoDoConviteProjeto(convite);
+    const idsAvaliacaoVersao = projetoVersao
+      ? await idsAvaliacoesDaVersao(convite.projetoId, projetoVersao.id)
+      : null;
     let avaliacao = await prisma.avaliacao.findFirst({
       where: {
         projetoId: convite.projetoId,
-        usuarioId: convite.avaliadorId
+        usuarioId: convite.avaliadorId,
+        ...(idsAvaliacaoVersao ? { id: { in: [...idsAvaliacaoVersao] } } : {})
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -1444,6 +2061,9 @@ app.post('/api/convite-avaliacao/acesso/:token', async (req, res) => {
           }
         }
       });
+      if (projetoVersao) {
+        await setProjetoVersaoEmAvaliacao(avaliacao.id, projetoVersao.id);
+      }
     }
 
     await registrarEventoAvaliacao({
@@ -1504,10 +2124,15 @@ app.post('/api/convite-avaliacao/aceitar/:token', async (req, res) => {
     
     if (convite.status === 'aceito') {
       if (convite.tipo === 'projeto') {
+        const projetoVersao = await obterVersaoDoConviteProjeto(convite);
+        const idsAvaliacaoVersao = projetoVersao
+          ? await idsAvaliacoesDaVersao(convite.projetoId, projetoVersao.id)
+          : null;
         const avaliacaoExistente = await prisma.avaliacao.findFirst({
           where: {
             projetoId: convite.projetoId,
-            usuarioId: convite.avaliadorId
+            usuarioId: convite.avaliadorId,
+            ...(idsAvaliacaoVersao ? { id: { in: [...idsAvaliacaoVersao] } } : {})
           },
           orderBy: { createdAt: 'desc' }
         });
@@ -1560,6 +2185,7 @@ app.post('/api/convite-avaliacao/aceitar/:token', async (req, res) => {
     let avaliacao;
     
     if (convite.tipo === 'projeto') {
+      const projetoVersao = await obterVersaoDoConviteProjeto(convite);
       const areasSelecionadas = convite.areasSelecionadas 
         ? JSON.parse(convite.areasSelecionadas) 
         : null;
@@ -1589,6 +2215,9 @@ app.post('/api/convite-avaliacao/aceitar/:token', async (req, res) => {
           usuario: true
         }
       });
+      if (projetoVersao) {
+        await setProjetoVersaoEmAvaliacao(avaliacao.id, projetoVersao.id);
+      }
       
       res.json({
         success: true,
@@ -1821,7 +2450,8 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
     });
     const areaPorId = new Map(areas.map((area) => [area.id, area]));
 
-    const [avaliacoes, convites, eventos] = await Promise.all([
+    const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
+    const [avaliacoesRaw, convitesRaw, eventos] = await Promise.all([
       prisma.avaliacao.findMany({
         where: { projetoId },
         include: {
@@ -1859,6 +2489,10 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
       }),
       listarEventosAvaliacaoPorProjeto(projetoId)
     ]);
+    const idsAvaliacaoVersao = await idsAvaliacoesDaVersao(projetoId, projetoVersao.id);
+    const idsConviteVersao = await idsConvitesDaVersao(projetoId, projetoVersao.id);
+    const avaliacoes = avaliacoesRaw.filter((avaliacao) => idsAvaliacaoVersao.has(Number(avaliacao.id)));
+    const convites = convitesRaw.filter((convite) => idsConviteVersao.has(Number(convite.id)));
 
     const avaliacaoPorUsuario = new Map();
     for (const av of avaliacoes) {
@@ -1919,12 +2553,24 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
       let iniciadoEm = null;
       let atualizadoEm = null;
       let minutosAteConclusao = null;
+      let dimensaoAtual = null;
 
       if (avaliacao) {
         const prog = calcularProgressoAvaliacaoProjeto(avaliacao, areas);
         respondidas = prog.respondidas;
         total = prog.total;
         percentual = prog.percentual;
+        const respostasPorPergunta = new Map((avaliacao.respostas || []).map((r) => [r.perguntaId, r]));
+        const areasSelecionadas = parseAreasSelecionadas(avaliacao, areas.map((area) => area.id));
+        const areasRecusadas = parseAreasRecusadas(avaliacao);
+        const areaPendente = areas.find((area) => {
+          if (!areasSelecionadas.includes(area.id) || areasRecusadas.includes(area.id)) return false;
+          return (area.perguntas || []).some((pergunta) => {
+            const resposta = respostasPorPergunta.get(pergunta.id);
+            return !resposta || (resposta.semInformacao !== true && resposta.pontuacao == null);
+          });
+        });
+        dimensaoAtual = areaPendente?.nome || null;
         statusAvaliacao = avaliacao.status;
         avaliacaoId = avaliacao.id;
         iniciadoEm = avaliacao.createdAt;
@@ -2003,6 +2649,7 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
         abriuConvite,
         iniciouAvaliacao,
         etapaConvite,
+        dimensaoAtual,
         ultimoEvento,
         auditoria: auditoria.slice(0, 8),
         podeLembrar:
@@ -2015,6 +2662,7 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
 
     res.json({
       projeto: { id: projeto.id, nome: projeto.nome },
+      projetoVersao,
       empresa: projeto.empresa,
       filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
       resumoOperacional: calcularResumoAcompanhamento(linhas),
@@ -2026,6 +2674,198 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
     });
   } catch (error) {
     console.error('avaliadores-status:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/projetos/:id/avaliadores-dimensoes', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    if (isNaN(projetoId) || projetoId <= 0) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+    const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
+
+    const projeto = await prisma.projeto.findUnique({
+      where: { id: projetoId },
+      include: { empresa: true }
+    });
+
+    if (!projeto) {
+      return res.status(404).json({ error: 'Projeto não encontrado' });
+    }
+    if (!usuarioPodeGerenciarProjeto(req, projeto)) {
+      return res.status(403).json({ error: 'Sem permissão para este projeto.' });
+    }
+
+    const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
+    const [areas, avaliacoesRaw, convitesRaw] = await Promise.all([
+      prisma.area.findMany({
+        include: { perguntas: { select: { id: true }, orderBy: { numero: 'asc' } } },
+        orderBy: { ordem: 'asc' }
+      }),
+      prisma.avaliacao.findMany({
+        where: { projetoId },
+        include: {
+          usuario: {
+            select: {
+              id: true,
+              nome: true,
+              email: true,
+              cargo: true,
+              nivelPrioridadeMapeamentoMaturidade: true
+            }
+          },
+          respostas: true
+        },
+        orderBy: { updatedAt: 'desc' }
+      }),
+      prisma.conviteAvaliacao.findMany({
+        where: { projetoId, tipo: 'projeto' },
+        include: {
+          avaliador: {
+            select: {
+              id: true,
+              nome: true,
+              email: true,
+              cargo: true,
+              nivelPrioridadeMapeamentoMaturidade: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+    ]);
+    const idsAvaliacaoVersao = await idsAvaliacoesDaVersao(projetoId, projetoVersao.id);
+    const idsConviteVersao = await idsConvitesDaVersao(projetoId, projetoVersao.id);
+    const avaliacoes = avaliacoesRaw.filter((avaliacao) => idsAvaliacaoVersao.has(Number(avaliacao.id)));
+    const convites = convitesRaw.filter((convite) => idsConviteVersao.has(Number(convite.id)));
+
+    const todasAreaIds = areas.map((area) => area.id);
+    const avaliacaoPorUsuario = new Map();
+    for (const avaliacao of avaliacoes) {
+      if (!avaliacaoPorUsuario.has(avaliacao.usuarioId)) {
+        avaliacaoPorUsuario.set(avaliacao.usuarioId, avaliacao);
+      }
+    }
+
+    const convitePorUsuario = new Map();
+    for (const convite of convites) {
+      if (!convitePorUsuario.has(convite.avaliadorId)) {
+        convitePorUsuario.set(convite.avaliadorId, convite);
+      }
+    }
+
+    const usuarioIds = new Set([
+      ...avaliacoes.map((avaliacao) => avaliacao.usuarioId),
+      ...convites.map((convite) => convite.avaliadorId)
+    ]);
+
+    const linhas = [];
+    for (const usuarioId of usuarioIds) {
+      const avaliacao = avaliacaoPorUsuario.get(usuarioId);
+      const convite = convitePorUsuario.get(usuarioId);
+      const usuario = avaliacao?.usuario || convite?.avaliador;
+      if (!usuario) continue;
+      if (!usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(usuario, filtroNivelMax)) continue;
+
+      const areasSelecionadas = avaliacao
+        ? parseAreasSelecionadas(avaliacao, todasAreaIds)
+        : parseJsonArrayNumeros(convite?.areasSelecionadas).length > 0
+          ? parseJsonArrayNumeros(convite.areasSelecionadas)
+          : todasAreaIds;
+      const areasRecusadas = avaliacao ? parseAreasRecusadas(avaliacao) : [];
+      const respostasPorPergunta = new Map();
+      for (const resposta of avaliacao?.respostas || []) {
+        respostasPorPergunta.set(resposta.perguntaId, resposta);
+      }
+
+      const dimensoes = areas.map((area) => {
+        const selecionada = areasSelecionadas.includes(area.id);
+        const recusada = areasRecusadas.includes(area.id);
+        const perguntas = area.perguntas || [];
+        const total = selecionada && !recusada ? perguntas.length : 0;
+        const respondidas = selecionada && !recusada
+          ? perguntas.filter((pergunta) => {
+              const resposta = respostasPorPergunta.get(pergunta.id);
+              return (
+                resposta &&
+                (resposta.semInformacao === true ||
+                  (resposta.pontuacao !== null && resposta.pontuacao !== undefined))
+              );
+            }).length
+          : 0;
+        let status = 'fora_escopo';
+        if (recusada) status = 'recusada';
+        else if (selecionada && !avaliacao) status = 'convidada';
+        else if (selecionada && respondidas === 0) status = 'nao_iniciada';
+        else if (selecionada && respondidas < total) status = 'parcial';
+        else if (selecionada && total > 0) status = 'avaliada';
+
+        return {
+          areaId: area.id,
+          nome: area.nome,
+          ordem: area.ordem,
+          selecionada,
+          recusada,
+          respondidas,
+          total,
+          percentual: total > 0 ? Math.round((respondidas / total) * 100) : 0,
+          status
+        };
+      });
+
+      const dimensoesAvaliadas = dimensoes.filter((dimensao) => dimensao.status === 'avaliada').length;
+      const dimensoesParciais = dimensoes.filter((dimensao) => dimensao.status === 'parcial').length;
+      const dimensoesNoEscopo = dimensoes.filter((dimensao) => dimensao.selecionada && !dimensao.recusada).length;
+      const dimensoesAvaliadasNomes = dimensoes
+        .filter((dimensao) => dimensao.status === 'avaliada')
+        .map((dimensao) => dimensao.nome);
+
+      linhas.push({
+        usuarioId,
+        nome: usuario.nome,
+        email: usuario.email,
+        cargo: usuario.cargo,
+        nivelPrioridadeMapeamentoMaturidade:
+          nivelPrioridadeMapeamentoMaturidadeDoUsuario(usuario),
+        avaliacaoId: avaliacao?.id || null,
+        statusAvaliacao: avaliacao?.status || null,
+        conviteId: convite?.id || null,
+        statusConvite: convite?.status || null,
+        dataAvaliacaoFinal: avaliacao?.status === 'finalizada' ? avaliacao.updatedAt : null,
+        atualizadoEm: avaliacao?.updatedAt || convite?.updatedAt || null,
+        dimensoesNoEscopo,
+        dimensoesAvaliadas,
+        dimensoesAvaliadasNomes,
+        dimensoesParciais,
+        dimensoes
+      });
+    }
+
+    linhas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+    res.json({
+      projeto: { id: projeto.id, nome: projeto.nome },
+      projetoVersao,
+      empresa: projeto.empresa,
+      filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+      areas: areas.map((area) => ({
+        id: area.id,
+        nome: area.nome,
+        ordem: area.ordem,
+        totalPerguntas: area.perguntas?.length || 0
+      })),
+      resumo: {
+        avaliadores: linhas.length,
+        dimensoesAvaliadas: linhas.reduce((acc, row) => acc + row.dimensoesAvaliadas, 0),
+        dimensoesParciais: linhas.reduce((acc, row) => acc + row.dimensoesParciais, 0),
+        dimensoesNoEscopo: linhas.reduce((acc, row) => acc + row.dimensoesNoEscopo, 0)
+      },
+      avaliadores: linhas
+    });
+  } catch (error) {
+    console.error('avaliadores-dimensoes:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -2269,8 +3109,301 @@ app.get('/api/projetos/:id', async (req, res) => {
         return res.status(403).json({ error: 'Sem permissão para acessar este projeto.' });
       }
     }
-    res.json(projeto);
+    res.json({
+      ...projeto,
+      avaliacoes: await anexarVersoesEmAvaliacoes(projeto.avaliacoes)
+    });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/projetos/:id/versoes', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(projetoId) || projetoId <= 0) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+    const projeto = await prisma.projeto.findUnique({
+      where: { id: projetoId },
+      include: { empresa: true }
+    });
+    if (!projeto) return res.status(404).json({ error: 'Projeto não encontrado' });
+    if (!usuarioPodeGerenciarProjeto(req, projeto)) {
+      return res.status(403).json({ error: 'Sem permissão para este projeto.' });
+    }
+
+    const atual = await obterVersaoAtualProjeto(projetoId);
+    const rows = await prisma.$queryRaw`
+      SELECT
+        v.*,
+        COUNT(a."id")::int AS "totalAvaliacoes",
+        COUNT(a."id") FILTER (WHERE a."status" = 'finalizada')::int AS "finalizadas",
+        AVG(a."scoreGeral") FILTER (WHERE a."status" = 'finalizada') AS "scoreMedio",
+        MIN(a."createdAt") AS "primeiraAvaliacaoEm",
+        MAX(a."updatedAt") AS "ultimaAvaliacaoEm",
+        COALESCE(
+          ARRAY_AGG(a."id" ORDER BY a."id") FILTER (WHERE a."id" IS NOT NULL),
+          ARRAY[]::integer[]
+        ) AS "avaliacaoIds",
+        COALESCE(
+          ARRAY_AGG(a."id" ORDER BY a."id") FILTER (WHERE a."id" IS NOT NULL AND a."status" = 'finalizada'),
+          ARRAY[]::integer[]
+        ) AS "avaliacaoFinalizadaIds"
+      FROM "ProjetoVersao" v
+      LEFT JOIN "ProjetoVersaoAvaliacao" pva ON pva."projetoVersaoId" = v."id"
+      LEFT JOIN "Avaliacao" a ON a."id" = pva."avaliacaoId"
+      WHERE v."projetoId" = ${projetoId}
+      GROUP BY v."id"
+      ORDER BY v."numero" ASC
+    `;
+
+    const areasResumoVersao = await prisma.area.findMany({
+      select: { id: true, nome: true },
+      orderBy: { ordem: 'asc' }
+    });
+    const versoesBase = rows.map((row) => ({
+      ...normalizarProjetoVersao(row),
+      totalAvaliacoes: Number(row.totalAvaliacoes || 0),
+      finalizadas: Number(row.finalizadas || 0),
+      scoreMedio: row.scoreMedio == null ? null : parseFloat(Number(row.scoreMedio).toFixed(2)),
+      primeiraAvaliacaoEm: row.primeiraAvaliacaoEm,
+      ultimaAvaliacaoEm: row.ultimaAvaliacaoEm,
+      avaliacaoIds: (row.avaliacaoIds || []).map((id) => Number(id)),
+      avaliacaoFinalizadaIds: (row.avaliacaoFinalizadaIds || []).map((id) => Number(id))
+    }));
+    const versoesDetalhadas = await Promise.all(versoesBase.map(async (versao) => {
+      const [conviteRows, dimensaoRows] = await Promise.all([
+        prisma.$queryRaw`
+          SELECT c."status", COUNT(*)::int AS "total"
+          FROM "ConviteAvaliacao" c
+          JOIN "ProjetoVersaoConvite" pvc ON pvc."conviteId" = c."id"
+          WHERE c."projetoId" = ${projetoId} AND pvc."projetoVersaoId" = ${versao.id}
+          GROUP BY c."status"
+        `,
+        versao.avaliacaoFinalizadaIds.length > 0
+          ? prisma.$queryRaw`
+              SELECT ar."id" AS "areaId", ar."nome" AS "area", AVG(r."pontuacao") AS "score"
+              FROM "Resposta" r
+              JOIN "Pergunta" p ON p."id" = r."perguntaId"
+              JOIN "Area" ar ON ar."id" = p."areaId"
+              WHERE r."avaliacaoId" IN (${Prisma.join(versao.avaliacaoFinalizadaIds)})
+                AND r."pontuacao" IS NOT NULL
+              GROUP BY ar."id", ar."nome", ar."ordem"
+              ORDER BY ar."ordem" ASC
+            `
+          : []
+      ]);
+      const convitesPorStatus = Object.fromEntries(
+        conviteRows.map((row) => [row.status || 'desconhecido', Number(row.total || 0)])
+      );
+      const scoresDimensoes = dimensaoRows.map((row) => ({
+        areaId: Number(row.areaId),
+        area: row.area,
+        score: row.score == null ? null : parseFloat(Number(row.score).toFixed(2))
+      }));
+      const idsDimensoesRespondidas = new Set(scoresDimensoes.map((row) => Number(row.areaId)));
+      const dimensoesSemResposta = areasResumoVersao.filter((area) => !idsDimensoesRespondidas.has(Number(area.id)));
+      const pontosFortes = scoresDimensoes
+        .filter((row) => row.score != null)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+      const riscos = scoresDimensoes
+        .filter((row) => row.score != null)
+        .sort((a, b) => a.score - b.score)
+        .slice(0, 3);
+      const pendencias = [
+        versao.finalizadas === 0
+          ? { tipo: 'sem_finalizadas', severidade: 'alta', mensagem: 'Nenhuma avaliação finalizada nesta versão.' }
+          : null,
+        versao.totalAvaliacoes > versao.finalizadas
+          ? {
+              tipo: 'avaliacoes_pendentes',
+              severidade: 'media',
+              mensagem: `${versao.totalAvaliacoes - versao.finalizadas} avaliação(ões) ainda não finalizada(s).`
+            }
+          : null,
+        Number(convitesPorStatus.pendente || 0) > 0
+          ? {
+              tipo: 'convites_pendentes',
+              severidade: 'media',
+              mensagem: `${convitesPorStatus.pendente} convite(s) ainda pendente(s).`
+            }
+          : null,
+        dimensoesSemResposta.length > 0 && versao.finalizadas > 0
+          ? {
+              tipo: 'dimensoes_sem_resposta',
+              severidade: 'baixa',
+              mensagem: `${dimensoesSemResposta.length} dimensão(ões) sem resposta nesta versão.`
+            }
+          : null,
+        versao.scoreMedio != null && versao.scoreMedio < 3
+          ? { tipo: 'score_baixo', severidade: 'media', mensagem: 'Score médio abaixo de 3,0.' }
+          : null
+      ].filter(Boolean);
+      return {
+        ...versao,
+        convitesPorStatus,
+        checklistFechamento: {
+          prontoParaFechar: pendencias.length === 0,
+          pendencias
+        },
+        resumoExecutivo: {
+          score: versao.scoreMedio,
+          totalAvaliadores: versao.totalAvaliacoes,
+          finalizadas: versao.finalizadas,
+          pontosFortes,
+          riscos,
+          dimensoesSemResposta: dimensoesSemResposta.map((area) => ({ areaId: area.id, area: area.nome }))
+        }
+      };
+    }));
+    const versoesComEvolucao = versoesDetalhadas.map((versao, index) => {
+      const anterior = index > 0 ? versoesDetalhadas[index - 1] : null;
+      const deltaScore =
+        anterior?.scoreMedio != null && versao.scoreMedio != null
+          ? parseFloat((Number(versao.scoreMedio) - Number(anterior.scoreMedio)).toFixed(2))
+          : null;
+      return {
+        ...versao,
+        resumoExecutivo: {
+          ...versao.resumoExecutivo,
+          versaoAnterior: anterior ? { id: anterior.id, titulo: anterior.titulo, score: anterior.scoreMedio } : null,
+          deltaScore,
+          tendencia: deltaScore == null ? 'sem_comparacao' : deltaScore > 0.15 ? 'evoluiu' : deltaScore < -0.15 ? 'regrediu' : 'estavel'
+        }
+      };
+    });
+
+    res.json({
+      projeto: { id: projeto.id, nome: projeto.nome },
+      empresa: projeto.empresa,
+      versaoAtual: atual,
+      versoes: versoesComEvolucao
+    });
+  } catch (error) {
+    console.error('projetos-versoes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/projetos/:id/versoes/:versaoId/fechar', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    const versaoId = parseInt(req.params.versaoId, 10);
+    const projeto = await prisma.projeto.findUnique({ where: { id: projetoId }, include: { empresa: true } });
+    if (!projeto) return res.status(404).json({ error: 'Projeto não encontrado' });
+    if (!usuarioPodeGerenciarProjeto(req, projeto)) {
+      return res.status(403).json({ error: 'Sem permissão para este projeto.' });
+    }
+    await obterOuCriarVersaoInicialProjeto(projetoId);
+    const rows = await prisma.$queryRaw`
+      UPDATE "ProjetoVersao"
+      SET "status" = 'fechada', "fechadaEm" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${versaoId} AND "projetoId" = ${projetoId}
+      RETURNING *
+    `;
+    if (rows.length === 0) return res.status(404).json({ error: 'Versão não encontrada' });
+    const versaoFechada = normalizarProjetoVersao(rows[0]);
+    await registrarEventoAvaliacao({
+      tipo: 'projeto_versao_fechada',
+      projetoId,
+      usuarioId: req.usuarioId,
+      metadata: { versaoId: versaoFechada.id, titulo: versaoFechada.titulo, numero: versaoFechada.numero },
+      req
+    });
+    res.json(versaoFechada);
+  } catch (error) {
+    console.error('fechar-versao-projeto:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/projetos/:id/versoes/:versaoId/reabrir', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    const versaoId = parseInt(req.params.versaoId, 10);
+    const projeto = await prisma.projeto.findUnique({ where: { id: projetoId }, include: { empresa: true } });
+    if (!projeto) return res.status(404).json({ error: 'Projeto não encontrado' });
+    if (!usuarioPodeGerenciarProjeto(req, projeto)) {
+      return res.status(403).json({ error: 'Sem permissão para este projeto.' });
+    }
+    await obterOuCriarVersaoInicialProjeto(projetoId);
+    const alvoRows = await prisma.$queryRaw`
+      SELECT * FROM "ProjetoVersao"
+      WHERE "id" = ${versaoId} AND "projetoId" = ${projetoId}
+      LIMIT 1
+    `;
+    if (alvoRows.length === 0) return res.status(404).json({ error: 'Versão não encontrada' });
+    const versaoAnterior = normalizarProjetoVersao(alvoRows[0]);
+    await prisma.$executeRaw`
+      UPDATE "ProjetoVersao"
+      SET "status" = 'fechada', "fechadaEm" = COALESCE("fechadaEm", CURRENT_TIMESTAMP), "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "projetoId" = ${projetoId} AND "status" = 'aberta' AND "id" <> ${versaoId}
+    `;
+    const rows = await prisma.$queryRaw`
+      UPDATE "ProjetoVersao"
+      SET "status" = 'aberta', "fechadaEm" = NULL, "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${versaoId} AND "projetoId" = ${projetoId}
+      RETURNING *
+    `;
+    const versaoReaberta = normalizarProjetoVersao(rows[0]);
+    await registrarEventoAvaliacao({
+      tipo: 'projeto_versao_reaberta',
+      projetoId,
+      usuarioId: req.usuarioId,
+      metadata: {
+        versaoId: versaoReaberta.id,
+        titulo: versaoReaberta.titulo,
+        numero: versaoReaberta.numero,
+        statusAnterior: versaoAnterior.status,
+        motivo: req.body?.motivo || 'Correção manual'
+      },
+      req
+    });
+    res.json(versaoReaberta);
+  } catch (error) {
+    console.error('reabrir-versao-projeto:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/projetos/:id/versoes', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    const projeto = await prisma.projeto.findUnique({ where: { id: projetoId }, include: { empresa: true } });
+    if (!projeto) return res.status(404).json({ error: 'Projeto não encontrado' });
+    if (!usuarioPodeGerenciarProjeto(req, projeto)) {
+      return res.status(403).json({ error: 'Sem permissão para este projeto.' });
+    }
+    await obterOuCriarVersaoInicialProjeto(projetoId);
+    const aberta = await prisma.$queryRaw`
+      SELECT * FROM "ProjetoVersao"
+      WHERE "projetoId" = ${projetoId} AND "status" = 'aberta'
+      ORDER BY "numero" DESC
+      LIMIT 1
+    `;
+    if (aberta.length > 0) {
+      return res.status(409).json({
+        error: 'Feche a versão atual antes de criar a próxima.',
+        versaoAtual: normalizarProjetoVersao(aberta[0])
+      });
+    }
+    const maxRows = await prisma.$queryRaw`
+      SELECT COALESCE(MAX("numero"), 0)::int AS "maxNumero"
+      FROM "ProjetoVersao"
+      WHERE "projetoId" = ${projetoId}
+    `;
+    const numero = Number(maxRows[0]?.maxNumero || 0) + 1;
+    const titulo = String(req.body?.titulo || `Versão ${numero}`).trim().slice(0, 120);
+    const rows = await prisma.$queryRaw`
+      INSERT INTO "ProjetoVersao" ("projetoId", "numero", "titulo", "status")
+      VALUES (${projetoId}, ${numero}, ${titulo}, 'aberta')
+      RETURNING *
+    `;
+    res.status(201).json(normalizarProjetoVersao(rows[0]));
+  } catch (error) {
+    console.error('criar-versao-projeto:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -2398,7 +3531,7 @@ app.get('/api/avaliacoes', async (req, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(avaliacoes);
+    res.json(await anexarVersoesEmAvaliacoes(avaliacoes));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -2420,7 +3553,10 @@ app.get('/api/avaliacoes/:id', async (req, res) => {
       return res.status(403).json({ error: 'Acesso negado a esta avaliação' });
     }
 
-    res.json(mergeDesejosIaNaAvaliacaoParaApi(avaliacao));
+    res.json({
+      ...mergeDesejosIaNaAvaliacaoParaApi(avaliacao),
+      projetoVersao: await obterVersaoDaAvaliacao(avaliacao)
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -2440,6 +3576,7 @@ app.post('/api/avaliacoes', async (req, res) => {
     if (!roleIsAdmin(req.usuario?.role) && usuarioIdInt !== req.usuario.id) {
       return res.status(403).json({ error: 'Você só pode criar avaliações para o seu próprio usuário' });
     }
+    const projetoVersao = await obterVersaoAbertaProjetoOuErro(projetoIdInt);
     
     let perguntas;
     const areaIdsArray = Array.isArray(areaIds) ? areaIds.map(id => parseInt(id)) : [];
@@ -2473,10 +3610,11 @@ app.post('/api/avaliacoes', async (req, res) => {
         }
       }
     });
+    await setProjetoVersaoEmAvaliacao(avaliacao.id, projetoVersao.id);
     res.status(201).json(mergeDesejosIaNaAvaliacaoParaApi(avaliacao));
   } catch (error) {
     console.error('Erro ao criar avaliação:', error);
-    res.status(400).json({ error: error.message });
+    res.status(error.statusCode || 400).json({ error: error.message });
   }
 });
 
@@ -2801,6 +3939,7 @@ app.get('/api/relatorios/avaliacao/:id', async (req, res) => {
         createdAt: avaliacao.createdAt,
         updatedAt: avaliacao.updatedAt
       },
+      projetoVersao: await obterVersaoDaAvaliacao(avaliacao),
       projeto: avaliacao.projeto,
       empresa: avaliacao.projeto.empresa,
       usuario: avaliacao.usuario,
@@ -2842,13 +3981,18 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
       return res.status(404).json({ error: 'Projeto não encontrado' });
     }
     
-    const areas = await prisma.area.findMany({ 
-      include: { perguntas: { orderBy: { numero: 'asc' } } },
-      orderBy: { ordem: 'asc' } 
-    });
+    const areas = ordenarAreasPorFramework(
+      await prisma.area.findMany({
+        include: { perguntas: { orderBy: { numero: 'asc' } } },
+        orderBy: { ordem: 'asc' }
+      })
+    );
     const todasAreaIds = areas.map((a) => a.id);
+    const projetoVersao = await obterVersaoSelecionadaProjeto(req, projeto.id);
+    const idsAvaliacaoVersao = await idsAvaliacoesDaVersao(projeto.id, projetoVersao.id);
 
     const avaliacoesFinalizadas = projeto.avaliacoes.filter((av) =>
+      idsAvaliacaoVersao.has(Number(av.id)) &&
       usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax)
     );
     const totalAvaliadores = avaliacoesFinalizadas.length;
@@ -2856,6 +4000,7 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
     if (totalAvaliadores === 0) {
       return res.json({
         projeto,
+        projetoVersao,
         empresa: projeto.empresa,
         filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
         totalAvaliadores: 0,
@@ -2863,6 +4008,13 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
         nivelGeral: 'Não avaliado',
         classificacao: 'Não avaliado',
         progresso: 0,
+        prazoAvaliacao: extrairPrazoAvaliacaoProjeto(projeto),
+        planoAcao: [],
+        resumoComentarios: { totalComentarios: 0, areas: [] },
+        comparativoAvaliacoes: {
+          disponivel: false,
+          mensagem: 'É necessário ter ao menos duas avaliações finalizadas no projeto.'
+        },
         scoresPorArea: [],
         scoresPorEtapa: [],
         avaliadores: []
@@ -2951,6 +4103,7 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
         descricao: projeto.descricao,
         vertical: projeto.vertical
       },
+      projetoVersao,
       empresa: projeto.empresa,
       filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
       totalAvaliadores,
@@ -2967,10 +4120,14 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
       },
       
       progresso,
+      prazoAvaliacao: extrairPrazoAvaliacaoProjeto(projeto),
       etapasAvaliadas: areasComScore.length,
       totalEtapas: areas.length,
       scoresPorArea,
       scoresPorEtapa,
+      planoAcao: gerarPlanoAcaoPorDimensao(scoresPorArea),
+      resumoComentarios: gerarResumoComentariosAvaliacoes(avaliacoesFinalizadas),
+      comparativoAvaliacoes: gerarComparativoAvaliacoesProjeto(avaliacoesFinalizadas, areas),
       avaliadores: avaliacoesFinalizadas.map((a) => ({
         id: a.usuario.id,
         nome: a.usuario.nome,
@@ -3026,10 +4183,12 @@ app.get('/api/dashboard/empresa/:id', async (req, res) => {
       return res.status(404).json({ error: 'Empresa não encontrada' });
     }
     
-    const areas = await prisma.area.findMany({ 
-      include: { perguntas: { orderBy: { numero: 'asc' } } },
-      orderBy: { ordem: 'asc' } 
-    });
+    const areas = ordenarAreasPorFramework(
+      await prisma.area.findMany({
+        include: { perguntas: { orderBy: { numero: 'asc' } } },
+        orderBy: { ordem: 'asc' }
+      })
+    );
     const todasAreaIdsEmpresa = areas.map((a) => a.id);
 
     const todasAvaliacoes = empresa.projetos
@@ -4487,6 +5646,7 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
     const projetoId = parseInt(req.params.id);
     const reuse = req.query.reuse !== 'false'; // default: true
     const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
+    const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
     
     // Se reuse=true, tenta retornar versão mais recente já salva (mesmo filtro de prioridade)
     if (reuse) {
@@ -4499,7 +5659,10 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
         const dadosSnap = ultimoSalvo.dadosSnapshot
           ? JSON.parse(ultimoSalvo.dadosSnapshot)
           : null;
-        if (filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax)) {
+        if (
+          filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax) &&
+          Number(dadosSnap?.projetoVersao?.id || 0) === Number(projetoVersao?.id || 0)
+        ) {
           console.log(`[Relatório IA] Reusando versão salva ${ultimoSalvo.id} (v${ultimoSalvo.versao}) para projeto ${projetoId}`);
           return res.json({
             relatorio: ultimoSalvo.conteudoMd,
@@ -4515,7 +5678,8 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
             versao: ultimoSalvo.versao,
             dataGeracao: ultimoSalvo.createdAt,
             fromCache: true,
-            filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax
+            filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+            projetoVersao
           });
         }
       }
@@ -4544,7 +5708,9 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
       return res.status(404).json({ error: 'Projeto não encontrado' });
     }
 
+    const idsAvaliacaoVersao = await idsAvaliacoesDaVersao(projetoId, projetoVersao.id);
     const avaliacoesFiltradas = projeto.avaliacoes.filter((av) =>
+      idsAvaliacaoVersao.has(Number(av.id)) &&
       usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax)
     );
 
@@ -4553,21 +5719,26 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
         error:
           projeto.avaliacoes.length === 0
             ? 'Não há avaliações finalizadas para gerar o relatório'
-            : 'Não há avaliações finalizadas no filtro de prioridade selecionado (ajuste o consolidado ou cadastre avaliadores no nível desejado).',
-        filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax
+            : 'Não há avaliações finalizadas no filtro de prioridade selecionado ou na versão selecionada.',
+        filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+        projetoVersao
       });
     }
 
-    const areas = await prisma.area.findMany({
-      include: { perguntas: { orderBy: { numero: 'asc' } } },
-      orderBy: { ordem: 'asc' }
-    });
-
-    const { scoresPorArea: scoresConsolidados, scoreGeral } = calcularScoresConsolidadoMaturidade(
-      avaliacoesFiltradas,
-      areas
+    const areas = ordenarAreasPorFramework(
+      await prisma.area.findMany({
+        include: { perguntas: { orderBy: { numero: 'asc' } } },
+        orderBy: { ordem: 'asc' }
+      })
     );
-    const scoresPorArea = scoresConsolidados.map((a) => ({ area: a.area, score: a.score }));
+
+    const {
+      scoresPorArea: areasComScore,
+      todasDimensoes,
+      scoreGeral
+    } = calcularScoresConsolidadoMaturidade(avaliacoesFiltradas, areas);
+    const dimensoesRelatorio = todasDimensoes;
+    const scoresPorArea = areasComScore.map((a) => ({ area: a.area, score: a.score }));
     const blocoAvaliadoresExec = blocoAvaliadoresConsolidadoMarkdown(
       avaliacoesFiltradas,
       filtroNivelMax
@@ -4580,7 +5751,17 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
     };
 
     const nivel = nivelNumericoDeScore(scoreGeral);
-    const nomesNivel = ['Inicial / Experimentando', 'Oportunista / Preparando', 'Sistemático / Escalando', 'Diferenciado / Industrializando', 'Transformador / Liderando'];
+    const nomesNivel = NOMES_NIVEL_BLUEPRINT;
+    const comparativoVersoes = await montarComparativoVersoesProjeto(prisma, {
+      projetoId,
+      versaoAtualId: projetoVersao.id,
+      avaliacoesFinalizadas: projeto.avaliacoes,
+      areas,
+      filtroNivelMax,
+      usuarioIncluidoNoFiltro: usuarioIncluidoNoFiltroNivelMapeamentoMaturidade
+    });
+    const blocoEvolucaoVersoes = blocoEvolucaoVersoesMarkdown(comparativoVersoes);
+    const blocoLogicaMaturidade = blocoLogicaMaturidadeMarkdown({ scoreGeral, nomesNivel, nivel });
 
     // Top 3 e Bottom 3
     const ordenados = [...scoresPorArea].sort((a, b) => b.score - a.score);
@@ -4608,6 +5789,7 @@ DIRETRIZES DE REDAÇÃO (CRÍTICO):
 5. Formatação: Use Markdown. Utilize tabelas para comparações e listas apenas quando estritamente necessário.
 6. **ROI MIT**: Os percentuais de ROI do modelo são, em geral, **retorno sobre o investimento em capacidades de IA** (não margem da empresa). O ganho de longo prazo vem de **subir de nível de maturidade**. Use obrigatoriamente o bloco "Trajetória de valor MIT CISR" dos dados abaixo nas Seções 1 e 3.
 7. **Prioridade dos avaliadores**: o sistema insere automaticamente no **início do documento** a seção "Nível dos avaliadores no consolidado" (não repita essa seção). Os scores vêm só do filtro do dashboard (1–3).
+8. **Evolução entre versões**: quando o bloco "Evolução entre versões da pesquisa" estiver disponível, a Seção 1 deve mencionar a evolução vs. a rodada anterior e a Seção 2 deve interpretar os deltas por dimensão em termos de maturidade (subiu, manteve ou regrediu).
 
 ESTRUTURA OBRIGATÓRIA DO RELATÓRIO:
 
@@ -4642,6 +5824,7 @@ ESTRUTURA OBRIGATÓRIA DO RELATÓRIO:
 
 DADOS BRUTOS DO ASSESSMENT (INPUT):
 - **Empresa:** ${projeto.empresa.nome}
+- **Versão da pesquisa:** ${projetoVersao.titulo} (${projetoVersao.status})
 - **Projeto:** ${projeto.nome}
 - **Setor:** ${setor}
 - **Porte:** ${projeto.empresa.porte || 'Não informado'}
@@ -4654,22 +5837,32 @@ DADOS BRUTOS DO ASSESSMENT (INPUT):
 - **Total de Avaliadores (no filtro de prioridade):** ${avaliacoesFiltradas.length}
 - **Filtro de prioridade no consolidado:** ${filtroNivelMax == null ? 'Todos os níveis' : `Até nível ${filtroNivelMax} (cumulativo 1–${filtroNivelMax})`}
 
-**Top 3 Scores (Pontos Fortes):**
+**Top 3 Scores (Pontos Fortes — apenas dimensões com score > 0):**
 ${top3.map(a => `- ${a.area}: ${a.score.toFixed(2)}`).join('\n')}
 
-**Bottom 3 Scores (Gaps Críticos):**
+**Bottom 3 Scores (Gaps Críticos — apenas dimensões com score > 0):**
 ${bottom3.map(a => `- ${a.area}: ${a.score.toFixed(2)}`).join('\n')}
 
-**Todas as Áreas Avaliadas:**
-${scoresPorArea.map(a => `- ${a.area}: ${a.score.toFixed(2)}`).join('\n')}
+${blocoOrdemDimensoesFrameworkMarkdown()}
+
+**Todas as 16 Dimensões (ordem obrigatória do framework):**
+${dimensoesRelatorio.map(a =>
+  `- ${a.area}: ${a.score.toFixed(2)}${a.score === 0 ? ' — *score 0 — não analisada*' : ''}`
+).join('\n')}
 
 ${blocoAvaliadoresExec}
 
 ---
 
+${blocoLogicaMaturidade}
+
+${blocoEvolucaoVersoes}
+
+---
+
 ${blocoTrajetoriaMitMarkdown({ scoreGeral, faturamentoAnualProjeto: projeto.faturamentoAnualProjeto })}
 
-Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a estrutura obrigatória de 5 seções. Use exemplos REAIS do setor ${setor} em todas as recomendações. Nas Seções 1 e 3, incorpore explicitamente a interpretação da trajetória MIT e o contraste entre nível atual e próximo nível.`;
+Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a estrutura obrigatória de 5 seções. Use exemplos REAIS do setor ${setor} em todas as recomendações. Nas Seções 1 e 3, incorpore explicitamente a interpretação da trajetória MIT e o contraste entre nível atual e próximo nível. Se houver evolução entre versões, incorpore também o comparativo de rodadas nas Seções 1 e 2.`;
 
     await loadPersistedAIConfig();
     console.log(`[Relatório IA] Gerando para projeto ${projetoId} usando ${getProvider().name}`);
@@ -4697,8 +5890,17 @@ Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a
       mediaSetor,
       top3,
       bottom3,
+      scoresPorArea: dimensoesRelatorio.map((a) => ({
+        area: a.area,
+        score: a.score,
+        semDadosConsolidados: a.score === 0 || a.semDadosConsolidados
+      })),
+      dimensoesComDadosConsolidados: areasComScore.length,
+      totalDimensoesFramework: dimensoesRelatorio.length,
       totalAvaliadores: avaliacoesFiltradas.length,
       filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+      projetoVersao,
+      comparativoVersoes,
       faturamentoAnualProjeto: projeto.faturamentoAnualProjeto ?? null,
       percentualReferenciaRoi: pctRefExec
     };
@@ -4743,7 +5945,8 @@ Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a
       versao: salvo?.versao,
       dataGeracao: salvo?.createdAt,
       fromCache: false,
-      filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax
+      filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+      projetoVersao
     });
   } catch (error) {
     console.error('Erro ao gerar relatório IA:', error);
@@ -4765,11 +5968,15 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
     const modoRapido = req.query.mode === 'rapido' || req.query.modo === 'rapido';
     const tipoRelatorio = modoRapido ? 'completo_rapido' : 'completo';
     const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
+    const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
 
-    /** Quando o cliente do HTTP fecha (ex.: abort do job em background), paramos entre chunks. */
+    /** Quando o cliente HTTP fecha no browser, paramos entre chunks. Jobs em background ignoram close. */
     let bookClienteDesconectou = false;
+    let relatorioJobId = null;
     const onBookReqClose = () => {
-      bookClienteDesconectou = true;
+      if (!relatorioJobId) {
+        bookClienteDesconectou = true;
+      }
     };
     
     // Se reuse=true, tenta retornar versão mais recente já salva (mesmo filtro de prioridade)
@@ -4783,7 +5990,14 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
         const dadosSnap = ultimoSalvo.dadosSnapshot
           ? JSON.parse(ultimoSalvo.dadosSnapshot)
           : null;
-        if (filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax)) {
+        const secao3Ok = relatorioBookSecao3Completo(ultimoSalvo.conteudoMd || '').ok;
+        if (
+          filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax) &&
+          Number(dadosSnap?.projetoVersao?.id || 0) === Number(projetoVersao?.id || 0) &&
+          Number(dadosSnap?.totalDimensoesFramework || 0) === 16 &&
+          (dadosSnap?.scoresPorArea?.length || 0) === 16 &&
+          secao3Ok
+        ) {
           const ultimaAval = await prisma.avaliacao.findFirst({
             where: { projetoId, status: 'finalizada' },
             orderBy: { updatedAt: 'desc' },
@@ -4815,8 +6029,14 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
             ultimaAvaliacaoFinalizadaEm: ultimaAval?.updatedAt?.toISOString() ?? null,
             relatorioVersaoGeradoEm: relatorioVersaoGeradoEm.toISOString(),
             modoGeracao: modoRapido ? 'rapido' : 'completo',
-            filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax
+            filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+            projetoVersao
           });
+        } else {
+          const sec3 = relatorioBookSecao3Completo(ultimoSalvo.conteudoMd || '');
+          console.log(
+            `[Book IA] Versão salva ${ultimoSalvo.id} ignorada — Seção 3: ${sec3.total}/16, metadata scores: ${dadosSnap?.scoresPorArea?.length || 0}. Gerando nova versão.`
+          );
         }
       }
     }
@@ -4843,7 +6063,9 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
       return res.status(404).json({ error: 'Projeto não encontrado' });
     }
 
+    const idsAvaliacaoVersao = await idsAvaliacoesDaVersao(projetoId, projetoVersao.id);
     const avaliacoesFiltradas = projeto.avaliacoes.filter((av) =>
+      idsAvaliacaoVersao.has(Number(av.id)) &&
       usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax)
     );
 
@@ -4852,12 +6074,12 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
         error:
           projeto.avaliacoes.length === 0
             ? 'Não há avaliações finalizadas para gerar o relatório'
-            : 'Não há avaliações finalizadas no filtro de prioridade selecionado (ajuste o consolidado ou cadastre avaliadores no nível desejado).',
-        filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax
+            : 'Não há avaliações finalizadas no filtro de prioridade selecionado ou na versão selecionada.',
+        filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+        projetoVersao
       });
     }
 
-    let relatorioJobId = null;
     const jobIdParam = req.query.jobId;
     if (jobIdParam != null && jobIdParam !== '') {
       const jid = parseInt(String(jobIdParam), 10);
@@ -4869,18 +6091,36 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
       }
     }
 
-    const areas = await prisma.area.findMany({ 
-      include: { perguntas: { orderBy: { numero: 'asc' } } },
-      orderBy: { ordem: 'asc' } 
-    });
+    const areas = ordenarAreasPorFramework(
+      await prisma.area.findMany({
+        include: { perguntas: { orderBy: { numero: 'asc' } } },
+        orderBy: { ordem: 'asc' }
+      })
+    );
 
-    const { scoresPorArea, scoreGeral } = calcularScoresConsolidadoMaturidade(
+    const { scoresPorArea, todasDimensoes, scoreGeral } = calcularScoresConsolidadoMaturidade(
       avaliacoesFiltradas,
       areas
     );
+    const dimensoesDiagnostico = todasDimensoes;
+    if (dimensoesDiagnostico.length !== 16) {
+      console.warn(
+        `[Book IA] Esperadas 16 dimensões na Seção 3; recebidas ${dimensoesDiagnostico.length}.`
+      );
+    }
 
     const nivel = nivelNumericoDeScore(scoreGeral);
-    const nomesNivel = ['Inicial / Experimentando', 'Oportunista / Preparando', 'Sistemático / Escalando', 'Diferenciado / Industrializando', 'Transformador / Liderando'];
+    const nomesNivel = NOMES_NIVEL_BLUEPRINT;
+    const comparativoVersoes = await montarComparativoVersoesProjeto(prisma, {
+      projetoId,
+      versaoAtualId: projetoVersao.id,
+      avaliacoesFinalizadas: projeto.avaliacoes,
+      areas,
+      filtroNivelMax,
+      usuarioIncluidoNoFiltro: usuarioIncluidoNoFiltroNivelMapeamentoMaturidade
+    });
+    const blocoEvolucaoVersoes = blocoEvolucaoVersoesMarkdown(comparativoVersoes);
+    const blocoLogicaMaturidade = blocoLogicaMaturidadeMarkdown({ scoreGeral, nomesNivel, nivel });
 
     const ordenados = [...scoresPorArea].sort((a, b) => b.score - a.score);
     const top5 = ordenados.slice(0, 5);
@@ -4910,11 +6150,14 @@ DIRETRIZES DE REDAÇÃO (CRÍTICO):
 6. **Markdown Estruturado**: use tabelas para comparações/roadmaps/RACI/KPIs e hierarquia clara (#, ##, ###).
 7. **Sem Genericidade**: tudo contextualizado ao setor + porte + nível.
 8. **Sem Repetição entre Dimensões**: na Seção 3, cada dimensão deve soar única. Varie vocabulário, abertura dos parágrafos e ângulo do risco (regulatório vs operacional vs receita vs marca etc.). Não reaproveite frases inteiras nem "templates" idênticos de diagnóstico ou risco entre dimensões — personalize sempre pelo nome da dimensão, pelos scores e pelas perguntas listadas no prompt.
+8b. **Hierarquia Seção 3**: o sistema insere # 3. e ## 3.N Dimensão — nome; gere somente ### 3.N.1, ### 3.N.2, … (não duplique títulos de dimensão).
+8c. **Hierarquia Seções 8–13**: use # para seção principal, ## para subseção numerada (ex.: ## 8.1, ## 9.2) e ### para itens (ex.: ### 13.1.1). Não use negrito no lugar de cabeçalho Markdown.
 9. **Importante**: Gere SOMENTE as seções solicitadas em cada chamada. NÃO repita seções já produzidas. NÃO inclua título de capa ou metadados, apenas o conteúdo das seções pedidas.
 10. **Calibração financeira**: quando o bloco "Parâmetros financeiros" trouxer faturamento anual e percentual de referência de ROI, use EXCLUSIVAMENTE essa base para ROI %, economia anual em R$, investimento e payback em todas as seções (inclusive Seção 8). Não invente outro percentual-base de ROI.
 11. **Trajetória MIT (ROI × maturidade)**: o ROI do benchmark MIT CISR é, em geral, **retorno sobre o investimento em capacidades de IA**—não lucro da empresa sobre receita. Sempre que falar de impacto financeiro, conecte **nível de maturidade** → **faixa de ROI típica daquele nível** → **horizonte (12–36 meses)**. O ganho de longo prazo vem de **subir de nível** (ex.: de 2 para 3), não de multiplicar o faturamento geral. Use o bloco "Trajetória de valor MIT CISR" dos dados abaixo;
 12. **Projeção temporal**: nas Seções 2, 8 e 13, inclua visão **12–36 meses** de acumulação de valor ao aproximar-se do próximo nível (roadmap de investimento em IA alinhado ao MIT).
-13. **Prioridade dos avaliadores**: a capa com filtro e lista de avaliadores é inserida **automaticamente no início** do book — **não** gere de novo "## Nível dos avaliadores no consolidado". Comece direto pela Seção 1 (Metodologia).`;
+13. **Evolução entre versões**: quando o bloco "Evolução entre versões da pesquisa" estiver disponível, a Seção 2 deve incluir subseção **Evolução entre rodadas** interpretando score, nível e deltas por dimensão; referencie também nas Seções 8 e 13 quando pertinente.
+14. **Prioridade dos avaliadores**: a capa com filtro e lista de avaliadores é inserida **automaticamente no início** do book — **não** gere de novo "## Nível dos avaliadores no consolidado". Comece direto pela Seção 1 (Metodologia).`;
 
     // Modo rápido: menos tokens por resposta, prioridade em estrutura e tabelas compactas
     const systemPromptBaseRapido = `Você é um Consultor Sênior de Estratégia de IA (MIT CISR). Este é o MODO RÁPIDO do book: o documento deve ser **completo em estrutura** (mesmas seções lógicas) porém **mais curto** que o book profundo — priorize síntese, tabelas enxutas e bullets; mantenha exemplos setoriais e KPIs mensuráveis, sem prolixidade.
@@ -4925,13 +6168,15 @@ REGRAS DO MODO RÁPIDO:
 - Calibração financeira e trajetória MIT: use EXCLUSIVAMENTE o bloco "Parâmetros financeiros" e "Trajetória de valor MIT CISR" dos dados.
 - **Tabelas de notas por pergunta:** quando listar scores item a item em tabela, a **última linha** deve ser **"Score geral da dimensão"** com o valor consolidado — use as tabelas prontas em "Tabelas de scores por dimensão" nos DADOS (não omita essa linha).
 - **"Ganho no longo prazo (MIT CISR)":** siga o modelo em 4 blocos dos DADOS (o que medimos; o que o ROI não é; por que parece modesto agora; ganho ao subir 1 nível). Linguagem direta, sem jargão repetido.
+- **Evolução entre versões:** quando o bloco estiver disponível nos DADOS, inclua subseção **Evolução entre rodadas** na Seção 2.
 - **Prioridade dos avaliadores:** a capa com níveis já vem no início do arquivo — não duplique; comece na Seção 1.
-- Gere SOMENTE o que cada chamada pedir; não antecipe outras seções.`;
+- Gere SOMENTE o que cada chamada pedir; não antecipe outras seções.
+- **Seção 3:** títulos de dimensão são inseridos pelo sistema (## 3.N Dimensão — nome); gere apenas subseções ### 3.N.1, ### 3.N.2, … (nunca repita # 3. nem ## 3.N).`;
 
     // Dados de contexto compartilhados (resumo enxuto para incluir em todos os prompts)
-    const detalhePerguntasTxt = scoresPorArea.map(a => 
-      `\n### ${a.area} (Score: ${a.score})\n${a.perguntas.map(p => 
-        `- [Q${p.numero}] ${p.texto.substring(0, 140)}${p.texto.length > 140 ? '...' : ''} → ${p.score}`
+    const detalhePerguntasTxt = dimensoesDiagnostico.map(a =>
+      `\n### ${a.area} (Score: ${dimensaoComScoreZero(a) ? '0 — não analisada' : a.score})\n${(a.perguntas || []).map(p =>
+        `- [Q${p.numero}] ${p.texto.substring(0, 140)}${p.texto.length > 140 ? '...' : ''} → ${p.totalRespostas > 0 ? p.score : '0'}`
       ).join('\n')}`
     ).join('\n');
 
@@ -4961,12 +6206,17 @@ REGRAS DO MODO RÁPIDO:
 ## Identificação
 - **Empresa:** ${projeto.empresa.nome}
 - **Projeto:** ${projeto.nome}
+- **Versão da pesquisa:** ${projetoVersao.titulo} (${projetoVersao.status})
 - **Setor:** ${setor}
 - **Porte:** ${porte}
 - **Total de Avaliadores (no filtro de prioridade):** ${avaliacoesFiltradas.length}
 - **Filtro de prioridade no consolidado:** ${filtroNivelMax == null ? 'Todos os níveis' : `Até nível ${filtroNivelMax} (cumulativo 1–${filtroNivelMax})`}
 
 ${blocoAvaliadoresBook}
+
+${blocoLogicaMaturidade}
+
+${blocoEvolucaoVersoes}
 
 ## Parâmetros financeiros (calibragem de ROI — obrigatório nas projeções)
 - **Faturamento anual do projeto (na organização):** ${fatFmt}
@@ -4981,9 +6231,11 @@ ${blocoTrajetoriaMitMarkdown({ scoreGeral, faturamentoAnualProjeto: projeto.fatu
 - **Média do Setor:** ${mediaSetor.toFixed(1)}
 - **Gap vs Setor:** ${(scoreGeral - mediaSetor).toFixed(2)} pontos ${scoreGeral > mediaSetor ? '(acima da média)' : '(abaixo da média)'}
 
-## Scores por Dimensão (Ordenados)
-${scoresPorArea.sort((a, b) => b.score - a.score).map(a => 
-  `- **${a.area}** (Nível ${a.nivel}): ${a.score.toFixed(2)}${a.descricao ? ` — ${a.descricao}` : ''}`
+${blocoOrdemDimensoesFrameworkMarkdown()}
+
+## Scores por Dimensão (${dimensoesDiagnostico.length} dimensões do framework)
+${dimensoesDiagnostico.map(a =>
+  `- **${a.area}**${dimensaoComScoreZero(a) ? ' — *score 0 — não analisada no diagnóstico*' : ` (Nível ${a.nivel}): ${a.score.toFixed(2)}`}${a.descricao ? ` — ${a.descricao}` : ''}`
 ).join('\n')}
 
 ## Top 5 Pontos Fortes
@@ -5001,7 +6253,7 @@ ${detalhePerguntasTxt}`;
 ---
 
 ${blocoDadosExtrasBookRapido({
-  scoresPorArea,
+  scoresPorArea: dimensoesDiagnostico,
   scoreGeral,
   nivel,
   nomesNivel,
@@ -5011,10 +6263,9 @@ ${blocoDadosExtrasBookRapido({
 
     // ============= CHUNKS / SEÇÕES =============
     // Modo completo: muitos chunks (1 por dimensão na Seção 3).
-    // Modo rápido: menos chunks, saída mais curta — alvo operacional ~30 min (varia com provider/carga).
+    // Modo rápido: também 1 chunk por dimensão na Seção 3 (texto mais curto por dimensão).
 
     const chunks = [];
-    const DIM_POR_BLOCO_RAPIDO = 4;
 
     if (modoRapido) {
       chunks.push({
@@ -5023,11 +6274,12 @@ ${blocoDadosExtrasBookRapido({
         prompt: `Gere SOMENTE as Seções 1 e 2 do book, em Markdown **condensado** (menos prosa que o book completo):
 
 # 1. METODOLOGIA APLICADA
-- Visão geral do MIT CISR (5 níveis) em texto curto + critérios de avaliação
+- Visão geral do MIT CISR: **quatro estágios empresariais** oficiais (Experiment and Prepare → AI Future Ready) + escala operacional Blueprint **5 níveis** (faixas 1.8 / 2.6 / 3.4 / 4.2) em texto curto
 - Como interpretar scores (parágrafo)
 # 2. SUMÁRIO EXECUTIVO
 - 1 parágrafo de diagnóstico (situação atual)
 - Subseção **### Ganho no longo prazo (MIT CISR)** com **exatamente os 4 blocos numerados** do modelo nos DADOS (1) O que estamos medindo 2) O que o ROI NÃO é 3) Por que parece modesto agora 4) Ganho ao subir um nível). Redija em prosa clara; não copie só a tabela de ROI sem explicar.
+- Subseção **### Evolução entre rodadas** quando o bloco de evolução entre versões estiver disponível nos DADOS.
 - Tabela compacta: Score | Nível | vs Setor | horizonte próximo nível
 - 5 insights em bullet (1 linha cada)
 
@@ -5038,43 +6290,52 @@ Comece com "# 1. METODOLOGIA APLICADA".`,
         maxTokens: 3200
       });
 
-      for (let off = 0; off < scoresPorArea.length; off += DIM_POR_BLOCO_RAPIDO) {
-        const slice = scoresPorArea.slice(off, off + DIM_POR_BLOCO_RAPIDO);
-        const batchIdx = Math.floor(off / DIM_POR_BLOCO_RAPIDO);
-        const isFirstBatch = off === 0;
-        const dimBloco = slice
-          .map((dim, i) => {
-            const globalIdx = off + i + 1;
-            const numSecao = `3.${globalIdx}`;
-            return `## ${numSecao} ${dim.area} — Score ${dim.score.toFixed(2)} | Nível ${dim.nivel}
-### ${numSecao}.1 Diagnóstico (1 parágrafo, específico de **${dim.area}** e do setor)
+      // Seção 3: uma entrada por dimensão (16); score 0 = bloco fixo sem IA
+      dimensoesDiagnostico.forEach((dim, idx) => {
+        const isFirst = idx === 0;
+        const numSecao = `3.${idx + 1}`;
+        if (dimensaoComScoreZero(dim)) {
+          chunks.push({
+            id: `sec_3_${idx + 1}`,
+            label: `Registro — ${dim.area} (score 0)`,
+            staticContent: blocoDimensaoScoreZeroSecao3(numSecao, dim, {
+              isFirst,
+              totalDimensoes: dimensoesDiagnostico.length
+            })
+          });
+          return;
+        }
+        chunks.push({
+          id: `sec_3_${idx + 1}`,
+          label: `Diagnóstico — ${dim.area} (modo rápido)`,
+          prompt: `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.7 em Markdown.
+
+### ${numSecao}.1 Diagnóstico (1 parágrafo, específico da dimensão **${dim.area}** e do setor)
 ### ${numSecao}.2 Tabela de scores por pergunta
-Reproduza **integralmente** a tabela pronta da dimensão **${dim.area}** em "Tabelas de scores por dimensão" nos DADOS (incluindo a **última linha** "Score geral da dimensão").
+Reproduza **integralmente** a tabela pronta abaixo (incluindo a **última linha** "Score geral da dimensão").
 ### ${numSecao}.3 Evidências (até 4 bullets com [Qn], referenciando a tabela)
 ### ${numSecao}.4 Risco (1 parágrafo — mecanismo de risco desta dimensão, não genérico)
 ### ${numSecao}.5 Benchmark (1 parágrafo curto vs setor)
 ### ${numSecao}.6 Recomendações (3 bullets acionáveis; cite Playbook Atlas quando couber)
-### ${numSecao}.7 KPIs (tabela 3 linhas: KPI | Baseline | Meta 12m)`;
-          })
-          .join('\n\n');
+### ${numSecao}.7 KPIs (tabela 3 linhas: KPI | Baseline | Meta 12m)
 
-        chunks.push({
-          id: `sec_3_batch_${batchIdx}`,
-          label: `Dimensões ${off + 1}–${off + slice.length} (modo rápido)`,
-          prompt: `${isFirstBatch ? `# 3. DIAGNÓSTICO POR DIMENSÃO\n\nIntrodução curta (2–3 frases).\n\n` : ''}Gere SOMENTE o Markdown das subseções abaixo, **sem repetir** aberturas entre dimensões.
-
-${dimBloco}
+OBRIGATÓRIO:
+- Use o rótulo **Dimensão — ${dim.area}** apenas se precisar referenciar no texto; **não** crie título ## repetido.
+- Numere **exatamente** ${numSecao}.1 … ${numSecao}.7 com ### (três #).
+- Não pule subseções.
 
 CONTEXTO GERAL: ${projeto.empresa.nome} · ${setor} · porte ${porte} · score geral ${scoreGeral.toFixed(2)} (Nível ${nivel})
+
+${blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score)}
 
 DADOS CONSOLIDADOS:
 ${dadosBlockRapido}
 
-TABELAS OBRIGATÓRIAS DESTE BLOCO (copie integralmente em X.2 de cada dimensão):
-${slice.map((dim) => `**${dim.area}**\n${tabelaPerguntasDimensaoMarkdown(dim)}`).join('\n\n')}`,
-          maxTokens: 5200
+TABELA OBRIGATÓRIA (copie integralmente em ${numSecao}.2):
+${tabelaPerguntasDimensaoMarkdown(dim)}`,
+          maxTokens: 3600
         });
-      }
+      });
 
       chunks.push({
         id: 'sec_4_5',
@@ -5151,12 +6412,13 @@ ${dadosBlockRapido}`,
       prompt: `Gere SOMENTE as Seções 1 e 2 do book, em Markdown, NESTA ORDEM:
 
 # 1. METODOLOGIA APLICADA
-- Breve explicação do MIT CISR Enterprise AI Maturity Model (5 níveis com nome e descrição curta)
+- Breve explicação do MIT CISR Enterprise AI Maturity Model: **quatro estágios empresariais** oficiais + escala operacional Blueprint **5 níveis** (Inexistente → Otimizado; faixas da rubrica nos DADOS)
 - Critérios de avaliação utilizados
 - Como interpretar os scores e níveis
 # 2. SUMÁRIO EXECUTIVO
 - Diagnóstico em 1 parágrafo de impacto (situação atual, contradição central, oportunidade)
 - **Parágrafo obrigatório "Ganho no longo prazo (MIT)"**: explique que o ROI do modelo MIT é **sobre investimento em IA**; contraste o cenário no **nível atual** com o **potencial ao consolidar o próximo nível** (use a tabela "Trajetória de valor MIT CISR" dos dados e, se houver faturamento, as estimativas em R$).
+- **Subseção obrigatória "Evolução entre rodadas"** quando o bloco de evolução entre versões estiver disponível: interprete score, nível e principais deltas por dimensão.
 - Tabela: Score Geral, Nível, Posição vs Setor, Tempo Estimado p/ próximo nível, premissas de ROI (MIT)
 - Top 5 Insights Estratégicos (bullets curtos e impactantes)
 
@@ -5167,34 +6429,46 @@ Gere SOMENTE as seções 1 e 2. Comece direto com "# 1. METODOLOGIA APLICADA".`,
       maxTokens: 6000
     });
 
-    // CHUNK 2..N: Seção 3 - UMA CHAMADA POR DIMENSÃO (para garantir profundidade sem truncar)
-    // Cabeçalho da seção 3 vai junto com a primeira dimensão
-    scoresPorArea.forEach((dim, idx) => {
+    // CHUNK 2..N: Seção 3 — 16 dimensões; score 0 = bloco fixo sem IA
+    dimensoesDiagnostico.forEach((dim, idx) => {
       const isFirst = idx === 0;
       const numSecao = `3.${idx + 1}`;
+      if (dimensaoComScoreZero(dim)) {
+        chunks.push({
+          id: `sec_3_${idx + 1}`,
+          label: `Registro — ${dim.area} (score 0)`,
+          staticContent: blocoDimensaoScoreZeroSecao3(numSecao, dim, {
+            isFirst,
+            totalDimensoes: dimensoesDiagnostico.length,
+            modoRapido: false
+          })
+        });
+        return;
+      }
+      const detalheDim = (dim.perguntas || [])
+        .map(
+          (p) =>
+            `- [Q${p.numero}] ${p.texto.substring(0, 160)} → ${
+              p.totalRespostas > 0 ? `Score ${p.score}` : 'Score 0'
+            }`
+        )
+        .join('\n');
       chunks.push({
         id: `sec_3_${idx + 1}`,
         label: `Diagnóstico — ${dim.area}`,
-        prompt: `${isFirst ? `Gere o cabeçalho da Seção 3 e a subseção 3.1, em Markdown:
+        prompt: `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.6 em Markdown.
 
-# 3. DIAGNÓSTICO POR DIMENSÃO
-
-(parágrafo introdutório explicando que a Seção 3 traz análise aprofundada por dimensão avaliada)
-
-` : `Gere SOMENTE a subseção ${numSecao} da Seção 3 do book, em Markdown.\n\n`}## ${numSecao} ${dim.area} — Score ${dim.score.toFixed(2)} | Nível ${dim.nivel}
-
-Estrutura obrigatória da subseção:
-- ### ${numSecao}.1 Análise Diagnóstica (2–3 parágrafos profundos sobre o que o score revela)
-- ### ${numSecao}.2 Evidências Críticas (bullets — quais perguntas puxaram score para cima/baixo)
-- ### ${numSecao}.3 Risco de Negócio (1 parágrafo — o que pode acontecer se mantiver este nível)
-- ### ${numSecao}.4 Benchmark Setorial (1 parágrafo — onde a empresa está vs concorrentes do setor)
-- ### ${numSecao}.5 Recomendações Específicas (3–4 ações concretas com Playbook Atlas quando aplicável)
-- ### ${numSecao}.6 KPIs de Acompanhamento (tabela com 3–5 KPIs: KPI | Baseline | Meta 6m | Meta 12m)
+### ${numSecao}.1 Análise Diagnóstica (2–3 parágrafos profundos sobre o que o score revela)
+### ${numSecao}.2 Evidências Críticas (bullets — quais perguntas puxaram score para cima/baixo)
+### ${numSecao}.3 Risco de Negócio (1 parágrafo — o que pode acontecer se mantiver este nível)
+### ${numSecao}.4 Benchmark Setorial (1 parágrafo — onde a empresa está vs concorrentes do setor)
+### ${numSecao}.5 Recomendações Específicas (3–4 ações concretas com Playbook Atlas quando aplicável)
+### ${numSecao}.6 KPIs de Acompanhamento (tabela com 3–5 KPIs: KPI | Baseline | Meta 6m | Meta 12m)
 
 OBRIGATÓRIO — EVITE REPETIÇÃO (Análise Diagnóstica e Risco de Negócio):
 - A **Análise Diagnóstica** deve abordar o tema **${dim.area}** de forma explícita: referencie em texto as perguntas com [Qn] e o padrão de respostas (não use parágrafo genérico de "maturidade de IA" que valeria para qualquer dimensão).
-- O **Risco de Negócio** deve ser **específico desta dimensão** (ex.: se a dimensão for Dados, fale de governança, qualidade, privacidade; se for Pessoas, fale de skill gap, produtividade, retenção; se for Tecnologia, fale de degradação de serviço, acoplamento, dívida técnica). **Proibido** repetir a mesma frase de "perder competitividade" / "ficar para trás" em várias dimensões sem detalhar o mecanismo de risco no contexto de **${dim.area}** e do setor **${setor}**.
-- Não copie a estrutura de abertura (primeira frase) usada em outra dimensão: varie o gancho (regulatório, financeiro, operacional, cliente, reputação, custo).
+- O **Risco de Negócio** deve ser **específico desta dimensão**. **Proibido** repetir a mesma frase genérica entre dimensões.
+- Numere **exatamente** ${numSecao}.1 … ${numSecao}.6 com ### (três #). **Não** gere "## ${numSecao}" nem "# 3. DIAGNÓSTICO".
 
 CONTEXTO:
 - Empresa: ${projeto.empresa.nome} (${setor}, porte ${porte})
@@ -5202,9 +6476,11 @@ CONTEXTO:
 - Média do setor: ${mediaSetor.toFixed(1)}
 
 DETALHE DESTA DIMENSÃO:
-${dim.perguntas.map(p => `- [Q${p.numero}] ${p.texto.substring(0, 160)} → Score ${p.score}`).join('\n')}
+${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
 
-Gere SOMENTE ${isFirst ? 'o cabeçalho da Seção 3 + a subseção 3.1' : `a subseção ${numSecao}`}. Seja profundo, contextualizado e use exemplos REAIS do setor ${setor}.`,
+${blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score)}
+
+Seja profundo, contextualizado e use exemplos REAIS do setor ${setor}.`,
         maxTokens: 6000
       });
     });
@@ -5260,22 +6536,32 @@ Gere SOMENTE as seções 6 e 7. Comece direto com "# 6. ROADMAP DE TRANSFORMAÇ�
     chunks.push({
       id: 'sec_8_9_10',
       label: 'Financeiro + Governança + Riscos',
-      prompt: `Gere SOMENTE as Seções 8, 9 e 10 do book, em Markdown:
+      prompt: `Gere SOMENTE as Seções 8, 9 e 10 do book, em Markdown com hierarquia fixa (# seção, ## subseção, ### item):
 
 # 8. PROJEÇÃO DE IMPACTO FINANCEIRO
-- **8.1 Trajetória MIT por nível**: reproduza ou resume a tabela de ROI típico por nível (dados do assessment) e explique o **ganho incremental esperado ao subir 1 nível de maturidade** (horizonte 18–36 meses).
-- **8.2 Cenários 12 meses**: tabela com 3 cenários (Conservador, Base, Agressivo): Investimento 12m | Economia 12m | Receita Incremental 12m | ROI% | Payback (meses) — alinhados às premissas do bloco financeiro e à trajetória MIT.
-- **8.3 Longo prazo (3–5 anos)**: parágrafo(s) sobre acumulação de valor ao aproximar-se dos níveis 4–5, mantendo coerência com a metodologia MIT (investimento em IA vs retorno sobre esse investimento).
-- Parágrafo de Premissas e fontes (MIT CISR, McKinsey, BCG)
-- Disclaimer: projeção referencial, não contratual
+## 8.1 Trajetória MIT por nível
+Reproduza ou resume a tabela de ROI típico por nível (dados do assessment) e explique o **ganho incremental esperado ao subir 1 nível de maturidade** (horizonte 18–36 meses).
+## 8.2 Cenários 12 meses
+Tabela com 3 cenários (Conservador, Base, Agressivo): Investimento 12m | Economia 12m | Receita Incremental 12m | ROI% | Payback (meses).
+## 8.3 Longo prazo (3–5 anos)
+Parágrafo(s) sobre acumulação de valor ao aproximar-se dos níveis 4–5, mantendo coerência com a metodologia MIT.
+### 8.3.1 Premissas e fontes
+MIT CISR, McKinsey, BCG — parágrafo curto.
+### 8.3.2 Disclaimer
+Projeção referencial, não contratual.
 
 # 9. GOVERNANÇA E ESTRUTURA RECOMENDADA
-- Subseção: Estrutura organizacional (CoE de IA, Comitês, papéis com responsabilidades)
-- Subseção: Modelo de Operação recomendado (centralizado / federado / híbrido) com justificativa
-- Subseção: Políticas mínimas: AI Ethics, Data Governance, Risk Management, Model Lifecycle
+## 9.1 Estrutura organizacional
+CoE de IA, Comitês, papéis com responsabilidades.
+## 9.2 Modelo de operação
+Centralizado / federado / híbrido — com justificativa.
+## 9.3 Políticas mínimas
+AI Ethics, Data Governance, Risk Management, Model Lifecycle.
 
 # 10. RISCOS E MITIGAÇÕES
-- Tabela com Top 10 Riscos: Risco | Probabilidade (Alta/Média/Baixa) | Impacto (Alto/Médio/Baixo) | Estratégia de Mitigação | Owner
+Tabela com Top 10 Riscos: Risco | Probabilidade | Impacto | Estratégia de Mitigação | Owner
+
+OBRIGATÓRIO: use exatamente os títulos # 8., # 9., # 10. e ## 8.N / ## 9.N acima; não use negrito no lugar de cabeçalho Markdown.
 
 CONTEXTO:
 ${dadosBlock}
@@ -5291,11 +6577,16 @@ Gere SOMENTE as seções 8, 9 e 10. Comece direto com "# 8. PROJEÇÃO DE IMPACT
       prompt: `Gere SOMENTE a Seção 11 do book, em Markdown:
 
 # 11. KPIs ESTRATÉGICOS (DASHBOARD EXECUTIVO)
-Tabela consolidada por categoria (KPI | Definição | Baseline | Meta 6m | Meta 12m):
-- **Negócio**: Receita por iniciativa IA, Custo evitado, NPS, Time-to-Market
-- **Técnicos (DORA + MLOps)**: Lead Time, Deploy Frequency, MTTR, Change Failure Rate, Model Drift, Time-to-Production
-- **Financeiros (FinOps)**: Custo por inferência, Custo por modelo, ROI por caso de uso
-- **Pessoas**: % colaboradores treinados, % times com AI assistance, Adoption rate
+## 11.1 KPIs de negócio
+Tabela: KPI | Definição | Baseline | Meta 6m | Meta 12m (Receita por iniciativa IA, Custo evitado, NPS, Time-to-Market).
+## 11.2 KPIs técnicos (DORA + MLOps)
+Tabela na mesma estrutura (Lead Time, Deploy Frequency, MTTR, Change Failure Rate, Model Drift, Time-to-Production).
+## 11.3 KPIs financeiros (FinOps)
+Tabela na mesma estrutura (Custo por inferência, Custo por modelo, ROI por caso de uso).
+## 11.4 KPIs de pessoas
+Tabela na mesma estrutura (% colaboradores treinados, % times com AI assistance, Adoption rate).
+
+OBRIGATÓRIO: comece com # 11. e use ## 11.N para cada categoria; não substitua cabeçalhos por negrito.
 
 CONTEXTO:
 ${dadosBlock}
@@ -5329,7 +6620,7 @@ Gere SOMENTE a seção 12 até o final do Apêndice B. Comece direto com "# 12. 
     chunks.push({
       id: 'sec_12_cd',
       label: 'Apêndices C e D',
-      prompt: `Continue a Seção 12 do book, em Markdown, gerando SOMENTE os apêndices abaixo:
+      prompt: `Continue a Seção 12 do book (o bloco ## Apêndice A e ## Apêndice B já foi gerado). Gere SOMENTE em Markdown:
 
 ## Apêndice C — Detalhamento dos Scores por Pergunta
 Tabela completa com TODAS as perguntas avaliadas (Dimensão | # | Pergunta resumida | Score).
@@ -5337,6 +6628,8 @@ NÃO RESUMA e NÃO CORTE linhas no meio.
 
 ## Apêndice D — Bibliografia e Próximas Leituras Recomendadas
 Lista de 8–10 referências (livros, papers, sites) sobre maturidade em IA, governança, MLOps
+
+OBRIGATÓRIO: use exatamente ## Apêndice C e ## Apêndice D; não repita # 12. APÊNDICES.
 
 CONTEXTO:
 ${dadosBlock}
@@ -5351,15 +6644,22 @@ Gere SOMENTE os Apêndices C e D. Comece direto com "## Apêndice C — Detalham
       label: 'Próximos Passos 30 dias',
       prompt: `Gere SOMENTE a Seção 13 do book, em Markdown:
 
-# 13. PRÓXIMOS PASSOS IMEDIATOS (NEXT 30 DAYS)
-Lista numerada de 7–10 ações concretas para os próximos 30 dias. Cada ação:
-**[N] Nome da Ação** — Responsável Sugerido: ... — Entregável Esperado: ... — Prazo: ...
-Inclua 1–2 ações explícitas que acelerem a consolidação do **próximo nível de maturidade MIT** (alinhadas ao bloco "Trajetória de valor MIT CISR" dos dados).
+# 13. PRÓXIMOS PASSOS IMEDIATOS (30 DIAS)
+## 13.1 Ações prioritárias
+Lista numerada de 7–10 ações concretas. Cada ação em bloco:
+### 13.1.N [Nome da Ação]
+- **Responsável sugerido:** …
+- **Entregável:** …
+- **Prazo:** …
+## 13.2 Alinhamento ao próximo nível MIT
+Parágrafo curto + 1–2 ações explícitas ligadas ao bloco "Trajetória de valor MIT CISR" dos dados.
+
+OBRIGATÓRIO: use # 13., ## 13.1 / ## 13.2 e ### 13.1.N; não use negrito como substituto de cabeçalho.
 
 CONTEXTO:
 ${dadosBlock}
 
-Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (NEXT 30 DAYS)".`,
+Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (30 DIAS)".`,
       maxTokens: 6000
     });
     } // fim else book completo
@@ -5384,11 +6684,33 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
     });
     
     const startTime = Date.now();
-    const partes = [];
+    const partesPreSec3 = [];
+    const blocosSec3PorIndice = Array(dimensoesDiagnostico.length).fill(null);
+    const partesPosSec3 = [];
+    let chegouSec3 = false;
     let totalTokensEntrada = 0;
     let totalTokensSaida = 0;
     let providerUsado = null;
     let modelUsado = null;
+
+    const registrarConteudoChunk = (chunk, conteudo) => {
+      const texto = String(conteudo || '').trim();
+      if (!texto) return;
+      const mSec3 = String(chunk.id || '').match(/^sec_3_(\d+)$/);
+      if (mSec3) {
+        chegouSec3 = true;
+        const dimIdx = parseInt(mSec3[1], 10) - 1;
+        if (dimIdx >= 0 && dimIdx < blocosSec3PorIndice.length) {
+          blocosSec3PorIndice[dimIdx] = texto;
+        }
+        return;
+      }
+      if (!chegouSec3) {
+        partesPreSec3.push(texto);
+      } else {
+        partesPosSec3.push(texto);
+      }
+    };
 
     for (let i = 0; i < chunks.length; i++) {
       if (bookClienteDesconectou) {
@@ -5397,14 +6719,39 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
         throw cancelErr;
       }
 
+      if (relatorioJobId) {
+        const jobSnap = await prisma.relatorioIAJob.findUnique({
+          where: { id: relatorioJobId },
+          select: { status: true }
+        });
+        if (jobSnap?.status === 'cancelled') {
+          const cancelErr = new Error('BOOK_IA_CANCELADO');
+          cancelErr.code = 'BOOK_IA_CANCELADO';
+          throw cancelErr;
+        }
+      }
+
       const chunk = chunks[i];
       console.log(`[Book IA] Chunk ${i + 1}/${chunks.length}: ${chunk.label}`);
       
       try {
-        // Usa callAIWithContinuation: se a IA truncar a resposta por max_tokens,
-        // automaticamente faz chamadas de continuação até finalizar (até 3 vezes).
-        // Isso evita o "corte no meio da frase" que acontecia em chunks longos
-        // (especialmente "Próximos Passos 30 Dias" e Apêndices C/D).
+        if (chunk.staticContent) {
+          registrarConteudoChunk(chunk, chunk.staticContent);
+          const pct = 6 + Math.round(((i + 1) / chunks.length) * 88);
+          await atualizarProgressoJobBook(relatorioJobId, {
+            progresso: Math.min(94, pct),
+            etapa: `Bloco ${i + 1}/${chunks.length}: ${chunk.label}`,
+            metadata: JSON.stringify({
+              fase: 'montagem_estatica',
+              chunkAtual: i + 1,
+              totalChunks: chunks.length,
+              chunkLabel: chunk.label,
+              chunkId: chunk.id
+            })
+          });
+          continue;
+        }
+
         const systemUsado = modoRapido ? systemPromptBaseRapido : systemPromptBase;
         const contOpts = modoRapido
           ? { maxContinuations: 2, minContentTail: 400 }
@@ -5423,7 +6770,29 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
           console.log(`[Book IA] Chunk ${chunk.id} foi completado com ${resultado.continuations} continuação(ões) automática(s).`);
         }
 
-        partes.push(resultado.content.trim());
+        const mSec3 = String(chunk.id || '').match(/^sec_3_(\d+)$/);
+        if (mSec3) {
+          const dimIdx = parseInt(mSec3[1], 10) - 1;
+          const dim = dimensoesDiagnostico[dimIdx];
+          if (dim) {
+            const numSecao = `3.${dimIdx + 1}`;
+            registrarConteudoChunk(
+              chunk,
+              montarBlocoSecao3Dimensao({
+                numSecao,
+                dim,
+                conteudoIa: resultado.content,
+                isFirst: dimIdx === 0,
+                totalDimensoes: dimensoesDiagnostico.length,
+                modoRapido
+              })
+            );
+          } else {
+            registrarConteudoChunk(chunk, resultado.content);
+          }
+        } else {
+          registrarConteudoChunk(chunk, resultado.content);
+        }
         totalTokensEntrada += resultado.tokensEntrada || 0;
         totalTokensSaida += resultado.tokensSaida || 0;
         if (!providerUsado) providerUsado = resultado.provider;
@@ -5453,10 +6822,41 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
             erroResumo: String(chunkError.message || '').slice(0, 200)
           })
         });
-        // Adiciona uma nota de erro mas continua para gerar o resto
-        partes.push(`\n\n> ⚠️ **Nota:** Esta seção (${chunk.label}) não pôde ser gerada devido a um erro temporário. Por favor, regenere o relatório.\n`);
+        const mSec3Err = String(chunk.id || '').match(/^sec_3_(\d+)$/);
+        if (mSec3Err) {
+          const dimIdx = parseInt(mSec3Err[1], 10) - 1;
+          const dim = dimensoesDiagnostico[dimIdx];
+          if (dim) {
+            const numSecao = `3.${dimIdx + 1}`;
+            registrarConteudoChunk(
+              chunk,
+              dimensaoComScoreZero(dim)
+                ? blocoDimensaoScoreZeroSecao3(numSecao, dim, {
+                    isFirst: dimIdx === 0,
+                    totalDimensoes: dimensoesDiagnostico.length,
+                    modoRapido
+                  })
+                : blocoFallbackErroSecao3Dimensao(numSecao, dim, chunkError.message, {
+                    isFirst: dimIdx === 0,
+                    totalDimensoes: dimensoesDiagnostico.length,
+                    modoRapido
+                  })
+            );
+          }
+        } else {
+          registrarConteudoChunk(
+            chunk,
+            `> ⚠️ **Nota:** Esta seção (${chunk.label}) não pôde ser gerada devido a um erro temporário. Por favor, regenere o relatório.`
+          );
+        }
       }
     }
+
+    const faltandoAntes = blocosSec3PorIndice.filter((b) => !b).length;
+    if (faltandoAntes > 0) {
+      console.warn(`[Book IA] Seção 3: ${faltandoAntes} bloco(s) ausente(s) — preenchendo com fallback.`);
+    }
+    const blocosSec3 = garantirBlocosSecao3Book(blocosSec3PorIndice, dimensoesDiagnostico, { modoRapido });
 
     await atualizarProgressoJobBook(relatorioJobId, {
       progresso: 94,
@@ -5468,7 +6868,15 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
       })
     });
 
-    const relatorioCompleto = partes.join('\n\n');
+    const relatorioCompleto = [...partesPreSec3, ...blocosSec3, ...partesPosSec3].join('\n\n');
+    const validacaoSec3 = relatorioBookSecao3Completo(relatorioCompleto);
+    if (!validacaoSec3.ok) {
+      console.warn(
+        `[Book IA] Seção 3 ainda incompleta após montagem (${validacaoSec3.total}/16). Faltando: ${validacaoSec3.faltando.join(', ')}`
+      );
+    } else {
+      console.log(`[Book IA] Seção 3 validada: ${validacaoSec3.total}/16 dimensões na ordem do framework.`);
+    }
     const relatorioComIndice = adicionarIndiceAoBookMarkdown(relatorioCompleto);
     const relatorioFinal = prependCapaNivelAvaliadoresAoRelatorio(
       relatorioComIndice,
@@ -5498,9 +6906,18 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
       mediaSetor,
       top5,
       bottom5,
-      scoresPorArea: scoresPorArea.map(a => ({ area: a.area, score: a.score, nivel: a.nivel })),
+      scoresPorArea: dimensoesDiagnostico.map((a) => ({
+        area: a.area,
+        score: a.score,
+        nivel: a.nivel,
+        semDadosConsolidados: dimensaoComScoreZero(a),
+      })),
+      dimensoesComDadosConsolidados: scoresPorArea.length,
+      totalDimensoesFramework: dimensoesDiagnostico.length,
       totalAvaliadores: avaliacoesFiltradas.length,
       filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+      projetoVersao,
+      comparativoVersoes,
       faturamentoAnualProjeto: projeto.faturamentoAnualProjeto ?? null,
       percentualReferenciaRoi: pctRefBook,
       modoGeracao: modoRapido ? 'rapido' : 'completo'
@@ -5521,7 +6938,7 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
         tokensEntrada: totalTokensEntrada,
         tokensSaida: totalTokensSaida,
         tempoGeracaoMs: tempoTotal,
-        chunksGerados: partes.length,
+        chunksGerados: chunks.length,
         totalChunks: chunks.length,
         dadosUsados,
         geradoPorId: req.user?.id || null
@@ -5549,7 +6966,7 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
         saida: totalTokensSaida
       },
       tempoResposta: tempoTotal,
-      chunksGerados: partes.length,
+      chunksGerados: chunks.length,
       totalChunks: chunks.length,
       dadosUsados,
       relatorioSalvoId: salvo?.id,
@@ -5560,7 +6977,8 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
       ultimaAvaliacaoFinalizadaEm: ultimaAvaliacaoFinalizadaEm?.toISOString() ?? null,
       relatorioVersaoGeradoEm: geradoEm.toISOString(),
       modoGeracao: modoRapido ? 'rapido' : 'completo',
-      filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax
+      filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+      projetoVersao
     });
     } catch (genErr) {
       if (genErr.code === 'BOOK_IA_CANCELADO') {
@@ -6703,27 +8121,16 @@ function textoLinhaCriterioAvaliacao(pontuacao, criterios) {
 }
 
 function getNivelMaturidade(score) {
-  if (score <= 1.5) return 'Inicial';
-  if (score <= 2.5) return 'Oportunista';
-  if (score <= 3.5) return 'Estruturado';
-  if (score <= 4.5) return 'Gerenciado';
-  return 'Otimizado';
+  return faixaNivelPorScore(score).nome;
 }
 
 function getNivelRelevancia(score) {
-  if (score <= 1.5) return 'Baixa Relevância';
-  if (score <= 2.5) return 'Relevância Moderada';
-  if (score <= 3.5) return 'Boa Relevância';
-  if (score <= 4.5) return 'Alta Relevância';
-  return 'Muito Alta Relevância';
+  const n = faixaNivelPorScore(score).nivel;
+  return ['Baixa Relevância', 'Relevância Moderada', 'Boa Relevância', 'Alta Relevância', 'Muito Alta Relevância'][n - 1];
 }
 
 function getClassificacao(score) {
-  if (score <= 1.5) return 'Iniciante';
-  if (score <= 2.5) return 'Básico';
-  if (score <= 3.5) return 'Intermediário';
-  if (score <= 4.5) return 'Avançado';
-  return 'Expert';
+  return faixaNivelPorScore(score).nome;
 }
 
 // ==========================================
@@ -7277,6 +8684,7 @@ initPrismaUsuarioColumnProbe()
   .then(() => ensureSchemaUsuarioNivelPrioridadeMaturidade())
   .then(() => ensureSchemaRespostaSemInformacao())
   .then(() => ensureSchemaAvaliacaoDesejosIA())
+  .then(() => ensureProjetoVersaoSchema())
   .then(() => refreshUsuarioNivelPrioridadeColumnFlag())
   .finally(() => {
     app.listen(PORT, () => {

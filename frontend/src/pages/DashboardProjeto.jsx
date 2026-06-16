@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -20,7 +20,8 @@ import { downloadWordDocument, downloadExecutiveWordDocument, downloadUserReport
 import { multiplicadorRoiPorFaturamento, percentualReferenciaRoi } from '../utils/roiPorFaturamento';
 import { VERTICAIS } from './Projetos';
 import { useTheme } from '../contexts/ThemeContext';
-import { perguntarFiltroNivelMapeamento } from '../utils/filtroNivelMaturidade';
+import { queryNivelMapeamentoMaturidade } from '../utils/filtroNivelMaturidade';
+import { nivelNumericoDeScore } from '../utils/nivelMaturidadeRubrica.js';
 
 ChartJS.register(
   RadialLinearScale,
@@ -398,11 +399,7 @@ const CAUSAS_EFEITOS_POR_VERTICAL = {
 };
 
 function getMaturityLevelFromScore(score) {
-  if (score < 1.5) return 1;
-  if (score < 2.5) return 2;
-  if (score < 3.5) return 3;
-  if (score < 4.5) return 4;
-  return 5;
+  return nivelNumericoDeScore(score);
 }
 
 const categoriasAgrupadas = {
@@ -449,6 +446,8 @@ const INDICADORES_SAUDE = {
 
 export default function DashboardProjeto() {
   const { id } = useParams();
+  const location = useLocation();
+  const versaoIdSelecionada = new URLSearchParams(location.search).get('versaoId');
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filtroNivelMapeamentoMaturidade, setFiltroNivelMapeamentoMaturidade] = useState(3);
@@ -472,6 +471,8 @@ export default function DashboardProjeto() {
   async function handleDownloadReport(format) {
     setExportMenuOpen(false);
     const projectName = dashboard.projeto.nome.replace(/\s+/g, '_');
+    const versaoQ = dashboard.projetoVersao?.id ? `versaoId=${dashboard.projetoVersao.id}` : '';
+    const projetoVersaoQ = dashboard.projetoVersao?.id ? `projetoVersaoId=${dashboard.projetoVersao.id}` : '';
     
     // RELATÓRIOS COMPLETOS
     if (format === 'word') {
@@ -484,7 +485,7 @@ export default function DashboardProjeto() {
       }
     } else if (format === 'md') {
       await exportarApi.download(
-        exportarApi.dashboard(id),
+        `${exportarApi.dashboard(id)}${versaoQ ? `?${versaoQ}` : ''}`,
         `Relatorio_Maturidade_Completo_${projectName}.md`
       );
     } else if (format === 'pdf') {
@@ -502,53 +503,36 @@ export default function DashboardProjeto() {
       }
     } else if (format === 'exec-md') {
       await exportarApi.download(
-        `/api/exportacao/executive/${id}`,
+        `/api/exportacao/executive/${id}${versaoQ ? `?${versaoQ}` : ''}`,
         `Relatorio_Executivo_IA_${projectName}.md`
       );
     } else if (format === 'exec-pdf') {
-      window.open(`/relatorios/${id}/executivo`, '_blank');
+      window.open(`/relatorios/${id}/executivo${versaoQ ? `?${versaoQ}` : ''}`, '_blank');
     }
     
-    // RELATÓRIOS GERADOS POR IA (validados pelo MIT) — mesmo filtro de prioridade do consolidado
+    // RELATÓRIOS GERADOS POR IA (validados pelo MIT) — usa o filtro já selecionado no dashboard
     else if (format === 'mit-ia') {
-      const nivel = perguntarFiltroNivelMapeamento({
-        defaultValue: filtroNivelMapeamentoMaturidade,
-        contexto: 'relatório estratégico C-Level'
-      });
-      if (nivel == null) return;
-      setFiltroNivelMapeamentoMaturidade(nivel === 0 ? 3 : nivel);
-      const nivelQ = `nivelPrioridadeMapeamentoMaturidade=${nivel}`;
+      const nivelQ = `${queryNivelMapeamentoMaturidade(filtroNivelMapeamentoMaturidade)}${projetoVersaoQ ? `&${projetoVersaoQ}` : ''}`;
       window.open(`/relatorios/${id}/mit-ia?${nivelQ}`, '_blank');
     } else if (format === 'mit-ia-completo') {
-      const nivel = perguntarFiltroNivelMapeamento({
-        defaultValue: filtroNivelMapeamentoMaturidade,
-        contexto: 'Book de Trabalho completo'
-      });
-      if (nivel == null) return;
-      setFiltroNivelMapeamentoMaturidade(nivel === 0 ? 3 : nivel);
-      const nivelQ = `nivelPrioridadeMapeamentoMaturidade=${nivel}`;
+      const nivelQ = `${queryNivelMapeamentoMaturidade(filtroNivelMapeamentoMaturidade)}${projetoVersaoQ ? `&${projetoVersaoQ}` : ''}`;
       window.open(`/relatorios/${id}/mit-ia-completo?${nivelQ}`, '_blank');
     } else if (format === 'mit-ia-completo-rapido') {
-      const nivel = perguntarFiltroNivelMapeamento({
-        defaultValue: filtroNivelMapeamentoMaturidade,
-        contexto: 'Book modo rápido'
-      });
-      if (nivel == null) return;
-      setFiltroNivelMapeamentoMaturidade(nivel === 0 ? 3 : nivel);
-      const nivelQ = `nivelPrioridadeMapeamentoMaturidade=${nivel}`;
+      const nivelQ = `${queryNivelMapeamentoMaturidade(filtroNivelMapeamentoMaturidade)}${projetoVersaoQ ? `&${projetoVersaoQ}` : ''}`;
       window.open(`/relatorios/${id}/mit-ia-completo?modo=rapido&${nivelQ}`, '_blank');
     }
   }
 
   useEffect(() => {
     loadDashboard();
-  }, [id, filtroNivelMapeamentoMaturidade]);
+  }, [id, filtroNivelMapeamentoMaturidade, versaoIdSelecionada]);
 
   async function loadDashboard() {
     try {
       setLoading(true);
       const data = await dashboardApi.projeto(id, {
-        nivelPrioridadeMapeamentoMaturidade: filtroNivelMapeamentoMaturidade
+        nivelPrioridadeMapeamentoMaturidade: filtroNivelMapeamentoMaturidade,
+        versaoId: versaoIdSelecionada
       });
       setDashboard(data);
     } catch (error) {
@@ -661,6 +645,22 @@ export default function DashboardProjeto() {
   };
 
   const categoriasComScores = getCategoriasComScores();
+  const planoAcao = dashboard.planoAcao || [];
+  const resumoComentarios = dashboard.resumoComentarios || { totalComentarios: 0, areas: [] };
+  const comparativoAvaliacoes = dashboard.comparativoAvaliacoes || {};
+  const prazoAvaliacao = dashboard.prazoAvaliacao || {};
+  const prazoLabel = {
+    sem_prazo: 'Sem prazo definido',
+    atrasado: 'Atrasado',
+    vence_em_breve: 'Vence em breve',
+    no_prazo: 'No prazo'
+  }[prazoAvaliacao.status] || 'Sem prazo definido';
+  const prazoColor = {
+    sem_prazo: 'text-slate-300 border-slate-600 bg-slate-700/40',
+    atrasado: 'text-red-200 border-red-500/40 bg-red-500/15',
+    vence_em_breve: 'text-amber-200 border-amber-500/40 bg-amber-500/15',
+    no_prazo: 'text-emerald-200 border-emerald-500/40 bg-emerald-500/15'
+  }[prazoAvaliacao.status] || 'text-slate-300 border-slate-600 bg-slate-700/40';
 
   return (
     <div className="min-h-screen bg-slate-900 flex">
@@ -987,6 +987,26 @@ export default function DashboardProjeto() {
             <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full font-medium border border-blue-500/30">
               SysMap Solutions
             </span>
+            {dashboard.projetoVersao && (
+              <span className="inline-flex items-center gap-1 text-xs bg-emerald-500/15 text-emerald-200 px-2 py-1 rounded-full font-medium border border-emerald-500/30">
+                <GitBranch className="h-3 w-3" />
+                {dashboard.projetoVersao.titulo} · {dashboard.projetoVersao.status}
+              </span>
+            )}
+            <Link
+              to={`/dashboard/projeto/${id}/plano-acao${dashboard.projetoVersao?.id ? `?versaoId=${dashboard.projetoVersao.id}` : ''}`}
+              className="ml-auto inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-500/25"
+            >
+              <Lightbulb className="h-4 w-4" />
+              Plano de ação
+            </Link>
+            <Link
+              to={`/dashboard/projeto/${id}/evolucao`}
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/15 px-3 py-2 text-sm font-medium text-blue-200 transition hover:bg-blue-500/25"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Evolução
+            </Link>
           </div>
           <p className="text-slate-400 mb-6">{dashboard.projeto.nome}</p>
 
@@ -1020,6 +1040,139 @@ export default function DashboardProjeto() {
               <div className="text-slate-500 text-sm">de {dashboard.totalEtapas}</div>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+            <div className={`rounded-xl border p-4 ${prazoColor}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wider opacity-75">Prazo da avaliação</div>
+                  <div className="mt-1 text-xl font-bold">{prazoLabel}</div>
+                  <p className="mt-1 text-sm opacity-80">
+                    {prazoAvaliacao.dataLimite
+                      ? `Data limite: ${new Date(`${prazoAvaliacao.dataLimite}T12:00:00`).toLocaleDateString('pt-BR')}`
+                      : `Sugestão: ${prazoAvaliacao.prazoSugerido || 'definir na descrição do projeto'}`}
+                  </p>
+                </div>
+                <Activity className="w-5 h-5 opacity-80" />
+              </div>
+              {prazoAvaliacao.diasRestantes != null && (
+                <p className="mt-3 text-xs opacity-75">
+                  {prazoAvaliacao.diasRestantes >= 0
+                    ? `${prazoAvaliacao.diasRestantes} dia(s) restante(s)`
+                    : `${Math.abs(prazoAvaliacao.diasRestantes)} dia(s) em atraso`}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-blue-100">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-blue-300">Evolução entre avaliações</div>
+                  <div className="mt-1 text-xl font-bold">
+                    {comparativoAvaliacoes.disponivel
+                      ? `${comparativoAvaliacoes.delta > 0 ? '+' : ''}${comparativoAvaliacoes.delta?.toFixed?.(2) ?? comparativoAvaliacoes.delta}`
+                      : 'Sem histórico suficiente'}
+                  </div>
+                  <p className="mt-1 text-sm text-blue-200">
+                    {comparativoAvaliacoes.disponivel
+                      ? `Tendência: ${comparativoAvaliacoes.tendencia}`
+                      : comparativoAvaliacoes.mensagem}
+                  </p>
+                </div>
+                <TrendingUp className="w-5 h-5 text-blue-300" />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-4 text-purple-100">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-purple-300">Comentários dos avaliadores</div>
+                  <div className="mt-1 text-xl font-bold">{resumoComentarios.totalComentarios}</div>
+                  <p className="mt-1 text-sm text-purple-200">
+                    {resumoComentarios.totalComentarios > 0
+                      ? 'Resumo gerado por regras locais, sem API externa.'
+                      : 'Nenhum comentário textual registrado.'}
+                  </p>
+                </div>
+                <FileText className="w-5 h-5 text-purple-300" />
+              </div>
+            </div>
+          </div>
+
+          {(planoAcao.length > 0 || resumoComentarios.areas.length > 0) && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+              {planoAcao.length > 0 && (
+                <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                  <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                    <Lightbulb className="w-5 h-5 text-amber-400" />
+                    Plano de ação automático por dimensão
+                  </h3>
+                  <div className="space-y-4">
+                    {planoAcao.slice(0, 4).map((item) => (
+                      <div key={item.areaId} className="rounded-lg bg-slate-700/50 p-4 border border-slate-600/60">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-white">{item.area}</p>
+                            <p className="text-xs text-slate-400">
+                              Score {Number(item.score).toFixed(1)} · Responsável: {item.responsavelSugerido}
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-200">
+                            {item.criticidade}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                          <div>
+                            <p className="text-xs font-semibold uppercase text-slate-400">30 dias</p>
+                            <ul className="mt-1 space-y-1 text-sm text-slate-300">
+                              {item.acoes30Dias.slice(0, 2).map((acao) => <li key={acao}>- {acao}</li>)}
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold uppercase text-slate-400">90 dias</p>
+                            <ul className="mt-1 space-y-1 text-sm text-slate-300">
+                              {item.acoes90Dias.slice(0, 2).map((acao) => <li key={acao}>- {acao}</li>)}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {resumoComentarios.areas.length > 0 && (
+                <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                  <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-400" />
+                    Resumo inteligente dos comentários
+                  </h3>
+                  <div className="space-y-4">
+                    {resumoComentarios.areas.map((area) => (
+                      <div key={area.area} className="rounded-lg bg-slate-700/50 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium text-white">{area.area}</p>
+                          <span className="text-xs text-slate-400">{area.totalComentarios} comentário(s)</span>
+                        </div>
+                        {area.temas.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {area.temas.map((tema) => (
+                              <span key={tema} className="rounded-full bg-purple-500/15 px-2 py-1 text-xs text-purple-200">
+                                {tema}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="mt-2 line-clamp-2 text-sm text-slate-300">
+                          {area.exemplos[0]}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Category Scores */}
           <div className="grid grid-cols-5 gap-4 mb-6">

@@ -1,0 +1,282 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 6: Inovação e Experimentação
+Framework: MIT CISR  ·  Peso no score: 6%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 6
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Inovação e Experimentação — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+MIT CISR
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Nenhum laboratório ou sandbox de IA dedicado
+	•	Sem processo para testar novas tecnologias
+	•	Inovação acontece por acidente, não por design
+	•	Sem parcerias com academia ou startups
+	•	Equipe não acompanha sistematicamente novidades de IA
+	•	Zero contribuição para a comunidade de IA
+
+O que você observa na prática
+	•	Empresa é sempre follower, nunca first-mover
+	•	Tecnologias de IA adotadas anos depois dos líderes do setor
+	•	Quando uma tecnologia vira commodity, a empresa ainda está aprendendo a usá-la
+	•	Nenhuma contribuição para o ecossistema externo de IA
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Designar uma pessoa responsável por monitorar e curar tendências de IA — mesmo que seja parte do tempo
+2
+Criar canal interno (Slack, newsletter) para compartilhar novidades de IA semanalmente
+3
+Estabelecer budget mínimo para experimentação: hackathons, cursos, ferramentas de IA
+4
+Realizar pelo menos um hackathon de IA por semestre com participação voluntária
+5
+Mapear quais startups e empresas de IA são mais relevantes para o setor da empresa
+
+Como confirmar que você atingiu o Nível 2
+	•	Responsável por curadoria de tendências designado
+	•	Canal interno de novidades de IA ativo
+	•	Budget mínimo de experimentação aprovado
+	•	Primeiro hackathon de IA realizado
+
+
+NÍVEL
+2
+INICIAL
+Inovação e Experimentação — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+MIT CISR
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Experimentações acontecem mas sem processo estruturado
+	•	Sandbox informal em alguns times técnicos
+	•	Parcerias acadêmicas ou com startups ocasionais e não formalizadas
+	•	Novidades acompanhadas por iniciativa individual de alguns colaboradores
+	•	Resultados de experimentos não documentados nem compartilhados
+	•	Ciclo experimento para produção é longo e irregular
+
+O que você observa na prática
+	•	Experimentação depende de campeões individuais
+	•	Resultados bons não são escalados para produção
+	•	Conhecimento gerado não é compartilhado entre times
+	•	A empresa está sempre testando coisas interessantes mas nunca coloca em produção
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Criar AI Labs formalizados com orçamento dedicado, equipe designada e processo de prototipagem
+2
+Implementar processo formal de experimentação com critérios de Go/No-Go para escalar para produção
+3
+Formalizar parcerias com ao menos 2 entidades externas: universidade, aceleradora ou startup
+4
+Criar sistema de documentação e compartilhamento de experimentos: wikis, demos mensais, repositório
+5
+Estabelecer processo de monitoramento sistemático de tecnologias emergentes (LLMs, agentes, multimodal)
+6
+Definir critério de tempo máximo de experimento: se não escala em 90 dias, encerra ou pivota
+
+Como confirmar que você atingiu o Nível 3
+	•	AI Labs formalizados com orçamento e equipe dedicada
+	•	Processo formal de prototipagem em menos de 30 dias operacional
+	•	Ao menos 2 parcerias externas formalizadas
+	•	Sistema de documentação de experimentos em uso ativo
+
+
+NÍVEL
+3
+DEFINIDO
+Inovação e Experimentação — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+MIT CISR
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	AI Labs formalizados com orçamento, equipe e processo de prototipagem estruturado
+	•	Processo de validação de novas tecnologias em menos de 30 dias
+	•	Acompanhamento sistemático de tendências com relatório quinzenal para liderança
+	•	Parcerias formais com universidades, startups e aceleradoras
+	•	Critério claro para escalar experimentos para produção
+	•	Experimentos documentados, compartilhados e consultáveis
+
+O que você observa na prática
+	•	A empresa consegue validar novas tecnologias antes que virem commodity
+	•	Experimentos bem-sucedidos têm caminho claro e rápido para produção
+	•	Conhecimento é documentado e transferido entre times
+	•	20% do mercado tem inovação estruturada — MIT CISR Estágio 2–3
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Criar Centro de Inovação em IA com portfólio ativo de experimentos e gestão profissional
+2
+Iniciar contribuição ativa para open source e comunidade de IA
+3
+Desenvolver parcerias estratégicas profundas com universidades e scale-ups
+4
+Reduzir tempo médio de experimento para produção para menos de 90 dias
+5
+Criar programa de innovation fellowship: trazer pesquisadores externos por períodos de 3–6 meses
+6
+Participar de competições de IA (Kaggle, benchmarks setoriais) como calibração externa
+
+Como confirmar que você atingiu o Nível 4
+	•	Centro de Inovação com portfólio ativo de ao menos 5 experimentos simultâneos
+	•	Contribuição ativa para open source com repositórios públicos
+	•	Ao menos 1 parceria estratégica profunda com universidade ou scale-up
+	•	Tempo médio de experimento para produção abaixo de 90 dias
+
+
+NÍVEL
+4
+GERENCIADO
+Inovação e Experimentação — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+MIT CISR
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Centro de Inovação em IA com portfólio ativo e gestão profissional
+	•	Publicações técnicas, open source e participação ativa na comunidade de IA
+	•	Parcerias estratégicas com universidades e scale-ups para co-desenvolvimento real
+	•	Tempo médio de experimento para produção abaixo de 90 dias
+	•	Time de pesquisa aplicada com cientistas dedicados
+	•	A empresa é convidada para eventos, conferências e grupos de trabalho de IA
+
+O que você observa na prática
+	•	A empresa está na fronteira da inovação em IA do setor
+	•	Publicações da empresa são citadas pela comunidade
+	•	Patentes de IA sendo solicitadas
+	•	Top 11% MIT CISR Estágio 3–4: inovação como competência
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Criar departamento de pesquisa em IA com agenda proprietária de longo prazo
+2
+Estabelecer programa de investimento em startups de IA estratégicas
+3
+Desenvolver patentes e propriedade intelectual em IA como ativo estratégico
+4
+Criar parcerias de pesquisa com MIT, Stanford, USP para pesquisa fundamental
+5
+Tornar a empresa destino de pesquisa: bolsas para PhDs, programas de residência
+6
+Criar AI Innovation Index próprio que se torne referência de mensuração no setor
+
+Como confirmar que você atingiu o Nível 5
+	•	Departamento de pesquisa em IA com agenda proprietária
+	•	Portfólio de investimentos em startups de IA estratégicas
+	•	Ao menos 3 patentes de IA solicitadas
+	•	Parceria formal de pesquisa fundamental com universidade de referência global
+
+
+NÍVEL
+5
+OTIMIZADO
+Inovação e Experimentação — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+MIT CISR
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Inovação contínua como competência central e vantagem competitiva
+	•	Departamento de pesquisa com agenda proprietária e PhDs in-company
+	•	Patentes de IA e propriedade intelectual como ativo estratégico
+	•	Portfólio de investimentos em startups de IA alinhadas ao roadmap
+	•	A empresa cria tendências de IA — não segue
+	•	Pesquisas da empresa citadas globalmente e influenciam o estado da arte
+
+O que você observa na prática
+	•	Top 4% MIT CISR — a empresa define o estado da arte em IA no setor
+	•	Concorrentes respondem às inovações da empresa, não o contrário
+	•	Talentos de pesquisa buscam a empresa globalmente
+	•	A empresa é o destino de pesquisa de IA mais desejado do país no setor
+
+
+Parabéns. Você atingiu o topo da Dimensão 6.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar laboratório para próxima geração: IA Quântica, Foundation Models proprietários
+	•	Criar programa de residência internacional para pesquisadores
+	•	Publicar relatório anual de estado da arte em IA como referência global do setor
+	•	Estabelecer consórcio de pesquisa em IA com outras empresas líderes para desafios compartilhados
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Nenhum laboratório ou sandbox de IA dedicado
+Designar uma pessoa responsável por monitorar e curar tendências de IA — mesmo que seja parte do tempo
+2
+Inicial
+Inicial
+Experimentações acontecem mas sem processo estruturado
+Criar AI Labs formalizados com orçamento dedicado, equipe designada e processo de prototipagem
+3
+Definido
+Definido
+AI Labs formalizados com orçamento, equipe e processo de prototipagem estruturado
+Criar Centro de Inovação em IA com portfólio ativo de experimentos e gestão profissional
+4
+Gerenciado
+Gerenciado
+Centro de Inovação em IA com portfólio ativo e gestão profissional
+Criar departamento de pesquisa em IA com agenda proprietária de longo prazo
+5
+Otimizado
+Otimizado
+Inovação contínua como competência central e vantagem competitiva
+Preparar laboratório para próxima geração: IA Quântica, Foundation Models proprietários

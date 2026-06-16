@@ -69,6 +69,21 @@ export const projetosApi = {
   atualizar: (id, data) => request(`/projetos/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   excluir: (id) => request(`/projetos/${id}`, { method: 'DELETE' }),
   desejosIaDashboard: (projetoId) => request(`/projetos/${projetoId}/desejos-ia`),
+  versoes: (projetoId) => request(`/projetos/${projetoId}/versoes`),
+  criarVersao: (projetoId, data = {}) =>
+    request(`/projetos/${projetoId}/versoes`, { method: 'POST', body: JSON.stringify(data) }),
+  fecharVersao: (projetoId, versaoId) =>
+    request(`/projetos/${projetoId}/versoes/${versaoId}/fechar`, { method: 'POST' }),
+  reabrirVersao: (projetoId, versaoId, data = {}) =>
+    request(`/projetos/${projetoId}/versoes/${versaoId}/reabrir`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  reenviarConvitesVersao: (projetoId, data = {}) =>
+    request(`/projetos/${projetoId}/versoes/reenviar-convites`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
   avaliadoresStatus: (projetoId, opts = {}) => {
     const n = opts?.nivelPrioridadeMapeamentoMaturidade;
     if (n === 0 || n === '0') {
@@ -79,6 +94,17 @@ export const projetosApi = {
     const q =
       n >= 1 && n <= 3 ? `?nivelPrioridadeMapeamentoMaturidade=${encodeURIComponent(String(n))}` : '';
     return request(`/projetos/${projetoId}/avaliadores-status${q}`);
+  },
+  avaliadoresDimensoes: (projetoId, opts = {}) => {
+    const n = opts?.nivelPrioridadeMapeamentoMaturidade;
+    if (n === 0 || n === '0') {
+      return request(
+        `/projetos/${projetoId}/avaliadores-dimensoes?nivelPrioridadeMapeamentoMaturidade=0`
+      );
+    }
+    const q =
+      n >= 1 && n <= 3 ? `?nivelPrioridadeMapeamentoMaturidade=${encodeURIComponent(String(n))}` : '';
+    return request(`/projetos/${projetoId}/avaliadores-dimensoes${q}`);
   },
   enviarLembreteAvaliador: (projetoId, usuarioId) =>
     request(`/projetos/${projetoId}/avaliadores/lembrete`, {
@@ -149,16 +175,19 @@ function appendNivelPrioridadeMapeamentoParams(params, opts = {}) {
   } else {
     params.set('nivelPrioridadeMapeamentoMaturidade', '3');
   }
+  if (opts.projetoVersaoId) params.set('projetoVersaoId', String(opts.projetoVersaoId));
+  else if (opts.versaoId) params.set('projetoVersaoId', String(opts.versaoId));
 }
 
 export const dashboardApi = {
   projeto: (projetoId, opts = {}) => {
+    const params = new URLSearchParams();
     const n = opts.nivelPrioridadeMapeamentoMaturidade;
-    const q =
-      n >= 1 && n <= 3
-        ? `?nivelPrioridadeMapeamentoMaturidade=${encodeURIComponent(String(n))}`
-        : '';
-    return request(`/dashboard/projeto/${projetoId}${q}`);
+    if (n >= 1 && n <= 3) params.set('nivelPrioridadeMapeamentoMaturidade', String(n));
+    if (opts.projetoVersaoId) params.set('projetoVersaoId', String(opts.projetoVersaoId));
+    else if (opts.versaoId) params.set('projetoVersaoId', String(opts.versaoId));
+    const q = params.toString();
+    return request(`/dashboard/projeto/${projetoId}${q ? `?${q}` : ''}`);
   },
   empresa: (empresaId, opts = {}) => {
     const n = opts.nivelPrioridadeMapeamentoMaturidade;
@@ -194,6 +223,7 @@ export const dashboardApi = {
   },
   iniciarRelatorioIABackground: (projetoId, tipo, opts = {}) => {
     const body = { projetoId, tipo };
+    if (opts.versaoId) body.versaoId = opts.versaoId;
     const n = opts.nivelPrioridadeMapeamentoMaturidade;
     if (n === 0 || n === '0') body.nivelPrioridadeMapeamentoMaturidade = 0;
     else if (n >= 1 && n <= 3) body.nivelPrioridadeMapeamentoMaturidade = n;
@@ -468,6 +498,7 @@ export const exportarApi = {
   especificacao: (especificacaoId) => `${API_URL}/exportar/especificacao/${especificacaoId}`,
   produto: (produtoId) => `${API_URL}/exportar/produto/${produtoId}`,
   dashboard: (projetoId) => `${API_URL}/exportar/dashboard/${projetoId}`,
+  pacoteVersao: (projetoId, versaoId) => `${API_URL}/exportar/versao/${projetoId}/${versaoId}/zip`,
   
   // Função auxiliar para download
   download: async (url, filename) => {

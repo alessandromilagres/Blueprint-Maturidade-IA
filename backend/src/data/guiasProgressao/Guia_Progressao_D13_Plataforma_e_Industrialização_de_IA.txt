@@ -1,0 +1,280 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 13: Plataforma e Industrialização de IA
+Framework: MIT CISR  ·  Peso no score: 7%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 13
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Plataforma e Industrialização de IA — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+MIT CISR
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Nenhuma plataforma centralizada de IA: cada projeto usa suas próprias ferramentas
+	•	Sem catálogo de modelos: ninguém sabe quais modelos existem na empresa
+	•	Zero reuso de componentes entre projetos
+	•	Cada projeto começa do zero sem aproveitamento do que foi desenvolvido antes
+	•	Sem processo de onboarding de novos projetos na plataforma (porque ela não existe)
+	•	IA é artesanal: cada solução é única, cara e difícil de manter
+
+O que você observa na prática
+	•	Custos de desenvolvimento de IA explodem com cada novo projeto
+	•	Qualidade inconsistente: cada projeto tem seu próprio padrão (ou falta dele)
+	•	Conhecimento não é preservado: quando pessoas saem, o conhecimento vai junto
+	•	A empresa não consegue escalar IA porque cada projeto é uma startup interna
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Inventariar todos os modelos de IA existentes — mesmo os 'escondidos' em planilhas e scripts
+2
+Escolher 1 conjunto de ferramentas padrão para desenvolvimento de IA e comunicar para todos
+3
+Criar repositório centralizado de código de IA com convenções de nomenclatura e organização
+4
+Iniciar documentação dos modelos mais importantes em formato de Model Card
+5
+Identificar os 2–3 componentes que poderiam ser reutilizados e criar versão compartilhável
+
+Como confirmar que você atingiu o Nível 2
+	•	Inventário de modelos de IA na empresa concluído
+	•	Conjunto padrão de ferramentas de IA definido e comunicado
+	•	Repositório centralizado de código criado e em uso
+	•	Ao menos 2 componentes reutilizáveis documentados e disponíveis
+
+
+NÍVEL
+2
+INICIAL
+Plataforma e Industrialização de IA — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+MIT CISR
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Alguns componentes compartilhados entre times mas sem plataforma formal
+	•	Repositório centralizado de código mas com padrões inconsistentes
+	•	Catálogo de modelos informal e desatualizado
+	•	Onboarding de novos projetos demorado: cada time ainda descobre tudo do zero
+	•	Ferramentas de IA parcialmente padronizadas
+	•	Plataforma embrionária que só alguns times usam
+
+O que você observa na prática
+	•	Algum reuso mas ainda muito manual e dependente de conhecimento tácito
+	•	Plataforma instável ou percebida como 'mais difícil do que fazer do zero'
+	•	Time-to-production ainda acima de 3 meses para novos projetos
+	•	A plataforma existe mas não é a escolha natural dos times
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Criar a plataforma centralizada de IA com interface self-service para data scientists
+2
+Desenvolver catálogo formal de modelos com documentação obrigatória, versionamento e status
+3
+Criar processo formal de onboarding de novos projetos com templates e automações
+4
+Estabelecer SLAs de disponibilidade e suporte para a plataforma
+5
+Criar métricas de uso da plataforma: adoção, tempo de desenvolvimento, taxa de reuso
+6
+Criar equipe dedicada de Platform Engineering para manter e evoluir a plataforma
+
+Como confirmar que você atingiu o Nível 3
+	•	Plataforma centralizada operacional com interface self-service usada por ao menos 50% dos times
+	•	Catálogo formal de modelos com documentação obrigatória em uso
+	•	Processo de onboarding reduzindo time-to-start para menos de 1 semana
+	•	Time-to-production abaixo de 6 semanas para projetos que usam a plataforma
+
+
+NÍVEL
+3
+DEFINIDO
+Plataforma e Industrialização de IA — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+MIT CISR
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Plataforma centralizada com acesso self-service para data scientists e ML engineers
+	•	Catálogo de modelos operacional com versionamento, documentação e status
+	•	Taxa de reuso de componentes acima de 40% entre projetos
+	•	Processo formal de onboarding de novos projetos
+	•	SLAs de disponibilidade e suporte definidos e sendo cumpridos
+	•	Time de Platform Engineering dedicado mantendo e evoluindo a plataforma
+
+O que você observa na prática
+	•	Novos projetos constroem sobre o que já existe — não reinventam a roda
+	•	A plataforma é confiável e usada pela maioria dos times
+	•	Tempo de desenvolvimento de novos modelos reduzido significativamente
+	•	MIT CISR Estágio 2–3: a empresa tem plataforma de IA funcional
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Expandir a plataforma para self-service de times de negócio: não apenas data scientists
+2
+Criar capacidade de AutoML: times de negócio criam modelos básicos sem código
+3
+Implementar Feature Store com acesso universal para reuso entre projetos
+4
+Criar marketplace de modelos internos pré-treinados disponíveis para fine-tuning
+5
+Medir e publicar o NPS da plataforma entre os usuários como produto interno
+6
+Criar certificação de Plataforma Pronta: modelos só vão a produção após checklist automatizado
+
+Como confirmar que você atingiu o Nível 4
+	•	Times de negócio usando a plataforma sem precisar de data scientist para casos básicos
+	•	AutoML disponível para ao menos 3 tipos de modelos
+	•	Feature Store operacional com ao menos 50 features compartilhadas entre projetos
+	•	NPS da plataforma acima de 40 entre usuários internos
+
+
+NÍVEL
+4
+GERENCIADO
+Plataforma e Industrialização de IA — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+MIT CISR
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Plataforma como produto interno com NPS alto, SLAs rigorosos e roadmap próprio
+	•	Self-service para times de negócio: analistas criam modelos sem código
+	•	AutoML disponível para tipos comuns de modelos
+	•	Feature Store com reuso acima de 70%
+	•	Marketplace de modelos internos pré-treinados
+	•	Certificação automática: checklist no pipeline para garantir qualidade antes do deploy
+
+O que você observa na prática
+	•	Times de negócio constroem IA de forma independente para casos do dia-a-dia
+	•	A plataforma multiplica a capacidade de entrega sem aumentar headcount
+	•	Fábrica de IA operacional: novos modelos entram em dias, não semanas
+	•	Top 11% MIT CISR Estágio 3–4: plataforma como alavanca de escala
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Transformar a plataforma em produto comercializável: publicar arquitetura e avaliar potencial de venda externa
+2
+Implementar capacidade de Multi-Agent Systems na plataforma: agentes que se auto-orquestram
+3
+Criar capacidade de self-healing: problemas detectados e corrigidos automaticamente
+4
+Publicar a plataforma como open source ou como caso de referência do setor
+5
+Criar API pública da plataforma para parceiros externos se integrarem
+
+Como confirmar que você atingiu o Nível 5
+	•	Plataforma publicada como caso de referência ou open source
+	•	Capacidade de Multi-Agent Systems disponível
+	•	Self-healing implementado para os principais tipos de falha
+	•	API pública disponível para ao menos 3 parceiros externos
+
+
+NÍVEL
+5
+OTIMIZADO
+Plataforma e Industrialização de IA — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+MIT CISR
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Plataforma industrializada que poderia ser comercializada como produto
+	•	Multi-Agent Systems nativa: agentes se auto-orquestram em workflows complexos
+	•	Self-healing e auto-scaling automáticos
+	•	Publicada como referência do setor ou open source com contribuidores externos
+	•	API pública com parceiros integrados
+	•	Capacidade de processar milhares de modelos em produção simultaneamente
+
+O que você observa na prática
+	•	Top 4% MIT CISR: a plataforma é ativo estratégico avaliável
+	•	A empresa entrega mais IA com menos pessoas do que qualquer concorrente
+	•	Parceiros externos contribuem para a evolução — efeito de comunidade
+	•	A plataforma é barreira de entrada: levaria anos para concorrentes replicar
+
+
+Parabéns. Você atingiu o topo da Dimensão 13.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Criar filial ou empresa separada para comercializar a plataforma como produto
+	•	Desenvolver capacidade de IA Quântica na plataforma para otimizações de alta complexidade
+	•	Criar programa de certificação de desenvolvedores na plataforma para o mercado externo
+	•	Publicar relatório anual de evolução da plataforma como referência de engenharia de IA
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Nenhuma plataforma centralizada de IA: cada projeto usa suas próprias ferramentas
+Inventariar todos os modelos de IA existentes — mesmo os 'escondidos' em planilhas e scripts
+2
+Inicial
+Inicial
+Alguns componentes compartilhados entre times mas sem plataforma formal
+Criar a plataforma centralizada de IA com interface self-service para data scientists
+3
+Definido
+Definido
+Plataforma centralizada com acesso self-service para data scientists e ML engineers
+Expandir a plataforma para self-service de times de negócio: não apenas data scientists
+4
+Gerenciado
+Gerenciado
+Plataforma como produto interno com NPS alto, SLAs rigorosos e roadmap próprio
+Transformar a plataforma em produto comercializável: publicar arquitetura e avaliar potencial de venda externa
+5
+Otimizado
+Otimizado
+Plataforma industrializada que poderia ser comercializada como produto
+Criar filial ou empresa separada para comercializar a plataforma como produto

@@ -1,0 +1,281 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 7: Valor de Negócio e ROI
+Framework: McKinsey  ·  Peso no score: 7%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 7
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Valor de Negócio e ROI — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+McKinsey
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Nenhuma metodologia para medir ROI de IA
+	•	Projetos aprovados por entusiasmo, não por valor esperado
+	•	Sem métricas de impacto para projetos de IA
+	•	ROI desconhecido ou possivelmente negativo
+	•	Investimentos em IA sem justificativa financeira formal
+	•	IA é centro de custo sem retorno demonstrável
+
+O que você observa na prática
+	•	Difícil defender o budget de IA em ciclos de pressão por resultados
+	•	Alta probabilidade de corte de programas de IA em downturn
+	•	CFO e financeiro não apoiam IA porque não veem os números
+	•	Ciclos de entusiasmo e decepção sem evidência de valor acumulada
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Para cada projeto de IA em andamento, definir retroativamente as métricas de valor: qual KPI de negócio esse projeto afeta
+2
+Inventariar projetos de IA com estimativa de valor, mesmo que informal e aproximada
+3
+Escolher 1 projeto piloto para mensurar valor de forma rigorosa como prova de conceito metodológica
+4
+Criar template básico de business case para novos projetos de IA
+5
+Agendar apresentação mensal com CFO ou Controller sobre impacto financeiro de IA
+
+Como confirmar que você atingiu o Nível 2
+	•	Todos os projetos de IA têm ao menos uma métrica de valor associada
+	•	Template de business case criado e em uso em novos projetos
+	•	Primeira apresentação de resultados financeiros de IA realizada para liderança
+
+
+NÍVEL
+2
+INICIAL
+Valor de Negócio e ROI — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+McKinsey
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	ROI calculado informalmente em alguns projetos mas sem metodologia padrão
+	•	Métricas de impacto definidas caso a caso — difícil comparar entre projetos
+	•	Valor reportado narrativamente, sem dados consistentes
+	•	Alguns projetos demonstram valor mas de forma não comparável
+	•	Priorização de projetos baseada em preferência técnica, não em valor esperado
+	•	Business cases de IA sem rigor financeiro adequado
+
+O que você observa na prática
+	•	Difícil priorizar entre projetos de IA com metodologias diferentes
+	•	CFO não confia nos números de ROI de IA
+	•	Cada área apresenta ROI de forma diferente — sem consolidação possível
+	•	Investimentos de IA vulneráveis a questionamentos de retorno
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Criar e aprovar Metodologia Padrão de ROI de IA baseada no McKinsey Value Creation Framework: receita, custo e capital
+2
+Implementar dashboard de valor de IA consolidado com todos os projetos medidos pelo mesmo critério
+3
+Estabelecer processo de business case obrigatório com análise financeira rigorosa para novos projetos
+4
+Criar cadência trimestral de reporte de ROI de IA para a liderança sênior
+5
+Implementar post-mortem financeiro: comparar projetado vs. realizado em todos os projetos concluídos
+6
+Treinar todos os líderes de IA em análise financeira de valor de IA
+
+Como confirmar que você atingiu o Nível 3
+	•	Metodologia padrão de ROI de IA aprovada e aplicada em 100% dos projetos
+	•	Dashboard de valor de IA consolidado operacional
+	•	Post-mortem financeiro realizado em ao menos 3 projetos concluídos
+	•	Reporte trimestral de ROI de IA para liderança estabelecido
+
+
+NÍVEL
+3
+DEFINIDO
+Valor de Negócio e ROI — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+McKinsey
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Metodologia padrão de ROI aplicada a todos os projetos de IA
+	•	Dashboard de valor de IA com todos os projetos medidos pelo mesmo critério
+	•	Métricas de receita, custo e produtividade rastreadas e reportadas trimestralmente
+	•	Business cases obrigatórios com análise financeira antes da aprovação
+	•	Post-mortem financeiro de todos os projetos concluídos
+	•	Priorização de novos projetos baseada em ROI esperado e estratégia
+
+O que você observa na prática
+	•	A empresa sabe quanto IA vale em termos financeiros
+	•	Novos projetos priorizados por ROI com critério objetivo
+	•	Realizados vs. projetados comparados sistematicamente
+	•	MIT CISR Estágio 2–3: a empresa sabe o valor que IA gera
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Integrar ROI de IA ao planejamento financeiro anual: IA como linha de investimento no orçamento corporativo
+2
+Criar modelos preditivos de valor por iniciativa com análise de sensibilidade e cenários
+3
+Implementar gestão de portfólio de IA como portfólio de investimentos: balancear risco, retorno e prazo
+4
+Incluir métricas de IA nos OKRs de todas as áreas com metas financeiras específicas
+5
+Criar capacidade de projeção de ROI de IA a 3 anos como parte do planejamento estratégico
+6
+Desenvolver benchmarking externo de ROI de IA: como a empresa se compara com pares do setor
+
+Como confirmar que você atingiu o Nível 4
+	•	ROI de IA integrado ao planejamento financeiro anual como linha de investimento
+	•	Modelos preditivos de valor com análise de sensibilidade operacionais
+	•	Métricas de IA nos OKRs de ao menos 5 áreas diferentes
+	•	Benchmarking externo de ROI de IA realizado
+
+
+NÍVEL
+4
+GERENCIADO
+Valor de Negócio e ROI — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+McKinsey
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	ROI de IA integrado ao planejamento estratégico e financeiro corporativo
+	•	Gestão de portfólio de IA como portfólio de investimentos com balanceamento de risco
+	•	Modelos preditivos de valor a 3 anos aprovados como parte do planejamento
+	•	OKRs de IA em todas as áreas com metas financeiras específicas
+	•	Benchmarking externo com pares do setor realizado regularmente
+	•	IA mencionada na tese de investimento para analistas e investidores
+
+O que você observa na prática
+	•	CFO é um dos maiores defensores do programa de IA (porque vê os números)
+	•	Decisões de M&A incluem análise de impacto de valor de IA
+	•	A empresa consegue atrair capital a custo menor porque tem ROI de IA demonstrável
+	•	Top 11% MIT CISR Estágio 3–4: IA como gerador de valor financeiro comprovado
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Tornar IA o principal motor de crescimento com ao menos 30% do crescimento atribuído a IA
+2
+Publicar externamente cases de ROI de IA como referência do setor
+3
+Desenvolver metodologia proprietária de valoração de IA que se torne benchmark setorial
+4
+Criar IA como produto: transformar capacidades de IA em linhas de receita diretas
+5
+Apresentar ROI de IA no relatório anual para acionistas como diferencial competitivo
+6
+Desenvolver modelo de precificação dinâmica baseada em IA criando vantagem competitiva estrutural
+
+Como confirmar que você atingiu o Nível 5
+	•	Ao menos 30% do crescimento atribuível a iniciativas de IA documentado
+	•	Metodologia proprietária de valoração de IA publicada externamente
+	•	IA como produto: ao menos 1 linha de receita direta baseada em IA
+	•	ROI de IA apresentado no relatório anual para acionistas
+
+
+NÍVEL
+5
+OTIMIZADO
+Valor de Negócio e ROI — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+McKinsey
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	IA como motor central de crescimento: 30%+ do crescimento atribuído a IA
+	•	Metodologia proprietária de valoração reconhecida como benchmark setorial
+	•	IA como produto: múltiplas linhas de receita direta baseadas em IA
+	•	Modelo de negócio com vantagem estrutural de custo e receita via IA
+	•	ROI de IA apresentado no relatório anual como diferencial competitivo principal
+	•	Investidores e analistas precificam o programa de IA como ativo estratégico
+
+O que você observa na prática
+	•	O modelo de negócio tem vantagem de custo estrutural impossível sem IA
+	•	Concorrentes não conseguem replicar o ROI de IA por falta de escala e dados
+	•	Top 4% MIT CISR: ROI de IA demonstrável e multiplicável
+	•	A empresa é benchmark de valoração de IA para todo o setor
+
+
+Parabéns. Você atingiu o topo da Dimensão 7.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Desenvolver modelo de ROI para IA Agêntica: diferentes métricas de retorno para agentes autônomos
+	•	Criar metodologia de valoração de ativos de dados e modelos para fins contábeis
+	•	Publicar relatório anual de impacto econômico de IA como referência pública
+	•	Desenvolver tese de investimento em IA de próxima geração para o Board
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Nenhuma metodologia para medir ROI de IA
+Para cada projeto de IA em andamento, definir retroativamente as métricas de valor: qual KPI de negócio esse projeto afeta
+2
+Inicial
+Inicial
+ROI calculado informalmente em alguns projetos mas sem metodologia padrão
+Criar e aprovar Metodologia Padrão de ROI de IA baseada no McKinsey Value Creation Framework: receita, custo e capital
+3
+Definido
+Definido
+Metodologia padrão de ROI aplicada a todos os projetos de IA
+Integrar ROI de IA ao planejamento financeiro anual: IA como linha de investimento no orçamento corporativo
+4
+Gerenciado
+Gerenciado
+ROI de IA integrado ao planejamento estratégico e financeiro corporativo
+Tornar IA o principal motor de crescimento com ao menos 30% do crescimento atribuído a IA
+5
+Otimizado
+Otimizado
+IA como motor central de crescimento: 30%+ do crescimento atribuído a IA
+Desenvolver modelo de ROI para IA Agêntica: diferentes métricas de retorno para agentes autônomos

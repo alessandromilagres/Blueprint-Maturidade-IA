@@ -1,0 +1,283 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 10: Talentos e Capacidades
+Framework: SFIA / Gartner  ·  Peso no score: 5%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 10
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Talentos e Capacidades — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+SFIA / Gartner
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Nenhum mapeamento de talentos de IA na empresa
+	•	Sem data scientists, ML engineers ou profissionais especializados em IA
+	•	Dependência total de fornecedores externos para qualquer projeto de IA
+	•	Sem estratégia de build/buy/borrow para talentos
+	•	Habilidades de IA desconhecidas: ninguém sabe quem sabe o quê
+	•	Nenhuma trilha de desenvolvimento para profissionais de dados
+
+O que você observa na prática
+	•	A empresa não tem capacidade interna para desenvolver ou operar IA
+	•	Cada projeto requer contratar consultoria externa do zero
+	•	Conhecimento estratégico de IA fica fora da empresa
+	•	Risco de dependência: fornecedores podem sair ou aumentar preços a qualquer momento
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Mapear quais habilidades de IA existem (mesmo informalmente) em qualquer parte da empresa
+2
+Recrutar ao menos 1 Data Scientist Sênior ou ML Engineer como primeiro hire estratégico
+3
+Criar estratégia informal de build/buy/borrow: para cada capacidade necessária, decidir construir, comprar ou terceirizar
+4
+Identificar 3–5 colaboradores com perfil para ser desenvolvidos em IA e criar plano individual
+5
+Contratar 1 consultoria de IA como parceiro para os primeiros projetos com transferência de conhecimento explícita no contrato
+
+Como confirmar que você atingiu o Nível 2
+	•	Mapeamento informal de habilidades de IA realizado
+	•	Ao menos 1 profissional sênior de IA contratado internamente
+	•	Estratégia inicial de build/buy/borrow documentada
+	•	Ao menos 3 colaboradores em programa de desenvolvimento para IA
+
+
+NÍVEL
+2
+INICIAL
+Talentos e Capacidades — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+SFIA / Gartner
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	1–3 data scientists concentrados em time central de TI ou Analytics
+	•	Mapeamento parcial de habilidades: sabe quem são os especialistas mas não o gap completo
+	•	Estratégia de talentos informal: cada contratação é reativa, não planejada
+	•	Sem MLOps Engineer dedicado: data scientists fazem o deploy também
+	•	Papéis especializados ausentes: sem AI PM, AI Ethics Officer, Prompt Engineer
+	•	Programas de desenvolvimento informais que dependem de iniciativa individual
+
+O que você observa na prática
+	•	IA concentrada em poucos especialistas: gargalo e risco crítico de saída
+	•	Maioria das equipes sem capacidade de trabalhar com IA autonomamente
+	•	Upskilling não estruturado e inconsistente entre times
+	•	A empresa consegue fazer pilotos mas não tem escala de talentos para projetos maiores
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Realizar análise formal de gap de talentos baseada no SFIA: competências atuais vs. necessárias para o roadmap
+2
+Criar estratégia documentada de build/buy/borrow com plano de 18 meses para endereçar os gaps
+3
+Contratar MLOps Engineer dedicado para separar engenharia de produção de ciência de dados
+4
+Criar papéis formais: AI Product Manager e Prompt Engineer como primeiros papéis especializados
+5
+Implementar programa formal de upskilling com trilhas e metas de desenvolvimento
+6
+Criar programa de mentoria: especialistas sêniores mentoram os mais juniores com metas claras
+
+Como confirmar que você atingiu o Nível 3
+	•	Análise de gap de talentos baseada no SFIA concluída e documentada
+	•	Estratégia de build/buy/borrow aprovada com plano de 18 meses
+	•	MLOps Engineer contratado e operacional
+	•	Papéis de AI PM e Prompt Engineer criados e preenchidos
+	•	Programa formal de upskilling com trilhas e metas operacional
+
+
+NÍVEL
+3
+DEFINIDO
+Talentos e Capacidades — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+SFIA / Gartner
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Mapeamento formal de gap de competências vs. necessidades do roadmap de IA
+	•	Estratégia documentada de build/buy/borrow com plano de 18 meses
+	•	Times de IA distribuídos em áreas além do time central (embeds, squads, células)
+	•	MLOps Engineer dedicado separando ciência de dados de engenharia de produção
+	•	Papéis especializados criados: AI PM, MLOps, Prompt Engineer
+	•	Programa formal de upskilling com metas e métricas de adesão
+
+O que você observa na prática
+	•	A empresa consegue executar o roadmap de IA sem depender 100% de terceiros
+	•	Gaps mapeados têm plano de endereçamento com prazo e responsável
+	•	Talentos distribuídos além do time central: IA chega nas áreas de negócio
+	•	MIT CISR Estágio 2–3: a empresa tem capacidade de IA para escalar
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Criar AI Talent Academy interna com programa de certificação de 6–12 meses
+2
+Criar papéis avançados: AI Architect, AI Ethics Officer, AI Security Engineer
+3
+Desenvolver programa de atração de talentos com employer branding específico em IA
+4
+Implementar planos de carreira com trilhas de senioridade em cada papel de IA
+5
+Criar programa de retenção específico para talentos de IA: equity, flexibilidade, projetos desafiadores
+6
+Benchmarcar salários de IA trimestralmente com o mercado para evitar perda de talentos-chave
+
+Como confirmar que você atingiu o Nível 4
+	•	AI Talent Academy com ao menos 15 alunos formados no primeiro ciclo
+	•	Papéis de AI Architect e AI Ethics Officer criados e preenchidos
+	•	Planos de carreira com trilhas de senioridade publicados e com ao menos 3 promoções realizadas
+	•	Rotatividade de talentos de IA abaixo de 15% ao ano
+
+
+NÍVEL
+4
+GERENCIADO
+Talentos e Capacidades — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+SFIA / Gartner
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Times de IA em múltiplas BUs com senioridade adequada e autonomia
+	•	Papéis avançados presentes: AI Architect, AI Ethics Officer, AI Security Engineer, Principal Data Scientist
+	•	AI Talent Academy com certificação reconhecida no mercado
+	•	Planos de carreira claros com trilhas de senioridade bem definidas
+	•	Baixa rotatividade: a empresa é reconhecida como destino de talentos de IA
+	•	Salários benchmarkados ao mercado trimestralmente
+
+O que você observa na prática
+	•	A empresa executa projetos complexos de IA de forma distribuída sem consultoria
+	•	Talentos desenvolvidos internamente e retidos são a principal vantagem operacional
+	•	Marca empregadora em IA é forte: candidatos buscam proativamente
+	•	Top 11% MIT CISR: a empresa tem capacidade de IA de primeira linha
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Criar programa de pesquisa aplicada com PhD in-company: profissionais que fazem pesquisa enquanto trabalham
+2
+Estabelecer parcerias com universidades para co-tutoria de PhD e bolsas de pesquisa
+3
+Criar programa de publicação técnica: apoio para profissionais publicarem artigos em conferências de ponta
+4
+Desenvolver contribuições de open source estratégicas posicionando a empresa como referência técnica
+5
+Criar fellowship externo: trazer pesquisadores de instituições de referência por períodos de 6 meses
+6
+Tornar a empresa referência de carreira em IA: publicar salary survey anual do mercado de IA
+
+Como confirmar que você atingiu o Nível 5
+	•	Ao menos 3 profissionais em programas de PhD in-company ou co-tutoriados com universidades
+	•	Ao menos 2 publicações técnicas em conferências relevantes
+	•	Contribuição ativa para open source com repositórios com 100+ stars
+	•	Fellowship externo operacional com ao menos 2 pesquisadores por ciclo
+
+
+NÍVEL
+5
+OTIMIZADO
+Talentos e Capacidades — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+SFIA / Gartner
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Time de pesquisa aplicada com PhDs in-company e pesquisadores visitantes
+	•	Publicações em conferências de ponta (NeurIPS, ICLR, ICML, EMNLP)
+	•	Contribuições de open source estratégicas citadas e usadas globalmente
+	•	Programa de fellowship externo atraindo pesquisadores de referência global
+	•	A empresa é destino de talentos: candidatos renunciam a outras ofertas para trabalhar aqui
+	•	Conhecimento proprietário de IA que não pode ser replicado pelo mercado
+
+O que você observa na prática
+	•	Top 4% MIT CISR: capacidade de IA equivalente às melhores Big Techs no segmento
+	•	Concorrentes não conseguem replicar a capacidade por falta de talentos únicos
+	•	A empresa influencia o estado da arte de IA por meio de pesquisa e publicações
+	•	Pesquisadores acadêmicos querem fazer residência ou colaborar com a empresa
+
+
+Parabéns. Você atingiu o topo da Dimensão 10.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Criar laboratório de pesquisa fundamental com agenda independente do negócio de curto prazo
+	•	Desenvolver Foundation Model proprietário treinado com dados únicos da empresa
+	•	Criar programa de doutorado patrocinado em universidades internacionais
+	•	Publicar relatório anual de talentos e pesquisa de IA como referência do setor
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Nenhum mapeamento de talentos de IA na empresa
+Mapear quais habilidades de IA existem (mesmo informalmente) em qualquer parte da empresa
+2
+Inicial
+Inicial
+1–3 data scientists concentrados em time central de TI ou Analytics
+Realizar análise formal de gap de talentos baseada no SFIA: competências atuais vs. necessárias para o roadmap
+3
+Definido
+Definido
+Mapeamento formal de gap de competências vs. necessidades do roadmap de IA
+Criar AI Talent Academy interna com programa de certificação de 6–12 meses
+4
+Gerenciado
+Gerenciado
+Times de IA em múltiplas BUs com senioridade adequada e autonomia
+Criar programa de pesquisa aplicada com PhD in-company: profissionais que fazem pesquisa enquanto trabalham
+5
+Otimizado
+Otimizado
+Time de pesquisa aplicada com PhDs in-company e pesquisadores visitantes
+Criar laboratório de pesquisa fundamental com agenda independente do negócio de curto prazo

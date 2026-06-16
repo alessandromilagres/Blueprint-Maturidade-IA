@@ -1,0 +1,280 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 15: Maturidade por Tipo de IA
+Framework: MIT CISR 2024  ·  Peso no score: 8%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 15
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Maturidade por Tipo de IA — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+MIT CISR 2024
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Uso apenas de regras estáticas e automação tradicional (RPA básico)
+	•	Nenhum modelo de machine learning em produção
+	•	IA Analítica, Generativa, Agêntica e Robótica completamente ausentes
+	•	Automação baseada em 'se X então Y' sem aprendizado ou adaptação
+	•	A empresa ainda está no paradigma pré-IA
+	•	Desconhecimento interno sobre os tipos de IA e suas diferenças
+
+O que você observa na prática
+	•	A empresa opera como no pré-IA enquanto o mercado já está em outra geração
+	•	Competitividade comprometida em todo setor onde IA analítica já é commodity
+	•	Distância para os líderes do setor cresce a cada 6 meses
+	•	Risco de disruption por concorrentes que adotaram IA mais cedo
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Realizar treinamento básico sobre os tipos de IA para toda a liderança: o que é cada tipo e seus casos de uso
+2
+Identificar 3–5 processos com alto volume de dados históricos e resultado mensurável — candidatos para IA Analítica
+3
+Criar o primeiro modelo de IA Analítica simples: classificação ou predição em processo com dados disponíveis
+4
+Avaliar ferramentas de AutoML para acelerar o desenvolvimento sem necessitar de data scientist sênior
+5
+Fazer benchmark do setor: o que os concorrentes têm em cada tipo de IA
+
+Como confirmar que você atingiu o Nível 2
+	•	Treinamento sobre tipos de IA concluído com toda a liderança
+	•	Ao menos 3 processos candidatos à IA Analítica identificados
+	•	Primeiro modelo de IA Analítica em desenvolvimento ou produção
+	•	Benchmark do setor realizado
+
+
+NÍVEL
+2
+INICIAL
+Maturidade por Tipo de IA — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+MIT CISR 2024
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	IA Analítica em alguns casos de uso: modelos de classificação ou predição básica
+	•	Sem IA Generativa, Agêntica ou Robótica em produção
+	•	Portfólio restrito a um tipo e ainda em poucos processos
+	•	Alguns data scientists trabalhando com ML supervisionado simples
+	•	A empresa está na onda de ML tradicional sem avançar para o paradigma generativo
+	•	Falta de conscientização sobre o que está disponível em IA Generativa e como usar
+
+O que você observa na prática
+	•	Perde os ganhos de produtividade da IA Generativa (estimados em 20–40% por McKinsey)
+	•	Concorrentes que adotaram LLMs estão acelerando em produtividade e produto
+	•	A distância para o estado da arte aumenta a cada nova geração de modelos
+	•	Ciclo de inovação de 6 meses em IA Generativa vs. 2 anos da empresa para adotar
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Expandir IA Analítica para ao menos 5 casos de uso em produção em diferentes áreas
+2
+Realizar imersão em IA Generativa para os times técnicos e de produto: o que é possível, quais ferramentas existem, como usar com segurança
+3
+Criar piloto de IA Generativa em ao menos 1 caso de alto impacto (copilot de atendimento, geração de conteúdo, summarization)
+4
+Avaliar e escolher provedor de LLM para casos de uso internos: OpenAI, Anthropic, Google ou modelos open source
+5
+Criar política de uso seguro de IA Generativa: o que pode e o que não pode ser enviado para LLMs externos
+
+Como confirmar que você atingiu o Nível 3
+	•	IA Analítica em produção em ao menos 5 casos de uso diferentes
+	•	Piloto de IA Generativa em ao menos 1 caso em produção ou avançado
+	•	Política de uso seguro de IA Generativa publicada e comunicada
+	•	Provedor de LLM escolhido e contratado
+
+
+NÍVEL
+3
+DEFINIDO
+Maturidade por Tipo de IA — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+MIT CISR 2024
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	IA Analítica consolidada em múltiplas áreas com casos de uso em produção
+	•	IA Generativa em produção em ao menos 2–3 casos de uso: copilot, geração de conteúdo, RAG
+	•	Primeiros experimentos com IA Agêntica em andamento
+	•	Times técnicos treinados em IA Generativa e agnósticos de provedor
+	•	Roadmap inicial para IA Agêntica documentado
+	•	Sem IA Robótica em produção (pode estar em experimentação)
+
+O que você observa na prática
+	•	A empresa está na curva de adoção de IA Generativa — dentro do early majority
+	•	Benefícios de produtividade da IA Generativa começando a aparecer
+	•	Preparação para o paradigma agêntico iniciando
+	•	MIT CISR 2024 Estágio 2–3: portfólio diversificado em construção
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Escalar IA Generativa para ao menos 10 casos de uso em produção cobrindo diferentes funções
+2
+Criar o primeiro agente de IA autônomo para um processo bem definido com critérios claros de sucesso e falha
+3
+Implementar orquestração de múltiplos LLMs: o modelo certo para cada tarefa
+4
+Criar framework de avaliação de qualidade de outputs de IA Generativa
+5
+Iniciar avaliação de IA Robótica para processos físicos ou digitais com ação no mundo real
+6
+Criar roadmap de 18 meses de evolução do portfólio de tipos de IA com metas por tipo
+
+Como confirmar que você atingiu o Nível 4
+	•	IA Generativa em produção em ao menos 10 casos de uso
+	•	Ao menos 1 agente de IA autônomo em produção em processo definido
+	•	Framework de avaliação de qualidade de IA Generativa operacional
+	•	Roadmap de evolução por tipo de IA aprovado com metas
+
+
+NÍVEL
+4
+GERENCIADO
+Maturidade por Tipo de IA — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+MIT CISR 2024
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	IA Analítica madura em múltiplos domínios — commodity interno
+	•	IA Generativa em produção em mais de 10 casos de uso em diferentes funções
+	•	Agentes de IA autônomos em produção em ao menos 3 processos core
+	•	Orquestração de múltiplos LLMs: o modelo certo para cada caso de uso
+	•	Primeiros experimentos com IA Robótica em processos físicos ou altamente complexos
+	•	Framework de avaliação de qualidade de IA Generativa e Agêntica operacional
+
+O que você observa na prática
+	•	A empresa está na fronteira do estado da arte em IA — além da maioria dos concorrentes
+	•	Benefícios de automação agêntica (estimados em 30–50% de redução de trabalho repetitivo) sendo capturados
+	•	A empresa está preparada para o paradigma Multi-Agent Systems
+	•	Top 11% MIT CISR 2024: portfólio avançado e integrado de tipos de IA
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Implementar Multi-Agent Systems para orquestração de workflows complexos: múltiplos agentes colaborando
+2
+Desenvolver capacidade de agentes que se especializam e melhoram com feedback contínuo
+3
+Implementar IA Robótica em ao menos 1 processo físico ou de automação complexa
+4
+Criar portfólio integrado onde os 4 tipos de IA se complementam em workflows de ponta a ponta
+5
+Publicar externamente os aprendizados sobre cada tipo de IA como referência do setor
+6
+Desenvolver métricas de maturidade por tipo que sirvam como benchmark interno e externo
+
+Como confirmar que você atingiu o Nível 5
+	•	Multi-Agent Systems em produção com ao menos 2 agentes colaborando
+	•	IA Robótica em produção em ao menos 1 processo
+	•	Portfólio de 4 tipos integrado em ao menos 1 workflow de ponta a ponta
+	•	Publicação externa sobre aprendizados por tipo de IA realizada
+
+
+NÍVEL
+5
+OTIMIZADO
+Maturidade por Tipo de IA — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+MIT CISR 2024
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Portfólio integrado e coeso com os 4 tipos de IA complementando-se em workflows de ponta a ponta
+	•	Multi-Agent Systems avançados com agentes especializados e auto-organizados
+	•	IA Robótica integrada a processos físicos ou altamente complexos
+	•	Portfólio atualizado continuamente a cada 6 meses acompanhando o estado da arte
+	•	A empresa opera no que o MIT CISR chama de Beyond Future Ready
+	•	Capacidades de IA que a maioria do mercado ainda não tem
+
+O que você observa na prática
+	•	Top 4% MIT CISR 2024: a empresa está além do estado da arte do setor
+	•	A empresa cria tendências de uso de IA — outros seguem
+	•	Cada tipo de IA é usado no problema certo: a empresa não tem o martelo que tudo é prego
+	•	A combinação de 4 tipos é diferencial competitivo impossível de replicar rapidamente
+
+
+Parabéns. Você atingiu o topo da Dimensão 15.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar portfólio para IA Quântica: primeiras aplicações em otimização de alta complexidade
+	•	Desenvolver Foundation Models proprietários como o próximo nível de IA Generativa
+	•	Criar capacidade de IA bioinspirada para problemas de alta complexidade
+	•	Publicar relatório anual de estado da arte em tipos de IA como referência global
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Uso apenas de regras estáticas e automação tradicional (RPA básico)
+Realizar treinamento básico sobre os tipos de IA para toda a liderança: o que é cada tipo e seus casos de uso
+2
+Inicial
+Inicial
+IA Analítica em alguns casos de uso: modelos de classificação ou predição básica
+Expandir IA Analítica para ao menos 5 casos de uso em produção em diferentes áreas
+3
+Definido
+Definido
+IA Analítica consolidada em múltiplas áreas com casos de uso em produção
+Escalar IA Generativa para ao menos 10 casos de uso em produção cobrindo diferentes funções
+4
+Gerenciado
+Gerenciado
+IA Analítica madura em múltiplos domínios — commodity interno
+Implementar Multi-Agent Systems para orquestração de workflows complexos: múltiplos agentes colaborando
+5
+Otimizado
+Otimizado
+Portfólio integrado e coeso com os 4 tipos de IA complementando-se em workflows de ponta a ponta
+Preparar portfólio para IA Quântica: primeiras aplicações em otimização de alta complexidade

@@ -1,0 +1,280 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 4: Pessoas e Cultura
+Framework: SFIA  ·  Peso no score: 6%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 4
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Pessoas e Cultura — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+SFIA
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Resistência generalizada à IA por medo de substituição de empregos
+	•	Nenhum programa de capacitação em IA para qualquer nível
+	•	Talentos de IA ausentes: sem data scientists, ML engineers ou AI PMs
+	•	Cultura avessa ao risco e ao erro: experimentação não encorajada
+	•	Sem planos de carreira para profissionais de dados
+	•	Colaboração entre TI e negócio inexistente ou conflituosa
+
+O que você observa na prática
+	•	Projetos de IA encontram resistência passiva em todas as áreas
+	•	Especialistas de IA contratados saem em menos de 12 meses por falta de suporte cultural
+	•	Empresa depende 100% de fornecedores externos para qualquer projeto
+	•	Narrativa interna: isso não funciona para o nosso setor
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Realizar pesquisa interna de percepção de IA para entender as resistências específicas
+2
+Criar programa simples de literacy em IA para todos: 2–4 horas sobre o que é IA
+3
+Identificar e empoderar 3–5 champions de IA em diferentes áreas
+4
+Comunicar formalmente que IA não substitui pessoas, amplia capacidades
+5
+Contratar o primeiro profissional de IA internamente
+
+Como confirmar que você atingiu o Nível 2
+	•	Pesquisa de percepção de IA realizada com resultados documentados
+	•	Programa de literacy em IA executado com ao menos 30% dos colaboradores
+	•	Champions de IA identificados com suporte formal da liderança
+	•	Primeiro profissional dedicado a dados/IA contratado
+
+
+NÍVEL
+2
+INICIAL
+Pessoas e Cultura — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+SFIA
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Conscientização sobre IA crescendo mas incipiente e desigual entre áreas
+	•	1–3 profissionais de IA concentrados em time central de TI
+	•	Treinamentos pontuais realizados mas sem programa estruturado
+	•	Cultura tolerante à experimentação em alguns times técnicos mas não na maioria
+	•	Planos de carreira informais ou inexistentes
+	•	Champions existem mas sem poder formal nem tempo dedicado
+
+O que você observa na prática
+	•	IA avança apesar da cultura, não por causa dela
+	•	Capacitações são eventos de um dia sem acompanhamento prático
+	•	Retenção de talentos de IA abaixo da média do mercado
+	•	Maioria dos colaboradores não sabe como IA pode ajudar no seu trabalho
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Criar programa estruturado de capacitação com trilhas por nível: básico (todos), intermediário (power users), avançado (practitioners)
+2
+Formalizar rede de AI Champions: tempo dedicado (20%), budget, reconhecimento formal
+3
+Criar planos de carreira formais para profissionais de dados e IA
+4
+Implementar métricas de cultura de IA: adesão a treinamentos, projetos por área, NPS de ferramentas
+5
+Criar AI Friday ou hack days mensais onde qualquer colaborador pode experimentar
+6
+Incluir treinamento de IA no onboarding de todos os novos colaboradores
+
+Como confirmar que você atingiu o Nível 3
+	•	Programa de capacitação estruturado com trilhas por nível operacional
+	•	Rede de AI Champions formalizada com ao menos um champion por área principal
+	•	Planos de carreira em IA publicados com ao menos 2 promoções realizadas
+	•	Taxa de adesão a treinamentos de IA acima de 60%
+
+
+NÍVEL
+3
+DEFINIDO
+Pessoas e Cultura — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+SFIA
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Programa estruturado de capacitação com trilhas por nível operacional
+	•	Rede de AI Champions em todas as áreas com tempo formal e reconhecimento
+	•	Planos de carreira formais para data scientists, ML engineers, AI PMs
+	•	Cultura de experimentação encorajada: projetos menores sem múltiplas aprovações
+	•	Onboarding inclui treinamento de IA para todos
+	•	Métricas de cultura de IA medidas e reportadas trimestralmente
+
+O que você observa na prática
+	•	Colaboradores de diferentes áreas conseguem trabalhar com ferramentas de IA básicas
+	•	Erros em projetos de IA discutidos abertamente como aprendizado
+	•	A empresa desenvolve talentos internamente sem depender só do mercado
+	•	MIT CISR Estágio 2–3: 20% das empresas têm cultura de IA estruturada
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Criar AI Talent Academy: programa interno de certificação de 6–12 meses com parceria com universidades
+2
+Implementar programa de atração de talentos com employer branding específico de IA
+3
+Criar programa de contribuição para comunidade: artigos, open source, conferências
+4
+Incorporar IA no programa de gestão de desempenho de todos os colaboradores
+5
+Criar programa de residência em IA para talentos externos
+6
+Realizar pesquisa anual de cultura de IA benchmarkada com empresas do mesmo setor
+
+Como confirmar que você atingiu o Nível 4
+	•	AI Talent Academy operacional com ao menos 20 alunos concluídos
+	•	Taxa de promoção interna para papéis de IA acima de 40%
+	•	Profissionais da empresa publicando artigos ou participando de conferências de IA
+	•	Retenção de talentos de IA acima da média do mercado
+
+
+NÍVEL
+4
+GERENCIADO
+Pessoas e Cultura — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+SFIA
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	IA é parte da identidade cultural da empresa — aparece nos valores e missão
+	•	AI Talent Academy com certificação interna reconhecida no mercado
+	•	Contribuição ativa para comunidade: artigos, open source, palestras
+	•	Programa de atração de talentos com employer branding forte
+	•	Todos os colaboradores passaram por treinamento adequado ao seu nível
+	•	Baixa rotatividade: a empresa é reconhecida como ótimo lugar para crescer em IA
+
+O que você observa na prática
+	•	Empresa aparece em rankings de melhores para trabalhar com IA
+	•	Talentos sêniores buscam a empresa proativamente por causa da cultura
+	•	Colaboradores que saem levam reputação de experiência de IA de qualidade
+	•	A empresa executa projetos complexos de IA com times internos sem consultoria
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Tornar a empresa referência de cultura de IA publicando o playbook internamente e externamente
+2
+Criar parcerias formais com universidades de referência para co-desenvolvimento de talentos
+3
+Desenvolver programa de PhD in-company para os talentos mais avançados
+4
+Criar AI Culture Index próprio que se torne referência setorial
+5
+Publicar relatório anual de talentos de IA mostrando desenvolvimento interno como benchmark
+
+Como confirmar que você atingiu o Nível 5
+	•	Empresa citada em pesquisas e rankings como referência de cultura de IA
+	•	Parcerias formais com ao menos 2 universidades de referência
+	•	Publicação externa do playbook de cultura de IA
+	•	AI Culture Index próprio desenvolvido e publicado
+
+
+NÍVEL
+5
+OTIMIZADO
+Pessoas e Cultura — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+SFIA
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Cultura de IA é parte do DNA — indissociável da identidade corporativa
+	•	AI Talent Academy reconhecida como referência nacional ou internacional
+	•	Parcerias com MIT, Stanford, USP para co-desenvolvimento e pesquisa
+	•	Profissionais formados na empresa disputados pelo mercado como sinal de qualidade
+	•	Publicação externa do playbook de cultura de IA
+	•	IA no processo de pensamento e trabalho diário de todos os colaboradores
+
+O que você observa na prática
+	•	A empresa define o padrão de cultura de IA para o setor
+	•	Concorrentes tentam replicar a cultura e não conseguem: é construída ao longo de anos
+	•	Pesquisadores acadêmicos estudam a empresa como caso de sucesso
+	•	Cultura de IA é barreira de entrada para novos concorrentes
+
+
+Parabéns. Você atingiu o topo da Dimensão 4.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar a cultura para IA Agêntica: colaboração entre humanos e agentes autônomos
+	•	Desenvolver ética de IA como competência central de todos os colaboradores
+	•	Criar Ethics Board com cadeira permanente para representação da sociedade civil
+	•	Publicar relatório anual de impacto social da IA da empresa
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Resistência generalizada à IA por medo de substituição de empregos
+Realizar pesquisa interna de percepção de IA para entender as resistências específicas
+2
+Inicial
+Inicial
+Conscientização sobre IA crescendo mas incipiente e desigual entre áreas
+Criar programa estruturado de capacitação com trilhas por nível: básico (todos), intermediário (power users), avançado (practitioners)
+3
+Definido
+Definido
+Programa estruturado de capacitação com trilhas por nível operacional
+Criar AI Talent Academy: programa interno de certificação de 6–12 meses com parceria com universidades
+4
+Gerenciado
+Gerenciado
+IA é parte da identidade cultural da empresa — aparece nos valores e missão
+Tornar a empresa referência de cultura de IA publicando o playbook internamente e externamente
+5
+Otimizado
+Otimizado
+Cultura de IA é parte do DNA — indissociável da identidade corporativa
+Preparar a cultura para IA Agêntica: colaboração entre humanos e agentes autônomos

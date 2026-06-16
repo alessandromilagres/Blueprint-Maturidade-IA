@@ -1,0 +1,279 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 3: Governança e Risco
+Framework: NIST AI RMF  ·  Peso no score: 7%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 3
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Governança e Risco — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+NIST AI RMF
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Zero políticas formais de governança: uso de IA é livre e sem controle
+	•	LGPD não verificada em projetos de IA
+	•	Sem comitê de ética: decisões tomadas por times técnicos sem supervisão
+	•	Riscos de IA não mapeados: viés, alucinação, privacidade desconhecidos
+	•	Modelos em produção sem auditoria: ninguém sabe o que estão decidindo
+	•	EU AI Act e ISO 42001 nunca considerados
+
+O que você observa na prática
+	•	Exposição a multas LGPD (até 2% do faturamento) a qualquer momento
+	•	Modelos de crédito ou RH podem estar discriminando sem que ninguém saiba
+	•	Em caso de incidente público, a empresa não tem defesa documentada
+	•	Reguladores encontrariam falhas graves imediatas
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Realizar diagnóstico rápido de LGPD nos 3–5 projetos com maior exposição a dados pessoais
+2
+Designar responsável por governança de IA (DPO existente pode acumular a função)
+3
+Criar lista simples dos modelos em produção com classificação informal de risco
+4
+Elaborar e publicar política básica de uso aceitável de IA
+5
+Realizar sessão de conscientização sobre riscos de IA com os líderes técnicos
+
+Como confirmar que você atingiu o Nível 2
+	•	Política básica de uso de IA publicada e comunicada
+	•	Responsável por governança designado formalmente
+	•	Inventário inicial dos modelos em produção com classificação de risco
+
+
+NÍVEL
+2
+INICIAL
+Governança e Risco — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+NIST AI RMF
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Política de uso de IA existente mas seguida informalmente e de forma inconsistente
+	•	LGPD considerada nos novos projetos mas retrospectiva não realizada
+	•	Responsável por governança designado mas sem equipe ou orçamento dedicado
+	•	Comitê de ética informal que se reúne sem cadência definida
+	•	Riscos avaliados apenas nos projetos mais visíveis
+	•	Auditoria de modelos esporádica, sem metodologia padrão
+
+O que você observa na prática
+	•	Projetos mais antigos ainda sem revisão de LGPD e expostos a riscos
+	•	Governança depende de iniciativa individual
+	•	Dificuldade de responder a auditores com evidências
+	•	Incidentes gerenciados de forma reativa, sem playbook de resposta
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Formalizar Framework de Governança de IA baseado no NIST AI RMF com 4 funções: GOVERN, MAP, MEASURE, MANAGE
+2
+Criar e aprovar processo de DPIA obrigatório para novos projetos com dados pessoais
+3
+Estabelecer Comitê de Ética com membros definidos, calendário fixo e poder de veto
+4
+Criar AI Risk Register: todos os modelos cadastrados com risco, dono e data de última auditoria
+5
+Definir processo de auditoria regular de modelos (ao menos semestral)
+6
+Treinar times de desenvolvimento em fairness, bias detection e documentação de modelos
+
+Como confirmar que você atingiu o Nível 3
+	•	Framework de Governança de IA formalmente aprovado e publicado
+	•	DPIA sendo aplicado em 100% dos novos projetos com dados pessoais
+	•	Comitê de Ética com calendário fixo e atas documentadas
+	•	AI Risk Register com todos os modelos críticos cadastrados
+
+
+NÍVEL
+3
+DEFINIDO
+Governança e Risco — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+NIST AI RMF
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Framework de Governança baseado no NIST AI RMF operacional e seguido
+	•	DPIA obrigatório e executado em 100% dos projetos com dados pessoais
+	•	Comitê de Ética com reuniões mensais e poder formal de aprovar ou pausar projetos
+	•	AI Risk Register completo com todos os modelos classificados por risco
+	•	Auditoria semestral de modelos com relatórios documentados
+	•	Preparação inicial para EU AI Act: modelos classificados por nível de risco
+
+O que você observa na prática
+	•	Novos projetos passam por revisão de governança antes de ir a produção
+	•	A empresa consegue apresentar evidências de conformidade para reguladores
+	•	Modelos de alto risco identificados e com controles especiais
+	•	MIT CISR Estágio 2–3: a empresa tem governança de IA estruturada
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Implementar shift-left compliance: governança embutida no ciclo de desenvolvimento
+2
+Automatizar detecção de viés e fairness testing no pipeline de CI/CD
+3
+Implementar monitoramento contínuo de conformidade com alertas automáticos
+4
+Certificar a empresa na ISO 42001 ou preparar-se para isso
+5
+Criar XAI automático para todos os modelos de alto risco
+6
+Estabelecer canal de denúncia para uso indevido de IA
+
+Como confirmar que você atingiu o Nível 4
+	•	Governança embutida no pipeline: nenhum modelo vai a produção sem checklist automático
+	•	Fairness testing automatizado no CI/CD
+	•	ISO 42001 em processo de certificação
+	•	XAI implementado para todos os modelos de alto risco
+
+
+NÍVEL
+4
+GERENCIADO
+Governança e Risco — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+NIST AI RMF
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Governança integrada ao ciclo de desenvolvimento: shift-left compliance operacional
+	•	Fairness e bias detection automatizados em todos os pipelines de ML
+	•	Conformidade LGPD e EU AI Act sistematizada com relatórios automáticos
+	•	Monitoramento contínuo de conformidade com alertas e remediação automática
+	•	XAI para modelos de alto risco com relatórios legíveis para não-técnicos
+	•	ISO 42001 certificada ou em estágio avançado
+
+O que você observa na prática
+	•	Zero modelos vão a produção sem conformidade verificada automaticamente
+	•	A empresa responde a auditorias em menos de 48 horas com evidências completas
+	•	Reguladores citam a empresa como exemplo de boas práticas
+	•	Clientes em setores regulados assinam contratos pela governança comprovada
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Obter certificações de terceiros: ISO 42001, SOC 2 para IA, certificações setoriais
+2
+Contribuir ativamente para elaboração de regulações de IA do setor
+3
+Criar AI Governance as a Service para clientes estratégicos
+4
+Publicar externamente o framework de governança como referência
+5
+Desenvolver métricas proprietárias de eficácia de governança que se tornem benchmark
+
+Como confirmar que você atingiu o Nível 5
+	•	Certificações de terceiros obtidas e publicadas
+	•	Empresa participando ativamente de grupos regulatórios
+	•	Framework publicado externamente e citado por outros como referência
+	•	Clientes e parceiros adotando as práticas de governança da empresa
+
+
+NÍVEL
+5
+OTIMIZADO
+Governança e Risco — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+NIST AI RMF
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Governança como vantagem competitiva e diferencial de confiança no mercado
+	•	Certificações múltiplas: ISO 42001, certificações setoriais
+	•	Empresa influencia ativamente regulações de IA do setor
+	•	Framework publicado como referência e adotado por outros
+	•	AI Governance as a Service para clientes e parceiros
+	•	Métricas proprietárias de governança são benchmark setorial
+
+O que você observa na prática
+	•	Contratos em setores regulados ganhos pela governança comprovada
+	•	Reguladores consultam a empresa para elaboração de novas normas
+	•	Concorrentes adotam as práticas da empresa como modelo
+	•	A conformidade é ativo comercial, não custo
+
+
+Parabéns. Você atingiu o topo da Dimensão 3.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar governança para IA Agêntica: agentes autônomos têm riscos qualitativamente diferentes
+	•	Criar padrões de governança para Multi-Agent Systems
+	•	Investir em pesquisa de IA explicável de próxima geração
+	•	Publicar relatório anual de impacto de IA responsável como referência pública
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Zero políticas formais de governança: uso de IA é livre e sem controle
+Realizar diagnóstico rápido de LGPD nos 3–5 projetos com maior exposição a dados pessoais
+2
+Inicial
+Inicial
+Política de uso de IA existente mas seguida informalmente e de forma inconsistente
+Formalizar Framework de Governança de IA baseado no NIST AI RMF com 4 funções: GOVERN, MAP, MEASURE, MANAGE
+3
+Definido
+Definido
+Framework de Governança baseado no NIST AI RMF operacional e seguido
+Implementar shift-left compliance: governança embutida no ciclo de desenvolvimento
+4
+Gerenciado
+Gerenciado
+Governança integrada ao ciclo de desenvolvimento: shift-left compliance operacional
+Obter certificações de terceiros: ISO 42001, SOC 2 para IA, certificações setoriais
+5
+Otimizado
+Otimizado
+Governança como vantagem competitiva e diferencial de confiança no mercado
+Preparar governança para IA Agêntica: agentes autônomos têm riscos qualitativamente diferentes

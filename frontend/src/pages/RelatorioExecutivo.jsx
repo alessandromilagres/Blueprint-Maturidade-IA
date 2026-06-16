@@ -273,7 +273,10 @@ export default function RelatorioExecutivo() {
             </Link>
             <div>
               <h1 className="text-sm font-bold text-amber-400">Relatório Executivo</h1>
-              <p className="text-xs text-slate-400">{relatorio.empresa.nome}</p>
+              <p className="text-xs text-slate-400">
+                {relatorio.empresa.nome}
+                {relatorio.projetoVersao?.titulo ? ` · ${relatorio.projetoVersao.titulo}` : ''}
+              </p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -301,6 +304,7 @@ export default function RelatorioExecutivo() {
               <div className="text-right">
                 <p className="text-sm font-semibold text-white print:text-slate-900">{relatorio.empresa.nome}</p>
                 <p className="text-xs text-slate-400">{relatorio.projeto.nome}</p>
+                <p className="text-[11px] text-amber-300 print:text-amber-700">{relatorio.projetoVersao?.titulo || 'Versão 1'}</p>
               </div>
             </div>
             <div className="flex items-center gap-4 text-xs text-slate-400 print:text-slate-500">

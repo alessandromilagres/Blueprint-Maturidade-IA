@@ -33,6 +33,7 @@ import {
 const ROLES = {
   admin: { label: 'Administrador', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
   gestor: { label: 'Gestor', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+  executivo: { label: 'Executivo', color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200' },
   avaliador: { label: 'Avaliador', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
   negocios: { label: 'Negócios', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200' },
   ti: { label: 'TI', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-200' },
@@ -390,6 +391,45 @@ export default function Usuarios() {
       const resultado = await convitesApi.enviar(payload);
       
       setResultadoConvite(resultado);
+    } catch (error) {
+      setErro(error.message);
+    } finally {
+      setEnviandoConvite(false);
+    }
+  }
+
+  async function handleReenviarMesmasDimensoes({ todos = false } = {}) {
+    setErro('');
+    setResultadoConvite(null);
+
+    if (!formConvite.projetoId) {
+      setErro('Selecione um projeto para reenviar a avaliação.');
+      return;
+    }
+
+    const mensagem = todos
+      ? 'Reenviar avaliação para todos os avaliadores da versão anterior, copiando as mesmas dimensões para a versão aberta?'
+      : `Reenviar avaliação para ${usuarioConvite?.nome}, copiando as mesmas dimensões da versão anterior para a versão aberta?`;
+    if (!confirm(mensagem)) return;
+
+    setEnviandoConvite(true);
+    try {
+      const resultado = await projetosApi.reenviarConvitesVersao(formConvite.projetoId, {
+        ...(todos ? {} : { usuarioId: usuarioConvite.id })
+      });
+
+      if (!todos && resultado.resultados?.[0]?.sucesso) {
+        setResultadoConvite({
+          convite: { id: resultado.resultados[0].conviteId },
+          email: resultado.resultados[0].email || {
+            linkAvaliacao: resultado.resultados[0].linkAvaliacao
+          }
+        });
+      } else {
+        alert(
+          `Reenvio concluído.\nSucesso: ${resultado.sucesso || 0}\nFalhas: ${resultado.falhas || 0}\nDestino: ${resultado.versaoDestino?.titulo || 'versão aberta'}`
+        );
+      }
     } catch (error) {
       setErro(error.message);
     } finally {
@@ -1089,6 +1129,34 @@ export default function Usuarios() {
 
                 {formConvite.projetoId && (
                   <div>
+                    <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/25">
+                      <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                        Reenvio para versão aberta
+                      </p>
+                      <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200">
+                        Use estes botões quando uma nova versão da pesquisa estiver aberta. O sistema copia as mesmas dimensões
+                        do convite da versão anterior.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleReenviarMesmasDimensoes({ todos: false })}
+                          disabled={enviandoConvite}
+                          className="btn-secondary text-sm"
+                        >
+                          Reenviar para este avaliador
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReenviarMesmasDimensoes({ todos: true })}
+                          disabled={enviandoConvite}
+                          className="btn-secondary text-sm"
+                        >
+                          Reenviar para todos da versão anterior
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between mb-2">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Áreas de Avaliação *

@@ -1,0 +1,280 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 12: Prontidão para Mudança
+Framework: ADKAR / Prosci  ·  Peso no score: 5%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 12
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Prontidão para Mudança — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+ADKAR / Prosci
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Resistência generalizada à IA: colaboradores temem perder emprego
+	•	Nenhuma comunicação formal sobre IA para o corpo de colaboradores
+	•	Sem mapeamento de resistências: a empresa não sabe quem resiste nem por quê
+	•	Sem rede de agentes de mudança em nenhuma área
+	•	Iniciativas de IA encontram oposição passiva ou ativa na maioria das áreas
+	•	A liderança anuncia IA sem preparar a organização para a mudança
+
+O que você observa na prática
+	•	Qualquer projeto de IA encontra resistência que atrasa ou mata a iniciativa
+	•	Tecnologia excelente não é adotada por falta de preparo organizacional
+	•	Colaboradores sabotam (passiva ou ativamente) projetos que percebem como ameaças
+	•	A empresa é o maior obstáculo para o seu próprio programa de IA
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Realizar diagnóstico de prontidão para mudança com ADKAR: identificar onde está o gap principal — Awareness, Desire, Knowledge, Ability ou Reinforcement
+2
+Criar comunicação clara e honesta sobre IA para todos: o que a empresa vai fazer, como vai impactar cada papel e o que não vai acontecer
+3
+Identificar e empoderar formalmente 3–5 agentes de mudança em áreas-chave
+4
+Criar fórum aberto de perguntas e respostas sobre IA: colaboradores perguntam sem julgamento
+5
+Contratar ou designar responsável por Change Management no programa de IA
+
+Como confirmar que você atingiu o Nível 2
+	•	Diagnóstico ADKAR realizado com resultados documentados
+	•	Comunicação formal sobre IA enviada para 100% dos colaboradores
+	•	Agentes de mudança identificados e empoderados formalmente
+	•	Fórum de Q&A sobre IA operacional com ao menos 1 sessão realizada
+
+
+NÍVEL
+2
+INICIAL
+Prontidão para Mudança — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+ADKAR / Prosci
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Conscientização sobre IA crescendo mas sem programa formal de gestão de mudança
+	•	Comunicação sobre IA esporádica: acontece em lançamentos, não continuamente
+	•	Algumas lideranças engajadas, outras resistentes ou neutras
+	•	Resistências não mapeadas sistematicamente: a empresa reage, não antecipa
+	•	Agentes de mudança informais existem mas sem apoio formal
+	•	Treinamento de IA disponível mas sem programa de adoção que garanta uso na prática
+
+O que você observa na prática
+	•	IA avança onde há lideranças engajadas e trava nas demais
+	•	Adoção desigual entre áreas sem previsibilidade de onde o próximo projeto terá tração
+	•	Iniciativas com bons resultados não são celebradas nem replicadas
+	•	A empresa fica presa em ciclos de anunciar, resistir e abandonar
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Adotar metodologia formal de Change Management (ADKAR ou Kotter) para todos os projetos de IA com impacto organizacional
+2
+Criar plano de comunicação estruturado para cada projeto de IA: mensagens por audiência, cadência, canais
+3
+Mapear sistematicamente resistências por área e criar planos de endereçamento específicos
+4
+Formalizar a rede de agentes de mudança com representação em todas as áreas e suporte da liderança
+5
+Criar programa de reconhecimento e celebração de adoção: tornar visível quem usa IA com sucesso
+6
+Implementar métricas de adoção de IA por área para identificar onde a mudança está travando
+
+Como confirmar que você atingiu o Nível 3
+	•	Metodologia formal de Change Management adotada em 100% dos projetos com impacto organizacional
+	•	Plano de comunicação estruturado para os 3 projetos de IA mais importantes
+	•	Rede de agentes de mudança formal com representação em todas as áreas principais
+	•	Métricas de adoção de IA por área sendo coletadas e reportadas mensalmente
+
+
+NÍVEL
+3
+DEFINIDO
+Prontidão para Mudança — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+ADKAR / Prosci
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Programa formal de gestão de mudança para IA com metodologia estruturada (ADKAR)
+	•	Comunicação regular e transparente sobre IA: newsletter, town halls, atualizações mensais
+	•	Rede de champions de IA em todas as áreas com tempo dedicado e suporte formal
+	•	Resistências mapeadas sistematicamente com planos de endereçamento
+	•	Programa de reconhecimento de adoção: visibilidade para quem usa IA com sucesso
+	•	Métricas de adoção de IA por área sendo coletadas e reportadas
+
+O que você observa na prática
+	•	A empresa consegue prever onde novos projetos terão tração e onde haverá resistência
+	•	Projetos têm plano de change management desde o início, não no final
+	•	Adoção de IA acima de 50% nos processos onde foi implementada
+	•	MIT CISR Estágio 2–3: a empresa gerencia a mudança, não apenas reage
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Criar programa de desenvolvimento de líderes em IA: todos os gestores de C-1 e C-2 passam por imersão de 40 horas em liderança de transformação com IA
+2
+Implementar programas de reconhecimento formal ligados à adoção de IA: meritocracia que valoriza uso de IA
+3
+Realizar pesquisa anual de prontidão para mudança benchmarkada com empresas do setor
+4
+Criar comunidade interna de prática em IA: grupos auto-organizados que compartilham aprendizados
+5
+Desenvolver capacidade de medir impacto do change management: antes vs. depois em métricas de adoção
+6
+Implementar onboarding de mudança para novos projetos: antes de lançar, avaliar prontidão da área com ADKAR
+
+Como confirmar que você atingiu o Nível 4
+	•	100% dos gestores de C-1 e C-2 concluíram o programa de liderança em IA
+	•	Pesquisa anual de prontidão com benchmarking externo concluída
+	•	Comunidade interna de prática em IA com ao menos 100 membros ativos
+	•	Taxa de adoção de IA acima de 70% nos processos onde foi implementada
+
+
+NÍVEL
+4
+GERENCIADO
+Prontidão para Mudança — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+ADKAR / Prosci
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Cultura de mudança com IA como competência organizacional central
+	•	100% dos líderes seniores treinados em liderança de transformação com IA
+	•	Adoção de IA acima de 70% nos processos onde foi implementada
+	•	Comunidade interna de prática em IA com membros ativos de todas as áreas
+	•	Pesquisa anual de prontidão com benchmarking externo
+	•	Programa de reconhecimento alinhado à adoção de IA
+
+O que você observa na prática
+	•	Novos projetos de IA são bem-vindos pela maioria dos colaboradores
+	•	A empresa absorve transformações com IA mais rápido que os concorrentes
+	•	Histórico de adoção bem-sucedida cria confiança para próximas iniciativas
+	•	Top 11% MIT CISR: prontidão para mudança como vantagem competitiva
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Publicar o playbook de change management de IA da empresa como referência externa do setor
+2
+Criar programa de certificação em Change Management de IA para líderes de fora da empresa
+3
+Desenvolver métricas proprietárias de prontidão para mudança que se tornem benchmark setorial
+4
+Tornar a empresa referência pública em transformação cultural com IA
+5
+Criar parceria com escolas de negócio para ensinar o modelo desenvolvido na empresa
+
+Como confirmar que você atingiu o Nível 5
+	•	Playbook de change management de IA publicado externamente e citado por outros
+	•	Programa de certificação externo em operação com ao menos 20 participantes
+	•	Métricas proprietárias de prontidão publicadas e adotadas por outros
+	•	Parceria formal com ao menos 1 escola de negócio para ensino do modelo
+
+
+NÍVEL
+5
+OTIMIZADO
+Prontidão para Mudança — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+ADKAR / Prosci
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Mudança com IA é DNA cultural: a empresa abraça transformação como estado permanente
+	•	Playbook de change management de IA reconhecido como referência nacional
+	•	Parceria com escolas de negócio para ensino do modelo desenvolvido
+	•	Programa de certificação externo para líderes de outras empresas
+	•	Métricas proprietárias de prontidão são benchmark do setor
+	•	A velocidade de adoção de IA é vantagem competitiva estrutural
+
+O que você observa na prática
+	•	Top 4% MIT CISR: a empresa é referência de prontidão para mudança com IA
+	•	Concorrentes levam 2 anos para fazer o que a empresa faz em 6 meses por cultura de mudança
+	•	Colaboradores pedem proativamente por mais projetos de IA
+	•	A empresa lidera a transformação do setor como um todo
+
+
+Parabéns. Você atingiu o topo da Dimensão 12.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar a cultura para colaboração com IA Agêntica: humanos e agentes autônomos como equipes
+	•	Desenvolver modelos de trabalho híbrido humano-IA e publicar como referência
+	•	Criar laboratório de futuros do trabalho com IA para preparar para transformações de 5–10 anos
+	•	Publicar relatório anual de transformação cultural com IA como referência global
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Resistência generalizada à IA: colaboradores temem perder emprego
+Realizar diagnóstico de prontidão para mudança com ADKAR: identificar onde está o gap principal — Awareness, Desire, Knowledge, Ability ou Reinforcement
+2
+Inicial
+Inicial
+Conscientização sobre IA crescendo mas sem programa formal de gestão de mudança
+Adotar metodologia formal de Change Management (ADKAR ou Kotter) para todos os projetos de IA com impacto organizacional
+3
+Definido
+Definido
+Programa formal de gestão de mudança para IA com metodologia estruturada (ADKAR)
+Criar programa de desenvolvimento de líderes em IA: todos os gestores de C-1 e C-2 passam por imersão de 40 horas em liderança de transformação com IA
+4
+Gerenciado
+Gerenciado
+Cultura de mudança com IA como competência organizacional central
+Publicar o playbook de change management de IA da empresa como referência externa do setor
+5
+Otimizado
+Otimizado
+Mudança com IA é DNA cultural: a empresa abraça transformação como estado permanente
+Preparar a cultura para colaboração com IA Agêntica: humanos e agentes autônomos como equipes

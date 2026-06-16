@@ -1,0 +1,280 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 11: Conformidade Regulatória
+Framework: NIST AI RMF  ·  Peso no score: 5%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 11
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Conformidade Regulatória — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+NIST AI RMF
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Nenhum mapeamento de regulações de IA aplicáveis ao negócio
+	•	LGPD não verificada nos projetos de IA em andamento
+	•	EU AI Act e regulações setoriais (BACEN, ANVISA, SUSEP) desconhecidos nos projetos
+	•	Sem documentação de conformidade para nenhum modelo em produção
+	•	Sem processo de auditoria de conformidade de IA
+	•	Risco regulatório completamente desconhecido
+
+O que você observa na prática
+	•	Exposição máxima: multa LGPD pode chegar a 2% do faturamento por incidente
+	•	EU AI Act com penalidades de até 7% do faturamento global começa a ser aplicado em 2025–2026
+	•	Reguladores setoriais podem proibir uso de IA se não houver conformidade documentada
+	•	Em caso de incidente público, a empresa não tem defesa regulatória nenhuma
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Listar todas as regulações de IA aplicáveis ao setor: LGPD, EU AI Act se tiver operações na Europa, regulações setoriais
+2
+Verificar os 3–5 projetos de IA com mais dados pessoais e avaliar conformidade LGPD de forma básica
+3
+Nomear responsável pela conformidade de IA (DPO ou Head Jurídico inicialmente)
+4
+Criar checklist básico de LGPD para novos projetos de IA
+5
+Realizar treinamento de conscientização regulatória para os líderes técnicos de IA
+
+Como confirmar que você atingiu o Nível 2
+	•	Mapeamento de regulações aplicáveis concluído e documentado
+	•	Ao menos 3 projetos com dados pessoais avaliados quanto à LGPD
+	•	Responsável pela conformidade de IA designado
+	•	Checklist básico de LGPD para novos projetos criado
+
+
+NÍVEL
+2
+INICIAL
+Conformidade Regulatória — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+NIST AI RMF
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Regulações aplicáveis mapeadas mas conformidade verificada de forma inconsistente
+	•	LGPD considerada nos novos projetos mas projetos antigos sem revisão
+	•	EU AI Act em processo de entendimento mas sem ações concretas
+	•	Responsável designado mas sem recursos ou autoridade formal
+	•	Documentação de conformidade esporádica e de formato inconsistente
+	•	Processo de auditoria ad hoc: acontece quando há pressão, não sistematicamente
+
+O que você observa na prática
+	•	Novos projetos têm alguma proteção mas os existentes estão desprotegidos
+	•	Reguladores podem questionar modelos antigos que nunca passaram por revisão
+	•	Difícil responder a questionamentos de clientes sobre conformidade com evidências
+	•	A empresa está em zona de risco: sabe que tem exposição mas não age
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Implementar processo obrigatório de DPIA antes do início de qualquer projeto com dados pessoais
+2
+Realizar revisão retroativa de conformidade nos projetos mais expostos de LGPD — começando pelos de maior risco
+3
+Criar registro de conformidade de IA: todos os modelos em produção cadastrados com status de conformidade
+4
+Implementar classificação de risco de IA por modelo baseada no EU AI Act
+5
+Criar processo de renovação anual de conformidade: todos os modelos revisados pelo menos uma vez ao ano
+6
+Contratar especialista jurídico ou consultoria especializada em regulação de IA
+
+Como confirmar que você atingiu o Nível 3
+	•	DPIA obrigatório implementado para 100% dos novos projetos com dados pessoais
+	•	Revisão retroativa concluída nos modelos de maior risco
+	•	Registro de conformidade com todos os modelos cadastrados
+	•	Classificação de risco por modelo baseada no EU AI Act concluída
+
+
+NÍVEL
+3
+DEFINIDO
+Conformidade Regulatória — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+NIST AI RMF
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	DPIA obrigatório e executado antes de todo projeto com dados pessoais
+	•	Registro de conformidade com todos os modelos classificados por risco
+	•	Revisão anual de conformidade de todos os modelos em produção
+	•	Preparação ativa para EU AI Act: modelos de alto risco com controles especiais
+	•	Documentação padronizada de conformidade para auditores
+	•	Especialista jurídico em regulação de IA internamente ou parceiro externo fixo
+
+O que você observa na prática
+	•	A empresa apresenta evidências de conformidade para reguladores em tempo hábil
+	•	Novos projetos são conformes por design
+	•	A empresa consegue operar em setores com exigências regulatórias mais altas
+	•	MIT CISR Estágio 2–3: a empresa tem governança regulatória básica estruturada
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Iniciar processo de certificação ISO 42001 (Gestão de Sistemas de IA)
+2
+Implementar monitoramento contínuo de conformidade em produção com alertas automáticos
+3
+Automatizar geração de documentação de conformidade para novos projetos (Model Cards, DPIA automatizados)
+4
+Criar capacidade de XAI para modelos de alto risco com relatórios legíveis por não-técnicos
+5
+Estabelecer processo de notificação de incidentes de IA com SLA de resposta definido
+6
+Criar programa de treinamento em conformidade de IA para todos os desenvolvedores e gestores de produto
+
+Como confirmar que você atingiu o Nível 4
+	•	ISO 42001 em processo de certificação ou certificada
+	•	Monitoramento contínuo de conformidade em produção para modelos de alto risco
+	•	XAI implementado para todos os modelos de alto risco
+	•	Programa de treinamento em conformidade com ao menos 80% dos desenvolvedores treinados
+
+
+NÍVEL
+4
+GERENCIADO
+Conformidade Regulatória — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+NIST AI RMF
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	ISO 42001 certificada ou em processo avançado
+	•	Conformidade automatizada: checklist integrado ao pipeline de CI/CD
+	•	Monitoramento contínuo de conformidade com alertas e remediação automática
+	•	XAI para todos os modelos de alto risco com relatórios para auditores e clientes
+	•	Processo de notificação de incidentes com SLA definido e testado
+	•	Todos os desenvolvedores e gestores de produto treinados em conformidade de IA
+
+O que você observa na prática
+	•	Zero modelos vão a produção sem conformidade verificada
+	•	A empresa responde a auditorias de reguladores em menos de 24 horas com evidências completas
+	•	Clientes em setores altamente regulados assinam contratos porque a empresa tem conformidade certificada
+	•	A empresa consegue operar em qualquer país com regulação de IA sem surpresas
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Obter certificações adicionais: SOC 2 para IA, certificações setoriais específicas
+2
+Participar ativamente de consultas públicas e grupos de trabalho para elaboração da regulação de IA brasileira e europeia
+3
+Criar Regulatory Sandbox: trabalhar diretamente com reguladores para testar novos modelos em ambiente controlado
+4
+Publicar externamente o framework de conformidade de IA como referência do setor
+5
+Desenvolver serviço de conformidade de IA para clientes e parceiros como diferencial comercial
+
+Como confirmar que você atingiu o Nível 5
+	•	Ao menos 2 certificações de terceiros além da ISO 42001
+	•	Participação documentada em ao menos 1 consulta pública ou grupo de trabalho regulatório
+	•	Publicação externa do framework de conformidade como referência
+	•	Ao menos 1 contrato ganho explicitamente por causa da conformidade certificada
+
+
+NÍVEL
+5
+OTIMIZADO
+Conformidade Regulatória — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+NIST AI RMF
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Múltiplas certificações de terceiros: ISO 42001, SOC 2 para IA, certificações setoriais
+	•	A empresa participa ativamente da elaboração de regulações de IA do setor
+	•	Regulatory Sandbox com reguladores para testar modelos inovadores
+	•	Framework de conformidade publicado e adotado por outros como referência
+	•	Conformidade como produto: serviço de conformidade de IA oferecido a clientes
+	•	Contratos ganhos porque a empresa tem conformidade de IA superior à concorrência
+
+O que você observa na prática
+	•	Top 4% MIT CISR: conformidade como vantagem competitiva, não como custo
+	•	Reguladores consultam a empresa para elaborar novas normas
+	•	Clientes em setores hipersensíveis escolhem a empresa pela conformidade
+	•	A empresa é citada em papers acadêmicos sobre regulação de IA responsável
+
+
+Parabéns. Você atingiu o topo da Dimensão 11.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar conformidade para IA Agêntica: regulação de agentes autônomos ainda sem padrões consolidados
+	•	Desenvolver metodologia de conformidade para Multi-Agent Systems
+	•	Criar centro de pesquisa em regulação de IA com parceria com universidades jurídicas
+	•	Publicar relatório anual de conformidade de IA como referência pública global
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Nenhum mapeamento de regulações de IA aplicáveis ao negócio
+Listar todas as regulações de IA aplicáveis ao setor: LGPD, EU AI Act se tiver operações na Europa, regulações setoriais
+2
+Inicial
+Inicial
+Regulações aplicáveis mapeadas mas conformidade verificada de forma inconsistente
+Implementar processo obrigatório de DPIA antes do início de qualquer projeto com dados pessoais
+3
+Definido
+Definido
+DPIA obrigatório e executado antes de todo projeto com dados pessoais
+Iniciar processo de certificação ISO 42001 (Gestão de Sistemas de IA)
+4
+Gerenciado
+Gerenciado
+ISO 42001 certificada ou em processo avançado
+Obter certificações adicionais: SOC 2 para IA, certificações setoriais específicas
+5
+Otimizado
+Otimizado
+Múltiplas certificações de terceiros: ISO 42001, SOC 2 para IA, certificações setoriais
+Preparar conformidade para IA Agêntica: regulação de agentes autônomos ainda sem padrões consolidados

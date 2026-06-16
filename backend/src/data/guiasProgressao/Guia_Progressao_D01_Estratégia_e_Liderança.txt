@@ -1,0 +1,292 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 1: Estratégia e Liderança
+Framework: MIT CISR  ·  Peso no score: 8%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 1
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Estratégia e Liderança — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+MIT CISR
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Iniciativas de IA surgem por entusiastas sem mandato formal
+	•	Nenhuma estratégia de IA documentada: existe apenas improvisação
+	•	C-Level não engajado: IA é assunto de TI, não de liderança
+	•	Orçamento aprovado projeto a projeto, sem previsibilidade
+	•	Sem responsável formal pela agenda de IA
+	•	Sem roadmap: cada iniciativa tem sua própria lógica
+	•	Métricas de sucesso de IA não existem ou são anedóticas
+
+O que você observa na prática
+	•	Projetos de IA começam com entusiasmo e morrem por falta de sponsor
+	•	Quando o campeão individual sai, o projeto morre junto
+	•	Difícil conseguir orçamento: cada projeto justificado do zero
+	•	35% das empresas estão neste nível segundo o MIT CISR
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Nomear formalmente um sponsor executivo para IA — sem isso nada mais funciona
+2
+Realizar diagnóstico de maturidade (este Blueprint) para ter dados que justifiquem a estratégia
+3
+Selecionar 2–3 casos de uso de IA com ROI mensurável em 90 dias para construir credibilidade interna
+4
+Aprovar um orçamento mínimo dedicado a IA separado do budget geral de TI
+5
+Comunicar ao corpo gerencial que IA é prioridade mesmo que a estratégia ainda esteja em construção
+
+Como confirmar que você atingiu o Nível 2
+	•	Existe um responsável por IA com mandato do C-Level
+	•	Existe ao menos um projeto com orçamento aprovado e prazo definido
+	•	C-Level menciona IA em ao menos uma comunicação formal por trimestre
+	•	2–3 primeiros casos de uso estão mapeados e priorizados
+
+
+NÍVEL
+2
+INICIAL
+Estratégia e Liderança — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+MIT CISR
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Estratégia de IA em rascunho ou aprovada informalmente — existe mas não é operacional
+	•	C-Level ciente de IA mas não é sponsor ativo: delega para TI
+	•	Orçamento existe mas definido ano a ano sem previsibilidade
+	•	Alguns projetos de IA mas sem coordenação entre eles
+	•	Responsável por IA pode ser gerente sênior, não necessariamente C-Level
+	•	Roadmap existe para alguns projetos mas não há um roadmap corporativo
+	•	Sucesso depende de 1–2 campeões individuais — concentração de risco
+
+O que você observa na prática
+	•	Projetos existem e têm resultados mas cada um funciona em seu silo
+	•	Quando você pergunta a estratégia, as respostas variam por área
+	•	Reuniões de IA sem representação consistente da alta liderança
+	•	Alta rotatividade de prioridades: IA concorre com outros projetos por atenção
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Escrever e aprovar formalmente a Estratégia de IA em documento oficial aprovado por Board ou Comitê Executivo
+2
+Criar ou formalizar a função de responsável por IA no nível C ou reporte direto (CDO, Head de IA, VP Transformação Digital)
+3
+Aprovar roadmap de IA com horizonte de ao menos 18 meses com marcos e entregáveis claros
+4
+Garantir orçamento plurianual (mínimo 2 anos): previsibilidade separa estratégia real de intenção
+5
+Definir e publicar internamente as métricas de sucesso de IA que o C-Level vai acompanhar
+6
+Realizar comunicação formal para toda a empresa sobre a estratégia de IA
+
+Como confirmar que você atingiu o Nível 3
+	•	Documento formal de Estratégia de IA aprovado pelo C-Level ou Board
+	•	Responsável por IA com título formal e reporte direto à liderança sênior
+	•	Roadmap com ao menos 18 meses de horizonte e marcos definidos
+	•	Orçamento com previsibilidade de ao menos 2 anos
+	•	Métricas de sucesso de IA definidas e sendo monitoradas
+
+
+NÍVEL
+3
+DEFINIDO
+Estratégia e Liderança — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+MIT CISR
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Estratégia de IA documentada, aprovada pelo C-Level e comunicada para a empresa
+	•	Responsável formal por IA (CDO ou equivalente) com equipe dedicada
+	•	Roadmap de 12–18 meses publicado e revisado periodicamente
+	•	Orçamento plurianual aprovado
+	•	Métricas de sucesso definidas e acompanhadas em reuniões regulares
+	•	Projetos de IA priorizados pela estratégia, não por iniciativa individual
+	•	C-Level engajado: IA como pauta recorrente em reuniões executivas
+
+O que você observa na prática
+	•	Quando você pergunta a estratégia, a resposta é consistente entre áreas
+	•	Novos projetos são avaliados contra o roadmap antes de aprovados
+	•	A empresa consegue rejeitar boas ideias por não estarem alinhadas à estratégia
+	•	20% das empresas atingem este nível — MIT CISR Estágio 2–3
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Integrar a estratégia de IA ao planejamento estratégico corporativo: IA precisa estar nos OKRs corporativos
+2
+Estender o horizonte do roadmap para 24–36 meses com cenários de evolução tecnológica
+3
+Criar ciclo semestral formal de revisão com benchmarking externo
+4
+Incluir métricas de IA no scorecard executivo de todos os líderes de área
+5
+Criar programa formal de IA para o Board: sessões trimestrais para conselheiros
+6
+Monitorar sistematicamente movimentos de IA da concorrência
+
+Como confirmar que você atingiu o Nível 4
+	•	Estratégia de IA integrada ao plano estratégico corporativo
+	•	Todos os líderes de área têm OKRs ou KPIs de IA nos seus scorecards
+	•	Board recebe atualização formal sobre IA pelo menos trimestralmente
+	•	Roadmap com 24–36 meses e análise de cenários
+	•	Processo formal de monitoramento competitivo em IA
+
+
+NÍVEL
+4
+GERENCIADO
+Estratégia e Liderança — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+MIT CISR
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Estratégia de IA integrada ao planejamento estratégico e financeiro corporativo
+	•	OKRs de IA presentes em todas as áreas da empresa
+	•	Roadmap de 24–36 meses com análise de cenários e adaptações semestrais
+	•	Board engajado: sessões trimestrais de IA com conselheiros
+	•	Métricas de IA no scorecard do CEO e de todos os C-Level diretos
+	•	Processo formal de monitoramento competitivo de IA
+	•	Investimentos em IA avaliados como portfólio financeiro com análise de risco e retorno
+
+O que você observa na prática
+	•	IA é mencionada na tese de investimento para analistas e investidores
+	•	Decisões de aquisição e parceria incluem análise de impacto de IA
+	•	A empresa consegue atrair líderes sêniores de IA por causa da estratégia clara
+	•	Top 11% das empresas globais — MIT CISR Estágio 3–4
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Tornar IA o motor central de crescimento: ao menos 30% do crescimento atribuível a iniciativas de IA
+2
+Publicar externamente a estratégia de IA: relatório anual, white paper, blog técnico
+3
+Criar AI Advisory Board com especialistas externos de classe mundial
+4
+Antecipar e influenciar regulações de IA do setor
+5
+Desenvolver estratégia de IA proprietária que a concorrência não consegue copiar
+6
+Criar programa de investimento em startups de IA estratégicas
+
+Como confirmar que você atingiu o Nível 5
+	•	IA citada no relatório anual como alavanca central de crescimento com evidências
+	•	AI Advisory Board com membros externos reconhecidos
+	•	A empresa influencia regulações de IA do setor
+	•	Ao menos 30% do crescimento recente atribuível a iniciativas de IA
+	•	A empresa citada por concorrentes e analistas como referência em estratégia de IA
+
+
+NÍVEL
+5
+OTIMIZADO
+Estratégia e Liderança — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+MIT CISR
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	IA é o diferencial competitivo central — não uma das prioridades, A prioridade
+	•	Estratégia de IA define e antecipa o mercado, não reage a ele
+	•	IA influencia decisões de M&A, entrada em novos mercados e precificação
+	•	AI Advisory Board com especialistas de classe mundial
+	•	A empresa influencia regulações de IA do setor
+	•	Liderança de pensamento reconhecida: publicações, conferências, parcerias com MIT e Stanford
+	•	Portfólio de investimentos em startups de IA alinhadas ao roadmap estratégico
+	•	Estratégia de IA é barreira de entrada: concorrentes não conseguem replicar
+
+O que você observa na prática
+	•	Top 4% de maturidade MIT CISR global
+	•	Talentos buscam a empresa proativamente por causa da visão estratégica
+	•	Concorrentes usam a empresa como benchmark de estratégia de IA
+	•	Analistas de mercado citam a empresa como líder setorial em IA
+	•	O modelo de negócio atual seria inviável sem a estratégia de IA construída
+
+
+Parabéns. Você atingiu o topo da Dimensão 1.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Manter liderança: Nível 5 não é destino, é posição que exige defesa ativa
+	•	Preparar para próxima geração: Multi-Agent Systems, IA Robótica, IA Quântica
+	•	Exportar o modelo: criar AI Academy ou programa de certificação para o setor
+	•	Contribuir para ecossistema: open source, pesquisa publicada, parcerias com universidades
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Iniciativas de IA surgem por entusiastas sem mandato formal
+Nomear formalmente um sponsor executivo para IA — sem isso nada mais funciona
+2
+Inicial
+Inicial
+Estratégia de IA em rascunho ou aprovada informalmente — existe mas não é operacional
+Escrever e aprovar formalmente a Estratégia de IA em documento oficial aprovado por Board ou Comitê Executivo
+3
+Definido
+Definido
+Estratégia de IA documentada, aprovada pelo C-Level e comunicada para a empresa
+Integrar a estratégia de IA ao planejamento estratégico corporativo: IA precisa estar nos OKRs corporativos
+4
+Gerenciado
+Gerenciado
+Estratégia de IA integrada ao planejamento estratégico e financeiro corporativo
+Tornar IA o motor central de crescimento: ao menos 30% do crescimento atribuível a iniciativas de IA
+5
+Otimizado
+Otimizado
+IA é o diferencial competitivo central — não uma das prioridades, A prioridade
+Manter liderança: Nível 5 não é destino, é posição que exige defesa ativa

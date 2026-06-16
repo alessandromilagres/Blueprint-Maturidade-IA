@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useDeferredValue } from 'react';
 import mermaid from 'mermaid';
 import { criarRegistroSlugs } from '../utils/markdownSlug.js';
 
@@ -91,12 +91,43 @@ function convertMarkdownHeadingsComAncoras(text) {
     .join('\n');
 }
 
-function renderBasicMarkdown(text) {
+function convertMarkdownTables(text, { skipHeadingLines = false } = {}) {
+  return text
+    .split('\n')
+    .map((line) => {
+      if (skipHeadingLines && /^\s*<h[1-4]\b/i.test(line.trim())) {
+        return line;
+      }
+      if (!line.includes('|')) return line;
+      const cells = line.split('|').filter((c) => c.trim());
+      if (cells.length < 2) return line;
+      if (cells.every((c) => c.trim().match(/^[-:]+$/))) {
+        return '';
+      }
+      const isHeader = cells.some((c) => c.includes('**'));
+      const cellTag = isHeader ? 'th' : 'td';
+      const cellClass = isHeader
+        ? 'border border-gray-300 px-4 py-2 bg-gray-100 font-semibold text-left'
+        : 'border border-gray-300 px-4 py-2';
+      const row = cells
+        .map(
+          (c) =>
+            `<${cellTag} class="${cellClass}">${c.trim().replace(/\*\*/g, '')}</${cellTag}>`
+        )
+        .join('');
+      return `<tr>${row}</tr>`;
+    })
+    .join('\n')
+    .replace(/(<tr>.*<\/tr>\s*)+/gim, '<table class="w-full border-collapse my-4 text-sm">$&</table>');
+}
+
+function renderBasicMarkdown(text, { bookCompleto = false } = {}) {
   if (!text) return '';
 
   const comHeadings = convertMarkdownHeadingsComAncoras(text);
+  const comTabelas = convertMarkdownTables(comHeadings, { skipHeadingLines: bookCompleto });
 
-  return comHeadings
+  return comTabelas
     .replace(/\*\*\*(.+?)\*\*\*/gim, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.+?)\*\*/gim, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/gim, '<em>$1</em>')
@@ -112,20 +143,6 @@ function renderBasicMarkdown(text) {
     .replace(/(<li[^>]*>.*<\/li>\s*)+/gim, '<ul class="list-disc pl-4 my-3">$&</ul>')
     .replace(/^\d+\.\s+(.+)$/gim, '<li class="ml-4 my-1">$1</li>')
     .replace(/^---$/gim, '<hr class="my-6 border-gray-300">')
-    .replace(/\|(.+)\|/gim, (match) => {
-      const cells = match.split('|').filter(c => c.trim());
-      if (cells.every(c => c.trim().match(/^[-:]+$/))) {
-        return '';
-      }
-      const isHeader = cells.some(c => c.includes('**'));
-      const cellTag = isHeader ? 'th' : 'td';
-      const cellClass = isHeader 
-        ? 'border border-gray-300 px-4 py-2 bg-gray-100 font-semibold text-left' 
-        : 'border border-gray-300 px-4 py-2';
-      const row = cells.map(c => `<${cellTag} class="${cellClass}">${c.trim().replace(/\*\*/g, '')}</${cellTag}>`).join('');
-      return `<tr>${row}</tr>`;
-    })
-    .replace(/(<tr>.*<\/tr>\s*)+/gim, '<table class="w-full border-collapse my-4 text-sm">$&</table>')
     .replace(/\n\n+/gim, '</p><p class="my-3">')
     .replace(/\n/gim, '<br>');
 }
@@ -137,26 +154,27 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;');
 }
 
-export default function MarkdownRenderer({ content, className = '' }) {
+export default function MarkdownRenderer({ content, className = '', bookCompleto = false }) {
   const containerRef = useRef(null);
+  const deferredContent = useDeferredValue(content);
   const [renderedContent, setRenderedContent] = useState('');
   const [mermaidBlocks, setMermaidBlocks] = useState([]);
   const [mermaidRendered, setMermaidRendered] = useState({});
 
   useEffect(() => {
-    if (!content) {
+    if (!deferredContent) {
       setRenderedContent('');
       setMermaidBlocks([]);
       return;
     }
 
-    const { processedText, mermaidBlocks: blocks } = extractMermaidBlocks(content);
-    const html = renderBasicMarkdown(processedText);
+    const { processedText, mermaidBlocks: blocks } = extractMermaidBlocks(deferredContent);
+    const html = renderBasicMarkdown(processedText, { bookCompleto });
     
     setMermaidBlocks(blocks);
     setRenderedContent(html);
     setMermaidRendered({});
-  }, [content]);
+  }, [deferredContent, bookCompleto]);
 
   useEffect(() => {
     if (mermaidBlocks.length === 0) return;

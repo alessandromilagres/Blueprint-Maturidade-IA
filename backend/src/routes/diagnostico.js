@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../lib/prisma.js';
 import { enviarEmailDiagnosticoRapidoResultado } from '../services/email.js';
+import { nivelNumericoDeScore, faixaNivelPorScore, RUBRICA_LIMITES_NIVEL } from '../utils/nivelMaturidadeRubrica.js';
 
 const router = express.Router();
 
@@ -260,12 +261,7 @@ router.put('/:id/finalizar', async (req, res) => {
       .reduce((acc, d) => acc + d.scorePonderado, 0);
     
     // Determinar nível de maturidade
-    let nivelMaturidade;
-    if (scoreGeral < 1.5) nivelMaturidade = 'Iniciante';
-    else if (scoreGeral < 2.5) nivelMaturidade = 'Explorador';
-    else if (scoreGeral < 3.5) nivelMaturidade = 'Praticante';
-    else if (scoreGeral < 4.5) nivelMaturidade = 'Avançado';
-    else nivelMaturidade = 'Líder';
+    const nivelMaturidade = faixaNivelPorScore(scoreGeral).nome;
     
     // Identificar 3 principais gaps (menores scores)
     const dimensoesOrdenadas = Object.entries(scoresPorDimensao)
@@ -277,7 +273,7 @@ router.put('/:id/finalizar', async (req, res) => {
         icone: data.icone,
         score: data.score,
         gap: parseFloat((5 - data.score).toFixed(2)),
-        prioridade: data.score < 2.5 ? 'Crítica' : data.score < 3.5 ? 'Alta' : 'Média'
+        prioridade: data.score < RUBRICA_LIMITES_NIVEL[1] ? 'Crítica' : data.score < RUBRICA_LIMITES_NIVEL[2] ? 'Alta' : 'Média'
       }));
     
     // Gerar recomendação de próximo passo CONTEXTUALIZADA

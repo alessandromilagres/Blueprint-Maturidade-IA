@@ -15,8 +15,10 @@ import {
   labelFiltroNivelMapeamento,
   pathRelatorioMitIaCompleto,
   filtroNivelFromDadosUsados,
-  perguntarFiltroNivelMapeamento
+  carregarRelatorioSalvoSeCompativel,
+  relatorioSalvoIdFromSearchParams
 } from '../utils/filtroNivelMaturidade';
+import { relatorioBookSecao3Completo } from '../constants/ordemDimensoesFramework.js';
 
 function formatDurationMs(ms) {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
@@ -54,7 +56,8 @@ export default function RelatorioMITIACompleto() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const versaoId = searchParams.get('versaoId');
+  const relatorioSalvoId = relatorioSalvoIdFromSearchParams(searchParams);
+  const projetoVersaoId = searchParams.get('projetoVersaoId');
   const modoRapido = searchParams.get('modo') === 'rapido';
   const filtroNivelUrl = filtroNivelMapeamentoFromSearchParams(searchParams);
   const [filtroNivelSelecionado, setFiltroNivelSelecionado] = useState(filtroNivelUrl);
@@ -71,14 +74,25 @@ export default function RelatorioMITIACompleto() {
   const printRef = useRef(null);
   const pollingRef = useRef(null);
   const backgroundRunningRef = useRef(false);
+  const geracaoIniciadaRef = useRef(false);
+  const skipGeracaoEffectRef = useRef(false);
   const filtroNivelExibicao =
     data?.dadosUsados != null
       ? filtroNivelFromDadosUsados(data.dadosUsados)
       : filtroNivelUrl;
+  const pathComProjetoVersao = (filtroNivel) =>
+    `${pathRelatorioMitIaCompleto(id, { modoRapido, filtroNivel })}${
+      projetoVersaoId ? `&projetoVersaoId=${projetoVersaoId}` : ''
+    }`;
 
   useEffect(() => {
+    if (skipGeracaoEffectRef.current) {
+      skipGeracaoEffectRef.current = false;
+      return;
+    }
+    geracaoIniciadaRef.current = false;
     gerarRelatorio();
-  }, [id, versaoId, modoRapido, filtroNivelUrl]);
+  }, [id, relatorioSalvoId, projetoVersaoId, modoRapido, filtroNivelUrl]);
 
   useEffect(() => {
     setFiltroNivelSelecionado(filtroNivelUrl);
@@ -103,30 +117,73 @@ export default function RelatorioMITIACompleto() {
   }, [jobBg?.id, jobBg?.status]);
 
   useEffect(() => {
-    if (!id || versaoId) return undefined;
+    if (!id || relatorioSalvoId || projetoVersaoId) return undefined;
     let cancelled = false;
     (async () => {
       try {
-        const jobs = await dashboardApi.listarRelatoriosIaJobs({
-          projetoId: parseInt(id, 10),
-          tipo: modoRapido ? 'completo_rapido' : 'completo',
-          limit: 20
-        });
-        if (cancelled || !Array.isArray(jobs)) return;
-        const ativo = jobs.find((j) => j.status === 'queued' || j.status === 'running');
-        if (ativo) setJobBg((prev) => (prev?.id === ativo.id ? prev : ativo));
+        const ativo = await obterJobAtivo();
+        if (cancelled || !ativo) return;
+        backgroundRunningRef.current = true;
+        geracaoIniciadaRef.current = true;
+        setJobBg((prev) => (prev?.id === ativo.id ? prev : ativo));
       } catch (_) {}
     })();
     return () => {
       cancelled = true;
     };
-  }, [id, versaoId, modoRapido, filtroNivelUrl]);
+  }, [id, relatorioSalvoId, projetoVersaoId, modoRapido, filtroNivelUrl]);
+
+  async function obterJobAtivo() {
+    try {
+      const jobs = await dashboardApi.listarRelatoriosIaJobs({
+        projetoId: parseInt(id, 10),
+        tipo: modoRapido ? 'completo_rapido' : 'completo',
+        limit: 20
+      });
+      return (Array.isArray(jobs) ? jobs : []).find((j) =>
+        ['queued', 'running'].includes(j.status)
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  async function anexarJobAtivoSeExistir() {
+    const ativo = await obterJobAtivo();
+    if (!ativo) return false;
+    backgroundRunningRef.current = true;
+    setJobBg(ativo);
+    setProgresso(Math.min(99, Math.max(10, Number(ativo.progresso) || 10)));
+    setMensagemProgresso(ativo.etapa || 'Gerando book em background...');
+    return true;
+  }
+
+  async function iniciarGeracaoAutomatica(filtroNivel = filtroNivelUrl) {
+    if (geracaoIniciadaRef.current) return;
+    if (await anexarJobAtivoSeExistir()) return;
+    geracaoIniciadaRef.current = true;
+    await iniciarGeracaoBackground(filtroNivel);
+  }
+
+  async function carregarRelatorioBiblioteca(salvoId) {
+    const row = await relatoriosIAApi.buscar(salvoId);
+    if (row.projetoId !== parseInt(id, 10)) {
+      throw new Error('Este relatório não pertence a este projeto.');
+    }
+    if (row.tipo !== 'completo' && row.tipo !== 'completo_rapido') {
+      throw new Error('Este item não é um Book de Trabalho (completo ou modo rápido).');
+    }
+    return mapRelatorioIASalvoToViewShape(row);
+  }
 
   async function gerarRelatorio() {
+    const carregandoBiblioteca = Boolean(relatorioSalvoId);
     setLoading(true);
     setError(null);
     setProgresso(3);
-    setMensagemProgresso('Procurando versão salva...');
+    setMensagemProgresso(
+      carregandoBiblioteca ? 'Carregando versão da biblioteca...' : 'Procurando versão salva...'
+    );
 
     const mensagens = [
       { p: 30, m: 'Buscando versão salva mais recente...' },
@@ -143,44 +200,41 @@ export default function RelatorioMITIACompleto() {
     }, 600);
 
     try {
-      const vid = searchParams.get('versaoId');
-      if (vid) {
-        const salvoId = parseInt(vid, 10);
-        if (Number.isNaN(salvoId)) throw new Error('Identificador de versão inválido.');
-        const row = await relatoriosIAApi.buscar(salvoId);
-        if (row.projetoId !== parseInt(id, 10)) {
-          throw new Error('Este relatório não pertence a este projeto.');
-        }
-        if (row.tipo !== 'completo' && row.tipo !== 'completo_rapido') {
-          throw new Error('Este item não é um Book de Trabalho (completo ou modo rápido).');
-        }
+      if (relatorioSalvoId) {
+        const salvoId = parseInt(relatorioSalvoId, 10);
+        if (Number.isNaN(salvoId)) throw new Error('Identificador de relatório inválido.');
+        const mapped = await carregarRelatorioBiblioteca(salvoId);
         clearInterval(intervalo);
         setProgresso(100);
         setMensagemProgresso('Versão da biblioteca carregada.');
-        setData(mapRelatorioIASalvoToViewShape(row));
+        setData(mapped);
         return;
       }
 
-      try {
-        const salvo = await relatoriosIAApi.ultimaVersao(
-          id,
-          modoRapido ? 'completo_rapido' : 'completo',
-          { nivelPrioridadeMapeamentoMaturidade: filtroNivelUrl }
-        );
+      const salvo = await carregarRelatorioSalvoSeCompativel({
+        relatoriosIAApi,
+        projetoId: id,
+        tipo: modoRapido ? 'completo_rapido' : 'completo',
+        filtroNivel: filtroNivelUrl,
+        projetoVersaoId
+      });
+      if (salvo) {
         clearInterval(intervalo);
         setProgresso(100);
         setMensagemProgresso('Versão salva carregada!');
         setData(mapRelatorioIASalvoToViewShape(salvo));
-      } catch (_) {
-        clearInterval(intervalo);
-        await handleGerarBackgroundPerguntandoNivel();
+        return;
       }
+
+      clearInterval(intervalo);
+      await iniciarGeracaoAutomatica(filtroNivelUrl);
     } catch (err) {
       clearInterval(intervalo);
       setError(err.message || 'Erro ao gerar book de trabalho');
     } finally {
-      if (!backgroundRunningRef.current) {
-        setTimeout(() => setLoading(false), 600);
+      clearInterval(intervalo);
+      if (!backgroundRunningRef.current || relatorioSalvoId) {
+        setLoading(false);
       }
     }
   }
@@ -207,9 +261,11 @@ export default function RelatorioMITIACompleto() {
           }
           if (status.status === 'completed') {
             backgroundRunningRef.current = false;
-            const temVersaoNaUrl = new URLSearchParams(window.location.search).get('versaoId');
-            if (temVersaoNaUrl) {
-              navigate(pathRelatorioMitIaCompleto(id, { modoRapido, filtroNivel: filtroNivelUrl }), {
+            const params = new URLSearchParams(window.location.search);
+            const temSalvoNaUrl =
+              params.get('relatorioSalvoId') || params.get('versaoId');
+            if (temSalvoNaUrl) {
+              navigate(pathComProjetoVersao(filtroNivelUrl), {
                 replace: true
               });
             } else {
@@ -242,7 +298,10 @@ export default function RelatorioMITIACompleto() {
       const res = await dashboardApi.iniciarRelatorioIABackground(
         id,
         modoRapido ? 'completo_rapido' : 'completo',
-        { nivelPrioridadeMapeamentoMaturidade: filtroNivelOverride }
+        {
+          nivelPrioridadeMapeamentoMaturidade: filtroNivelOverride,
+          versaoId: projetoVersaoId
+        }
       );
       const job = res?.job;
       if (!job?.id) throw new Error('Não foi possível iniciar job em background');
@@ -257,27 +316,45 @@ export default function RelatorioMITIACompleto() {
   }
 
   async function handleRegenerarComNivelSelecionado() {
-    const filtroNivel = perguntarFiltroNivelMapeamento({
-      defaultValue: Number(filtroNivelSelecionado),
-      contexto: modoRapido ? 'Book modo rápido' : 'Book de Trabalho completo'
-    });
+    const filtroNivel = Number(filtroNivelSelecionado);
     const nivelValido = filtroNivel === 0 || (filtroNivel >= 1 && filtroNivel <= 3);
     if (!nivelValido) return;
-
-    if (versaoId || filtroNivel !== filtroNivelUrl) {
-      navigate(pathRelatorioMitIaCompleto(id, { modoRapido, filtroNivel }), { replace: true });
+    if (
+      !window.confirm(
+        'Gerar uma nova versão do book? Isso consumirá tokens da IA. A versão anterior continuará na biblioteca.'
+      )
+    ) {
+      return;
     }
-    await iniciarGeracaoBackground(filtroNivel);
+
+    geracaoIniciadaRef.current = false;
+    skipGeracaoEffectRef.current = true;
+    if (relatorioSalvoId || filtroNivel !== filtroNivelUrl) {
+      const base = pathComProjetoVersao(filtroNivel);
+      navigate(relatorioSalvoId ? `${base}&relatorioSalvoId=${relatorioSalvoId}` : base, {
+        replace: true
+      });
+    }
+    await iniciarGeracaoAutomatica(filtroNivel);
   }
 
   async function handleGerarBackgroundPerguntandoNivel() {
-    const filtroNivel = perguntarFiltroNivelMapeamento({
-      defaultValue: filtroNivelUrl,
-      contexto: modoRapido ? 'Book modo rápido' : 'Book de Trabalho completo'
-    });
-    if (filtroNivel == null) return;
-    if (versaoId || filtroNivel !== filtroNivelUrl) {
-      navigate(pathRelatorioMitIaCompleto(id, { modoRapido, filtroNivel }), { replace: true });
+    const filtroNivel = Number(filtroNivelSelecionado);
+    const nivelValido = filtroNivel === 0 || (filtroNivel >= 1 && filtroNivel <= 3);
+    if (!nivelValido) return;
+    if (
+      !window.confirm(
+        'Gerar o book em background? Você pode continuar navegando. Isso consumirá tokens da IA.'
+      )
+    ) {
+      return;
+    }
+
+    geracaoIniciadaRef.current = false;
+    skipGeracaoEffectRef.current = true;
+    const base = pathComProjetoVersao(filtroNivel);
+    if (relatorioSalvoId || filtroNivel !== filtroNivelUrl) {
+      navigate(base, { replace: true });
     }
     await iniciarGeracaoBackground(filtroNivel);
   }
@@ -349,6 +426,7 @@ export default function RelatorioMITIACompleto() {
   }
 
   if (loading) {
+    const carregandoBiblioteca = Boolean(relatorioSalvoId);
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-emerald-950/20 to-slate-950 flex items-center justify-center p-6 print:hidden">
         <div className="max-w-2xl w-full">
@@ -362,18 +440,27 @@ export default function RelatorioMITIACompleto() {
               </div>
               
               <h1 className="text-3xl font-bold text-white mb-2">
-                {modoRapido ? 'Construindo Book (modo rápido)' : 'Construindo Book de Trabalho'}
+                {carregandoBiblioteca
+                  ? 'Carregando book da biblioteca'
+                  : modoRapido
+                    ? 'Construindo Book (modo rápido)'
+                    : 'Construindo Book de Trabalho'}
               </h1>
               <p className="text-emerald-300 text-sm mb-1 font-medium">
-                {modoRapido
-                  ? 'Versão condensada · mesma estrutura · menos chamadas à IA'
-                  : 'Análise Aprofundada · Metodologia MIT CISR Completa'}
+                {carregandoBiblioteca
+                  ? 'Abrindo versão salva — sem consumir tokens da IA'
+                  : modoRapido
+                    ? 'Versão condensada · mesma estrutura · menos chamadas à IA'
+                    : 'Análise Aprofundada · Metodologia MIT CISR Completa'}
               </p>
+              {!carregandoBiblioteca && (
               <p className="text-slate-400 text-sm mb-8">
                 {modoRapido
                   ? 'Menos blocos que o book completo — meta típica até ~30 min (varia com provedor e fila).'
                   : 'A IA está realizando uma análise exaustiva por dimensão e construindo um documento de referência'}
               </p>
+              )}
+              {carregandoBiblioteca && <div className="mb-8" />}
 
               <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden mb-3">
                 <div 
@@ -390,7 +477,9 @@ export default function RelatorioMITIACompleto() {
                 <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-center">
                   <Layers className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
                   <p className="text-[10px] text-slate-400 uppercase tracking-wider">Profundidade</p>
-                  <p className="text-xs text-white font-semibold mt-0.5">13 Seções</p>
+                  <p className="text-xs text-white font-semibold mt-0.5">
+                    {carregandoBiblioteca ? 'Salvo' : '13 Seções'}
+                  </p>
                 </div>
                 <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-center">
                   <Zap className="w-5 h-5 text-amber-400 mx-auto mb-1" />
@@ -408,6 +497,7 @@ export default function RelatorioMITIACompleto() {
                 </div>
               </div>
 
+              {!carregandoBiblioteca && (
               <div className="mt-8 w-full p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-left">
                 <p className="text-[11px] text-emerald-300 font-semibold mb-2 uppercase tracking-wider">O que está sendo gerado:</p>
                 <ul className="space-y-1 text-[11px] text-slate-400">
@@ -430,6 +520,7 @@ export default function RelatorioMITIACompleto() {
                   )}
                 </ul>
               </div>
+              )}
             </div>
           </div>
         </div>
@@ -466,6 +557,27 @@ export default function RelatorioMITIACompleto() {
     );
   }
 
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-600 rounded-2xl p-8 text-center">
+          <AlertCircle className="w-10 h-10 text-slate-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Nenhum conteúdo carregado</h2>
+          <p className="text-slate-400 text-sm mb-6">
+            O book não foi encontrado ou ainda não foi gerado para este projeto.
+          </p>
+          <button
+            type="button"
+            onClick={gerarRelatorio}
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 px-4 text-xs font-medium text-white transition hover:bg-emerald-700"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const isBookRapido =
     modoRapido ||
     data?.modoGeracao === 'rapido' ||
@@ -473,6 +585,8 @@ export default function RelatorioMITIACompleto() {
     data?.dadosUsados?.modoGeracao === 'rapido';
 
   const indice = extrairEntradasIndiceMarkdown(data?.relatorio || '');
+  const statusSecao3 = data?.relatorio ? relatorioBookSecao3Completo(data.relatorio) : null;
+  const secao3Incompleta = Boolean(statusSecao3 && !statusSecao3.ok);
   const headerBtn =
     'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition disabled:pointer-events-none disabled:opacity-60';
 
@@ -501,6 +615,12 @@ export default function RelatorioMITIACompleto() {
                 <p className="text-sm text-slate-700 font-medium">{data?.dadosUsados?.projeto}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   {labelFiltroNivelMapeamento(filtroNivelExibicao)}
+                  {data?.dadosUsados?.projetoVersao?.titulo
+                    ? ` · ${data.dadosUsados.projetoVersao.titulo}`
+                    : ''}
+                  {data?.dadosUsados?.comparativoVersoes?.disponivel
+                    ? ` · Δ ${data.dadosUsados.comparativoVersoes.delta > 0 ? '+' : ''}${Number(data.dadosUsados.comparativoVersoes.delta).toFixed(2)} vs ${data.dadosUsados.comparativoVersoes.versaoBase?.titulo}`
+                    : ''}
                   {data?.dadosUsados?.totalAvaliadores != null
                     ? ` · ${data.dadosUsados.totalAvaliadores} avaliador(es)`
                     : ''}
@@ -608,7 +728,7 @@ export default function RelatorioMITIACompleto() {
               type="button"
               onClick={() =>
                 navigate(
-                  pathRelatorioMitIaCompleto(id, { modoRapido, filtroNivel: filtroNivelUrl }),
+                  pathComProjetoVersao(filtroNivelUrl),
                   { replace: true }
                 )
               }
@@ -661,6 +781,22 @@ export default function RelatorioMITIACompleto() {
               {data.totalChunks && ` · ${data.chunksGerados}/${data.totalChunks} chunks`}
               {data.tokens?.saida && ` · ${(data.tokens.saida / 1000).toFixed(1)}k tokens`}
             </span>
+          </div>
+        </div>
+      )}
+
+      {secao3Incompleta && (
+        <div className="border-b border-amber-300 bg-amber-50 print:hidden">
+          <div className="mx-auto flex max-w-7xl items-start gap-2 px-6 py-3 text-sm text-amber-950">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="font-semibold">Seção 3 incompleta ({statusSecao3.total}/16 dimensões)</p>
+              <p className="mt-1 text-xs text-amber-900/90">
+                Esta versão foi gerada com formato antigo ou interrompida. Use <strong>Gerar em background</strong> ou
+                remova <code className="rounded bg-amber-100 px-1">relatorioSalvoId</code> da URL para criar um book
+                novo com as 16 dimensões na ordem do framework.
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -772,9 +908,10 @@ export default function RelatorioMITIACompleto() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (new URLSearchParams(window.location.search).get('versaoId')) {
+                    const params = new URLSearchParams(window.location.search);
+                    if (params.get('relatorioSalvoId') || params.get('versaoId')) {
                       navigate(
-                        pathRelatorioMitIaCompleto(id, { modoRapido, filtroNivel: filtroNivelUrl }),
+                        pathComProjetoVersao(filtroNivelUrl),
                         { replace: true }
                       );
                     } else {
@@ -851,6 +988,9 @@ export default function RelatorioMITIACompleto() {
                   </h1>
                   <p className="text-emerald-100 text-lg mb-6">
                     {data?.dadosUsados?.empresa} · {data?.dadosUsados?.projeto}
+                    {data?.dadosUsados?.projetoVersao?.titulo
+                      ? ` · ${data.dadosUsados.projetoVersao.titulo}`
+                      : ''}
                   </p>
 
                   <div className="flex flex-wrap gap-3 text-xs">
@@ -907,8 +1047,23 @@ export default function RelatorioMITIACompleto() {
 
               {/* Conteúdo do book */}
               <div className="px-10 py-10 print:px-8 print:py-6">
+                {data?.dadosUsados?.comparativoVersoes?.disponivel && (
+                  <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 print:hidden">
+                    <p className="text-sm font-semibold text-emerald-900">Evolução entre versões da pesquisa</p>
+                    <p className="mt-1 text-xs text-emerald-800">
+                      {data.dadosUsados.comparativoVersoes.versaoBase?.titulo} ({Number(data.dadosUsados.comparativoVersoes.versaoBase?.score ?? 0).toFixed(1)})
+                      {' → '}
+                      {data.dadosUsados.comparativoVersoes.versaoComparada?.titulo} ({Number(data.dadosUsados.comparativoVersoes.versaoComparada?.score ?? 0).toFixed(1)})
+                      {' · Δ '}
+                      {data.dadosUsados.comparativoVersoes.delta > 0 ? '+' : ''}
+                      {Number(data.dadosUsados.comparativoVersoes.delta).toFixed(2)}
+                      {' · '}
+                      {data.dadosUsados.comparativoVersoes.tendencia}
+                    </p>
+                  </div>
+                )}
                 <article className="prose prose-slate max-w-none prose-headings:font-bold prose-h1:text-3xl prose-h1:text-emerald-900 prose-h1:border-b prose-h1:border-emerald-200 prose-h1:pb-3 prose-h1:mt-12 prose-h1:mb-6 prose-h2:text-2xl prose-h2:text-teal-800 prose-h2:mt-10 prose-h2:mb-4 prose-h3:text-xl prose-h3:text-teal-700 prose-h3:mt-8 prose-h4:text-lg prose-h4:text-slate-700 prose-p:text-slate-700 prose-p:leading-relaxed prose-strong:text-slate-900 prose-strong:font-semibold prose-table:text-sm prose-table:border-collapse prose-th:bg-emerald-50 prose-th:text-emerald-900 prose-th:p-3 prose-th:font-semibold prose-th:text-left prose-td:p-3 prose-td:border prose-td:border-slate-200 prose-th:border prose-th:border-emerald-200 prose-li:text-slate-700 prose-li:my-1 prose-blockquote:border-l-emerald-500 prose-blockquote:bg-emerald-50 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r prose-code:text-emerald-700 prose-code:bg-emerald-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none print:prose-h1:text-2xl print:prose-h2:text-xl print:prose-h3:text-lg [&_h1]:scroll-mt-24 [&_h2]:scroll-mt-24">
-                  <MarkdownRenderer content={data?.relatorio || ''} />
+                  <MarkdownRenderer content={data?.relatorio || ''} bookCompleto={!isBookRapido} />
                 </article>
               </div>
 

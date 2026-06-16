@@ -158,7 +158,7 @@ export function AuthProvider({ children }) {
     const r = String(usuario?.role || '').trim().toLowerCase();
     if (r === 'admin') return true;
     // Gestor clássico + fase 2 (visão operacional na empresa), exceto avaliador-only
-    return r === 'gestor' || r === 'negocios' || r === 'ti' || r === 'sysmap';
+    return r === 'gestor' || r === 'executivo' || r === 'negocios' || r === 'ti' || r === 'sysmap';
   }
 
   function isAvaliador() {

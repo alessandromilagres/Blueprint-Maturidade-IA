@@ -4,6 +4,7 @@
 export const PERFIL_USUARIO_LABELS = {
   admin: 'Administrador',
   gestor: 'Gestor',
+  executivo: 'Executivo',
   avaliador: 'Avaliador',
   negocios: 'Negócios',
   ti: 'TI',
@@ -20,6 +21,7 @@ export const OPCOES_PERFIL_USUARIO = [
   { value: 'negocios', label: 'Negócios' },
   { value: 'ti', label: 'TI' },
   { value: 'sysmap', label: 'SysMap' },
+  { value: 'executivo', label: 'Executivo' },
   { value: 'avaliador', label: 'Avaliador' },
   { value: 'gestor', label: 'Gestor' },
   { value: 'admin', label: 'Administrador' },

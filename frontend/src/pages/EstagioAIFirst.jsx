@@ -25,6 +25,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import api, { dashboardApi } from '../services/api';
+import { nivelNumericoDeScore } from '../utils/nivelMaturidadeRubrica.js';
 
 const ESTAGIOS = [
   { 
@@ -135,7 +136,7 @@ function EstagioAIFirst() {
       const prods = Array.isArray(prodRes.data) ? prodRes.data : [];
       setProdutos(prods);
       
-      const nivel = dashboard.scoreGeral < 1.5 ? 1 : dashboard.scoreGeral < 2.5 ? 2 : dashboard.scoreGeral < 3.5 ? 3 : dashboard.scoreGeral < 4.5 ? 4 : 5;
+      const nivel = nivelNumericoDeScore(dashboard.scoreGeral);
       const estagios = calcularEstagios(dashboard, prods);
       
       setData({

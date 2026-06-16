@@ -1,0 +1,281 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 14: IA como Gerador de Receita
+Framework: MIT CISR  ·  Peso no score: 7%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 14
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+IA como Gerador de Receita — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+MIT CISR
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	IA usada exclusivamente para eficiência interna — sem impacto externo
+	•	Sem produto ou serviço de IA comercializado para clientes
+	•	Sem roadmap de monetização de IA
+	•	IA é centro de custo: o único valor é redução de custo interno
+	•	Nenhuma discussão sobre AI-as-a-Service ou produtos IA-First
+	•	Concorrentes estão lançando produtos de IA que a empresa não tem
+
+O que você observa na prática
+	•	A empresa perde a maior oportunidade da IA: transformar capacidade em produto
+	•	Clientes perguntam sobre funcionalidades de IA que a empresa não tem
+	•	Concorrentes criam novos modelos de receita enquanto a empresa só reduz custo
+	•	A empresa está ficando para trás na percepção de clientes sobre inovação
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Pesquisar clientes sobre quais funcionalidades de IA eles pagariam mais ou migrariam por não ter
+2
+Identificar o processo de IA interno com mais valor que poderia ser exposto como funcionalidade para clientes
+3
+Avaliar ao menos 1 caso de uso de IA em produto existente para diferenciação de preço ou NPS
+4
+Criar discussão formal na liderança: 'como IA pode virar fonte de receita?'
+5
+Mapear o que concorrentes estão fazendo em IA como produto para entender o gap competitivo
+
+Como confirmar que você atingiu o Nível 2
+	•	Pesquisa com clientes sobre IA realizada com insights documentados
+	•	Ao menos 1 caso de uso identificado como candidato à monetização
+	•	Discussão formal sobre IA como receita realizada com a liderança
+
+
+NÍVEL
+2
+INICIAL
+IA como Gerador de Receita — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+MIT CISR
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	IA melhorando produtos existentes mas sem monetização explícita
+	•	Produtos com funcionalidades de IA mas sem diferencial de preço
+	•	Conversas sobre AI-as-a-Service mas sem produto definido
+	•	ROI de IA medido apenas em eficiência interna
+	•	Roadmap de produto não inclui IA como fonte de receita explicitamente
+	•	A empresa sabe que poderia monetizar mas não sabe como ou por onde começar
+
+O que você observa na prática
+	•	IA melhora produtos mas o valor não é capturado comercialmente
+	•	Difícil justificar investimentos maiores em IA sem linha de receita associada
+	•	Clientes percebem melhoria mas não pagam mais por falta de modelo de precificação
+	•	Oportunidade de capturar valor de mercado está sendo deixada na mesa
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Definir e lançar ao menos 1 funcionalidade de IA como diferencial explícito com impacto em preço ou conversão
+2
+Criar experimento de monetização: testar willingness-to-pay para funcionalidades de IA
+3
+Criar roadmap de monetização de IA aprovado com metas de receita para 18 meses
+4
+Definir modelo de precificação de IA: por uso, por resultado, por features ou premium tier
+5
+Criar KPI de receita de IA para acompanhar mensalmente
+6
+Avaliar viabilidade de AI-as-a-Service: vender acesso às capacidades como API ou produto
+
+Como confirmar que você atingiu o Nível 3
+	•	Ao menos 1 funcionalidade de IA com impacto demonstrável em conversão ou retenção em produção
+	•	Roadmap de monetização aprovado com metas de receita
+	•	KPI de receita de IA sendo reportado mensalmente
+	•	Modelo de precificação de IA definido e aprovado
+
+
+NÍVEL
+3
+DEFINIDO
+IA como Gerador de Receita — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+MIT CISR
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	IA como diferencial explícito em ao menos 1 produto core com impacto em preço ou conversão
+	•	Roadmap de monetização aprovado com metas de receita para 18 meses
+	•	KPI de receita de IA sendo coletado e reportado
+	•	Modelo de precificação para funcionalidades de IA definido
+	•	Primeiros experimentos de AI-as-a-Service em andamento
+	•	Equipe de produto com responsável explícito por funcionalidades de IA
+
+O que você observa na prática
+	•	IA está sendo convertida em valor de mercado perceptível pelos clientes
+	•	Clientes pagam mais ou escolhem o produto por causa de funcionalidades de IA
+	•	Primeiros produtos de IA no portfólio gerando receita
+	•	MIT CISR Estágio 3: IA começa a entrar no modelo de receita
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Criar produto IA-First: produto novo cujo core é IA, não IA adicionada em produto existente
+2
+Lançar API ou AI-as-a-Service para clientes e parceiros consumirem as capacidades de IA
+3
+Criar P&L separado para o negócio de IA: receita, custo e margem do portfólio
+4
+Estabelecer meta de IA como % da receita total com acompanhamento executivo
+5
+Desenvolver estratégia de precificação dinâmica baseada em IA
+6
+Contratar VP de Produto de IA ou Head de AI Products como liderança dedicada
+
+Como confirmar que você atingiu o Nível 4
+	•	Ao menos 1 produto IA-First no portfólio (não apenas feature em produto existente)
+	•	AI-as-a-Service ou API de IA lançado com ao menos 5 clientes ativos
+	•	P&L de IA separado acompanhado mensalmente
+	•	IA como % da receita total medida e reportada para o C-Level
+
+
+NÍVEL
+4
+GERENCIADO
+IA como Gerador de Receita — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+MIT CISR
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Portfólio de produtos IA-First com receita própria
+	•	AI-as-a-Service ou API de IA como linha de negócio com P&L dedicado
+	•	IA como % da receita total medida e crescente (acima de 10%)
+	•	VP de Produto de IA com equipe dedicada
+	•	Estratégia de precificação dinâmica baseada em IA operacional
+	•	Roadmap de produtos de IA com pipeline de lançamentos planejados
+
+O que você observa na prática
+	•	IA é uma linha de negócio, não apenas um custo
+	•	Clientes pagam diretamente por capacidades de IA
+	•	A empresa compete no mercado de IA, não apenas usa IA para competir
+	•	Top 11% MIT CISR Estágio 3–4: IA como gerador de receita real
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Escalar o negócio de IA para mais de 30% da receita total
+2
+Criar marketplace de IA: plataforma onde terceiros constroem sobre as capacidades da empresa
+3
+Desenvolver modelo de receita recorrente baseado em IA (subscription, usage-based)
+4
+Criar rede de canais e parceiros para distribuição dos produtos de IA
+5
+Publicar casos de sucesso de clientes com ROI documentado como referência
+6
+Explorar expansão internacional dos produtos de IA como alavanca de crescimento
+
+Como confirmar que você atingiu o Nível 5
+	•	IA como % da receita total acima de 30%
+	•	Marketplace de IA lançado com ao menos 10 parceiros construindo sobre a plataforma
+	•	Modelo de receita recorrente de IA com crescimento mês a mês
+	•	Expansão internacional de ao menos 1 produto de IA iniciada
+
+
+NÍVEL
+5
+OTIMIZADO
+IA como Gerador de Receita — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+MIT CISR
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	IA como produto central que define o modelo de negócio
+	•	30%+ da receita gerada por IA
+	•	Marketplace de IA com efeito de rede e receita recorrente
+	•	Expansão internacional dos produtos de IA
+	•	Modelo de negócio com múltiplos vetores: direto, marketplace, API, licenciamento
+	•	Sem IA o modelo de negócio seria fundamentalmente diferente e menos competitivo
+
+O que você observa na prática
+	•	Top 4% MIT CISR: a empresa compete no mercado de IA como player principal
+	•	A receita de IA cresce mais rápido que o restante do negócio
+	•	Novos concorrentes entram no setor para competir com o produto de IA da empresa
+	•	Investidores valorizam a empresa pelo potencial do negócio de IA
+
+
+Parabéns. Você atingiu o topo da Dimensão 14.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar o produto para o paradigma agêntico: produtos que executam tarefas autonomamente para clientes
+	•	Criar oferta de Multi-Agent Systems como produto para empresas (B2B)
+	•	Desenvolver marketplace de agentes de IA especializados
+	•	Publicar relatório anual de impacto dos produtos de IA nos clientes como referência
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+IA usada exclusivamente para eficiência interna — sem impacto externo
+Pesquisar clientes sobre quais funcionalidades de IA eles pagariam mais ou migrariam por não ter
+2
+Inicial
+Inicial
+IA melhorando produtos existentes mas sem monetização explícita
+Definir e lançar ao menos 1 funcionalidade de IA como diferencial explícito com impacto em preço ou conversão
+3
+Definido
+Definido
+IA como diferencial explícito em ao menos 1 produto core com impacto em preço ou conversão
+Criar produto IA-First: produto novo cujo core é IA, não IA adicionada em produto existente
+4
+Gerenciado
+Gerenciado
+Portfólio de produtos IA-First com receita própria
+Escalar o negócio de IA para mais de 30% da receita total
+5
+Otimizado
+Otimizado
+IA como produto central que define o modelo de negócio
+Preparar o produto para o paradigma agêntico: produtos que executam tarefas autonomamente para clientes

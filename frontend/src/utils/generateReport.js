@@ -6,6 +6,10 @@ import {
   multiplicadorRoiPorFaturamento,
   percentualReferenciaRoi
 } from './roiPorFaturamento.js';
+import {
+  nivelNumericoDeScore,
+  faixaNivelPorScore
+} from './nivelMaturidadeRubrica.js';
 
 // =============================================================================
 // BENCHMARKING POR VERTICAL (Dados de mercado baseados em pesquisas de 2024)
@@ -1177,11 +1181,7 @@ const ROADMAP_DETALHADO = {
 };
 
 function getMaturityLevelFromScore(score) {
-  if (score < 1.5) return 1;
-  if (score < 2.5) return 2;
-  if (score < 3.5) return 3;
-  if (score < 4.5) return 4;
-  return 5;
+  return nivelNumericoDeScore(score);
 }
 
 /** Projeção financeira do Word ajustada pelo faturamento anual do projeto (quando informado). */
@@ -1222,11 +1222,7 @@ export function getProjecaoFinanceiraAjustada(dashboardData) {
 }
 
 function getNivelMaturidade(score) {
-  if (score <= 1.5) return 'Inicial';
-  if (score <= 2.5) return 'Oportunista';
-  if (score <= 3.5) return 'Estruturado';
-  if (score <= 4.5) return 'Gerenciado';
-  return 'Otimizado';
+  return faixaNivelPorScore(score).nome;
 }
 
 // ==========================================
@@ -1699,6 +1695,7 @@ export function generateWordReport(dashboardData) {
   const isProjeto = !!dashboardData.projeto;
   const entityName = isProjeto ? dashboardData.projeto.nome : dashboardData.empresa.nome;
   const empresaNome = dashboardData.empresa.nome;
+  const projetoVersaoLabel = dashboardData.projetoVersao?.titulo || 'Versão atual';
   
   const vertical = isProjeto && dashboardData.projeto.vertical ? dashboardData.projeto.vertical : null;
   const verticalConfig = vertical ? VERTICAIS_CONFIG[vertical] : null;
@@ -1863,8 +1860,18 @@ export function generateWordReport(dashboardData) {
       <div style="font-size: 11pt; font-weight: bold; color: #1e3a8a;">${dashboardData.totalAvaliadores}</div>
     </td>
     <td style="width: 50%; background: #f8fafc; border-left: 3px solid #3b82f6;">
+      <div style="font-size: 8pt; color: #64748b; text-transform: uppercase;">Versão da pesquisa</div>
+      <div style="font-size: 11pt; font-weight: bold; color: #1e3a8a;">${projetoVersaoLabel}</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="width: 50%; background: #f8fafc; border-left: 3px solid #3b82f6;">
       <div style="font-size: 8pt; color: #64748b; text-transform: uppercase;">Data</div>
       <div style="font-size: 11pt; font-weight: bold; color: #1e3a8a;">${formatDate(new Date())}</div>
+    </td>
+    <td style="width: 50%; background: #f8fafc; border-left: 3px solid #3b82f6;">
+      <div style="font-size: 8pt; color: #64748b; text-transform: uppercase;">Escopo</div>
+      <div style="font-size: 11pt; font-weight: bold; color: #1e3a8a;">${isProjeto ? 'Projeto' : 'Empresa'}</div>
     </td>
   </tr>
 </table>
@@ -2733,7 +2740,7 @@ ${vertical && KPIS_ESPECIFICOS_VERTICAL[vertical] ? `
 </div>
 
 <div class="mit-reference">
-  <strong>📚 Referência Metodológica:</strong> Este assessment utiliza como base o <strong>MIT CISR Enterprise AI Maturity Model</strong> (Weill, Woerner & Sebastian, 2024), adaptado para uma escala de 5 níveis de maturidade. Estudos do MIT com 721 empresas indicam que organizações nos níveis mais altos têm performance financeira significativamente acima da média da indústria (+11% a +17% em crescimento).
+  <strong>📚 Referência Metodológica:</strong> Este assessment utiliza como base o <strong>MIT CISR Enterprise AI Maturity Model</strong> (Weill, Woerner & Sebastian, 2024) — <strong>quatro estágios empresariais</strong> oficiais — adaptado para a escala operacional Blueprint de <strong>cinco níveis</strong> (faixas 1,8 / 2,6 / 3,4 / 4,2). Estudos do MIT com 721 empresas indicam que organizações nos estágios mais avançados têm performance financeira significativamente acima da média da indústria (+11% a +17% em crescimento).
   <br><br>
   <strong>🔗 Link para o estudo:</strong> <a href="https://cisr.mit.edu/publication/2024_1201_EnterpriseAIMaturityModel_WeillWoernerSebastian" target="_blank">MIT CISR - Building Enterprise AI Maturity</a>
 </div>
@@ -3881,6 +3888,7 @@ export function generateExecutiveWordReport(dashboardData) {
   const isProjeto = !!dashboardData.projeto;
   const empresaNome = dashboardData.empresa?.nome || 'Empresa';
   const entityName = isProjeto ? dashboardData.projeto.nome : empresaNome;
+  const projetoVersaoLabel = dashboardData.projetoVersao?.titulo || 'Versão atual';
   
   const areasOrdenadas = [...(dashboardData.scoresPorArea || [])]
     .filter(a => a && typeof a.score === 'number')
@@ -3976,6 +3984,7 @@ export function generateExecutiveWordReport(dashboardData) {
   <div style="margin-top: 40px;">
     <p style="font-size: 14pt; font-weight: bold;">${empresaNome}</p>
     ${isProjeto ? `<p style="color: #64748b;">Projeto: ${dashboardData.projeto.nome}</p>` : ''}
+    ${isProjeto ? `<p style="color: #64748b;">Versão da pesquisa: ${projetoVersaoLabel}</p>` : ''}
     <p style="color: #64748b; margin-top: 20px;">${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
   </div>
 </div>
@@ -4266,11 +4275,7 @@ export function downloadWordFromRelatorio(relatorio) {
 }
 
 function getClassificacao(score) {
-  if (score <= 1.5) return 'Iniciante';
-  if (score <= 2.5) return 'Básico';
-  if (score <= 3.5) return 'Intermediário';
-  if (score <= 4.5) return 'Avançado';
-  return 'Expert';
+  return faixaNivelPorScore(score).nome;
 }
 
 export function generateUserReport(avaliador, dashboardData) {

@@ -386,7 +386,10 @@ export default function Relatorio() {
             </Link>
             <div>
               <h1 className="text-sm font-bold text-blue-400">Relatório Técnico Completo</h1>
-              <p className="text-xs text-slate-400">{relatorio.empresa.nome}</p>
+              <p className="text-xs text-slate-400">
+                {relatorio.empresa.nome}
+                {relatorio.projetoVersao?.titulo ? ` · ${relatorio.projetoVersao.titulo}` : ''}
+              </p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -427,6 +430,10 @@ export default function Relatorio() {
               <div className="bg-slate-800/50 print:bg-slate-50 rounded-lg p-4 print:p-3 print:border print:border-slate-200" style={{ pageBreakInside: 'avoid' }}>
                 <p className="text-[10px] print:text-[9px] text-slate-400 uppercase mb-1">Projeto</p>
                 <p className="text-sm print:text-xs font-semibold text-white print:text-slate-900">{relatorio.projeto.nome}</p>
+              </div>
+              <div className="bg-slate-800/50 print:bg-slate-50 rounded-lg p-4 print:p-3 print:border print:border-slate-200" style={{ pageBreakInside: 'avoid' }}>
+                <p className="text-[10px] print:text-[9px] text-slate-400 uppercase mb-1">Versão da pesquisa</p>
+                <p className="text-sm print:text-xs font-semibold text-white print:text-slate-900">{relatorio.projetoVersao?.titulo || 'Versão 1'}</p>
               </div>
               <div className="bg-slate-800/50 print:bg-slate-50 rounded-lg p-4 print:p-3 print:border print:border-slate-200" style={{ pageBreakInside: 'avoid' }}>
                 <p className="text-[10px] print:text-[9px] text-slate-400 uppercase mb-1">Avaliador</p>

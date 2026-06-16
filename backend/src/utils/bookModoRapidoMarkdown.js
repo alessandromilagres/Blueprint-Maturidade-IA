@@ -3,6 +3,7 @@ import {
   nivelMitFromScore,
   blocoTrajetoriaMitMarkdown
 } from './mitTrajetoriaFinanceira.js';
+import { ORDEM_DIMENSOES_FRAMEWORK } from './ordemDimensoesFramework.js';
 
 function resumirPergunta(texto, max = 90) {
   const t = String(texto || '').trim();
@@ -60,20 +61,211 @@ export function blocoGanhoLongoPrazoMitBookRapido({ scoreGeral, faturamentoAnual
   return md;
 }
 
+/** Dimensão sem score consolidado (0 ou sem respostas na rodada). */
+export function dimensaoComScoreZero(dim) {
+  return Boolean(dim?.semDadosConsolidados) || Number(dim?.score) <= 0;
+}
+
 /** Tabela Markdown de perguntas de uma dimensão; última linha = score geral da dimensão. */
 export function tabelaPerguntasDimensaoMarkdown(dim) {
+  const scoreDimensao = dimensaoComScoreZero(dim) ? '0.00' : dim.score.toFixed(2);
   const linhas = (dim.perguntas || []).map(
-    (p) => `| ${p.numero} | ${resumirPergunta(p.texto)} | ${p.score.toFixed(2)} |`
+    (p) =>
+      `| ${p.numero} | ${resumirPergunta(p.texto)} | ${
+        p.totalRespostas > 0 ? p.score.toFixed(2) : '0.00'
+      } |`
   );
   if (linhas.length === 0) {
-    return `| — | *(sem respostas consolidadas nesta dimensão)* | — |\n| **Score geral da dimensão** | **${dim.area}** | **${dim.score.toFixed(2)}** |`;
+    return `| — | *(sem perguntas cadastradas nesta dimensão)* | — |\n| **Score geral da dimensão** | **${dim.area}** | **${scoreDimensao}** |`;
   }
   return [
     '| # | Pergunta | Score |',
     '|:---:|:---|:---:|',
     ...linhas,
-    `| **—** | **Score geral da dimensão** | **${dim.score.toFixed(2)}** |`
+    `| **—** | **Score geral da dimensão** | **${scoreDimensao}** |`
   ].join('\n');
+}
+
+/** Cabeçalho da subseção 3.X no book (com ou sem dados consolidados). */
+export function rotuloDimensaoBookMarkdown(dim, { bookCompleto = false } = {}) {
+  const nome = String(dim.area || '').trim();
+  const sep = bookCompleto ? ' · ' : ' | ';
+  if (dimensaoComScoreZero(dim)) {
+    return `## {numSecao} Dimensão — ${nome} — Score 0${sep}Não analisada neste relatório`;
+  }
+  return `## {numSecao} Dimensão — ${nome} — Score ${dim.score.toFixed(2)}${sep}Nível ${dim.nivel}`;
+}
+
+export function aplicarNumSecaoRotuloDimensao(numSecao, dim, opts = {}) {
+  return rotuloDimensaoBookMarkdown(dim, opts).replace('{numSecao}', numSecao);
+}
+
+export function introducaoSecao3BookMarkdown(totalDimensoes, { modoRapido = false } = {}) {
+  const notaZero = modoRapido
+    ? ' Dimensões com **score 0** constam apenas para registro e **não são analisadas**.'
+    : ' Dimensões com **score 0** constam para registro e **não são analisadas**.';
+  const listaOrdem = ORDEM_DIMENSOES_FRAMEWORK.map((nome, idx) => `${idx + 1}. ${nome}`).join('\n');
+  return `# 3. DIAGNÓSTICO POR DIMENSÃO
+
+Este capítulo apresenta as **${totalDimensoes} dimensões** do framework Blueprint IA na ordem abaixo.${notaZero}
+
+${listaOrdem}
+
+**Estrutura de numeração (obrigatória em todo o capítulo):**
+- **3.N** — título da dimensão (nível ## no Markdown)
+- **3.N.1**, **3.N.2**, … — subseções da dimensão (nível ### no Markdown)`;
+}
+
+/** Remove cabeçalhos duplicados que a IA costuma gerar na Seção 3. */
+export function limparConteudoIaSecao3Dimensao(markdown, numSecao, { bookCompleto = false } = {}) {
+  if (!markdown) return '';
+  const esc = numSecao.replace(/\./g, '\\.');
+  const reDimHeader = new RegExp(`^#{1,2}\\s+${esc}\\b`, 'i');
+  const reDimensaoTituloDuplicado = new RegExp(`^#{1,2}\\s+${esc}\\s+Dimens[aã]o\\s*[—–-]`, 'i');
+  const reSub = new RegExp(`^(#{1,4})\\s+(${esc}\\.\\d+)\\s*(.*)$`);
+  const linhas = String(markdown).split('\n');
+  const out = [];
+  let inFence = false;
+
+  for (const linha of linhas) {
+    const t = linha.trim();
+    if (t.startsWith('```')) {
+      inFence = !inFence;
+      out.push(linha);
+      continue;
+    }
+    if (inFence) {
+      out.push(linha);
+      continue;
+    }
+    if (/^#\s+3\.\s*DIAGNÓSTICO/i.test(t)) continue;
+
+    if (bookCompleto) {
+      if (reDimensaoTituloDuplicado.test(t)) continue;
+      if (/^#{1,2}\s+dimens[aã]o\s*[—–-]/i.test(t) && t.includes(numSecao)) continue;
+      const sub = linha.match(reSub);
+      if (sub) {
+        const titulo = sub[3] ? ` ${sub[3].trim()}` : '';
+        out.push(`### ${sub[2]}${titulo}`);
+        continue;
+      }
+      out.push(linha);
+      continue;
+    }
+
+    if (reDimHeader.test(t)) continue;
+    if (/^#{1,2}\s+dimens[aã]o\s*[—–-]/i.test(t) && t.includes(numSecao)) continue;
+
+    const sub = linha.match(reSub);
+    if (sub) {
+      const titulo = sub[3] ? ` ${sub[3].trim()}` : '';
+      out.push(`### ${sub[2]}${titulo}`);
+      continue;
+    }
+    out.push(linha);
+  }
+
+  return out.join('\n').trim();
+}
+
+/** Monta bloco final da dimensão com cabeçalho padronizado + corpo limpo da IA. */
+export function montarBlocoSecao3Dimensao({
+  numSecao,
+  dim,
+  conteudoIa,
+  isFirst = false,
+  totalDimensoes = 16,
+  modoRapido = false
+}) {
+  const bookCompleto = !modoRapido;
+  const partes = [];
+  if (isFirst) partes.push(introducaoSecao3BookMarkdown(totalDimensoes, { modoRapido }));
+  partes.push(aplicarNumSecaoRotuloDimensao(numSecao, dim, { bookCompleto }));
+  const corpo = limparConteudoIaSecao3Dimensao(conteudoIa, numSecao, { bookCompleto });
+  if (corpo) partes.push(corpo);
+  return partes.join('\n\n').trim();
+}
+
+export function instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst) {
+  if (isFirst) {
+    return `Esta é a **primeira dimensão** da Seção 3. **NÃO** gere "# 3. DIAGNÓSTICO POR DIMENSÃO" nem "## ${numSecao} Dimensão — …" — o sistema insere esses títulos automaticamente.\n\nComece **diretamente** com ### ${numSecao}.1\n\n`;
+  }
+  return `Gere **somente** o conteúdo da dimensão **${numSecao}**. **NÃO** gere "# 3." nem "## ${numSecao}" — comece diretamente com ### ${numSecao}.1\n\n`;
+}
+
+/**
+ * Bloco fixo da Seção 3 para dimensões com score 0 — consta no book, sem análise IA.
+ */
+/** Conta cabeçalhos ## 3.N Dimensão — … no book montado. */
+export function contarDimensoesSecao3Book(markdown) {
+  const encontrados = new Set();
+  for (const m of String(markdown || '').matchAll(/^## 3\.(\d+)\s+Dimens[aã]o\s*[—–-]/gim)) {
+    encontrados.add(parseInt(m[1], 10));
+  }
+  return encontrados;
+}
+
+export function relatorioBookSecao3Completo(markdown, totalEsperado = 16) {
+  const encontrados = contarDimensoesSecao3Book(markdown);
+  const faltando = [];
+  for (let i = 1; i <= totalEsperado; i++) {
+    if (!encontrados.has(i)) faltando.push(i);
+  }
+  return { ok: faltando.length === 0, faltando, total: encontrados.size };
+}
+
+/** Preenche slots vazios da Seção 3 (erro de chunk, cancelamento parcial, etc.). */
+export function garantirBlocosSecao3Book(blocosPorIndice, dimensoesDiagnostico, { modoRapido = false } = {}) {
+  const total = dimensoesDiagnostico.length;
+  return blocosPorIndice.map((bloco, idx) => {
+    if (bloco) return bloco;
+    const dim = dimensoesDiagnostico[idx];
+    const numSecao = `3.${idx + 1}`;
+    if (dimensaoComScoreZero(dim)) {
+      return blocoDimensaoScoreZeroSecao3(numSecao, dim, {
+        isFirst: idx === 0,
+        totalDimensoes: total
+      });
+    }
+    return montarBlocoSecao3Dimensao({
+      numSecao,
+      dim,
+      conteudoIa: `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ **Conteúdo não gerado** — bloco ausente na montagem do book. Regenere o relatório.\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
+      isFirst: idx === 0,
+      totalDimensoes: total,
+      modoRapido
+    });
+  });
+}
+
+export function blocoFallbackErroSecao3Dimensao(
+  numSecao,
+  dim,
+  erroMsg,
+  { isFirst = false, totalDimensoes = 16, modoRapido = false } = {}
+) {
+  const msg = String(erroMsg || 'erro temporário').slice(0, 300);
+  return montarBlocoSecao3Dimensao({
+    numSecao,
+    dim,
+    conteudoIa: `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ **Esta seção não pôde ser gerada pela IA** (${msg}).\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
+    isFirst,
+    totalDimensoes,
+    modoRapido
+  });
+}
+
+export function blocoDimensaoScoreZeroSecao3(numSecao, dim, { isFirst = false, totalDimensoes = 16, modoRapido = true } = {}) {
+  const bookCompleto = !modoRapido;
+  let md = '';
+  if (isFirst) {
+    md += `${introducaoSecao3BookMarkdown(totalDimensoes, { modoRapido })}\n\n`;
+  }
+  md += `${aplicarNumSecaoRotuloDimensao(numSecao, dim, { bookCompleto })}\n\n`;
+  md += `### ${numSecao}.1 Status da dimensão\n\n`;
+  md += `> **Esta dimensão não será analisada** porque o score consolidado é **0** — não há avaliações consolidadas nesta rodada.\n\n`;
+  md += `### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}\n`;
+  return md;
 }
 
 /**
@@ -91,7 +283,7 @@ export function apendiceScoresPorPerguntaBookRapido(scoresPorArea, scoreGeral, n
     `| **Score geral do projeto** | **${scoreGeral.toFixed(2)}** |`,
     `| **Nível de maturidade** | **${nivel} — ${nomesNivel[nivel - 1] || ''}** |`,
     '',
-    '*O score geral é a média das dimensões com score > 0 no consolidado do dashboard.*'
+    '*O score geral é a média das dimensões com score > 0 no consolidado do dashboard. As 16 dimensões do framework aparecem no Apêndice C (dimensões com score 0 constam apenas para registro, sem análise diagnóstica).*'
   ].join('\n');
   return `${partes.join('\n\n')}\n\n${blocoFinal}`;
 }

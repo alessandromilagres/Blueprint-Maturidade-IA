@@ -1,0 +1,280 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 8: Ecossistema e Parcerias
+Framework: MIT CISR  ·  Peso no score: 6%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 8
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Ecossistema e Parcerias — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+MIT CISR
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Sem uso estratégico de serviços de IA externos
+	•	Nenhuma parceria formalizada em IA
+	•	Postura de construir tudo internamente — 'Not Invented Here'
+	•	Sem integração com plataformas cloud de IA
+	•	Sem processo de seleção de parceiros de IA
+	•	Time de IA desconhece o ecossistema externo de ferramentas e serviços
+
+O que você observa na prática
+	•	Empresa reinventa a roda onde serviços prontos existem
+	•	Custos elevados e qualidade inferior por construir o que poderia ser comprado
+	•	Isolada das inovações do mercado de IA
+	•	Tempo para chegar ao primeiro valor muito maior que empresas que usam o ecossistema
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Mapear os serviços de IA disponíveis no mercado relevantes para os casos de uso planejados (OpenAI, Anthropic, AWS, Azure, GCP)
+2
+Realizar ao menos 1 POC usando serviço de IA externo para comparar com abordagem de construir internamente
+3
+Definir critério básico de make vs. buy: o que vale construir internamente e o que não vale
+4
+Contratar ao menos 1 cloud provider como parceiro preferencial para infraestrutura de IA
+5
+Mapear os principais vendors e consultorias de IA relevantes para o setor
+
+Como confirmar que você atingiu o Nível 2
+	•	Mapeamento de serviços de IA externos relevantes realizado
+	•	Ao menos 1 POC com serviço externo concluído
+	•	Critério básico de make vs. buy documentado
+	•	Cloud provider preferencial para IA contratado
+
+
+NÍVEL
+2
+INICIAL
+Ecossistema e Parcerias — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+MIT CISR
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Uso pontual de serviços cloud para IA mas sem estratégia definida
+	•	Primeiras integrações com APIs de IA em alguns projetos
+	•	Parcerias informais sem contrato ou gestão formal
+	•	Estratégia make vs. buy não documentada — cada projeto decide por conta própria
+	•	Integrações frágeis: cada time integra de forma diferente e sem padrão
+	•	Processo de seleção de parceiros informal e inconsistente
+
+O que você observa na prática
+	•	Ecossistema usado de forma reativa: 'precisei, usei, não pensei na estratégia'
+	•	Diferentes times usando diferentes serviços sem coordenação
+	•	Custos de serviços externos sem controle centralizado
+	•	Integrações refeitas do zero a cada projeto por falta de padrão
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Documentar e aprovar Estratégia Make vs. Buy vs. Partner para capacidades de IA
+2
+Criar processo formal de avaliação e seleção de parceiros com critérios objetivos (scorecard)
+3
+Formalizar as parcerias mais importantes com contratos, SLAs e gestão de relacionamento
+4
+Criar biblioteca de integrações padronizadas: wrappers e adaptadores para os serviços mais usados
+5
+Centralizar controle de custos de serviços de IA externos com visibilidade por projeto e área
+6
+Criar processo de onboarding de novos parceiros com due diligence de segurança e conformidade
+
+Como confirmar que você atingiu o Nível 3
+	•	Estratégia Make vs. Buy vs. Partner documentada e aprovada
+	•	Processo formal de seleção de parceiros com scorecard operacional
+	•	Ao menos 3 parcerias formalizadas com contrato e SLAs
+	•	Biblioteca de integrações padronizadas disponível para os times
+
+
+NÍVEL
+3
+DEFINIDO
+Ecossistema e Parcerias — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+MIT CISR
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Estratégia Make vs. Buy vs. Partner documentada e seguida pelos times
+	•	Parcerias formais com cloud providers e ISVs de IA com contrato e SLAs
+	•	Processo formal de seleção de parceiros com critérios objetivos
+	•	Biblioteca de integrações padronizadas reduzindo tempo de integração
+	•	Controle centralizado de custos de serviços externos de IA
+	•	Due diligence de segurança e conformidade para novos parceiros
+
+O que você observa na prática
+	•	A empresa integra novos serviços de IA em semanas, não meses
+	•	Parcerias gerenciadas de forma profissional com revisões regulares
+	•	Ecossistema reduz time-to-market e aumenta qualidade dos projetos
+	•	MIT CISR Estágio 2–3: a empresa usa o ecossistema de forma estruturada
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Desenvolver parcerias estratégicas com co-desenvolvimento: co-criar com parceiros, não apenas comprar
+2
+Criar programa de early access a novas tecnologias de IA com fornecedores estratégicos
+3
+Participar de consortiums e grupos de trabalho de IA do setor
+4
+Estabelecer programa formal de gestão de alianças com parcerias classificadas por nível estratégico
+5
+Criar API Gateway centralizado para gerenciar todas as integrações externas com observabilidade
+6
+Desenvolver métricas de valor de cada parceria para otimizar o portfólio
+
+Como confirmar que você atingiu o Nível 4
+	•	Ao menos 2 parcerias com co-desenvolvimento real (não apenas licenciamento)
+	•	Participação ativa em ao menos 1 consortium setorial de IA
+	•	API Gateway centralizando todas as integrações externas
+	•	Métricas de valor por parceria sendo coletadas e usadas para decisões
+
+
+NÍVEL
+4
+GERENCIADO
+Ecossistema e Parcerias — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+MIT CISR
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Ecossistema estratégico de parceiros com co-desenvolvimento e inovação compartilhada
+	•	Early access a novas tecnologias via parcerias estratégicas — antes dos concorrentes
+	•	Participação ativa em consortiums e grupos de trabalho de IA do setor
+	•	Gestão profissional de alianças com portfólio classificado por valor estratégico
+	•	API Gateway com observabilidade total das integrações externas
+	•	Métricas de valor de parceria usadas para otimizar o portfólio continuamente
+
+O que você observa na prática
+	•	Parceiros entram em novos projetos como co-criadores, não como fornecedores
+	•	A empresa acessa tecnologias de IA antes dos concorrentes via parcerias estratégicas
+	•	O ecossistema amplifica a capacidade de inovação sem aumentar headcount
+	•	Top 11% MIT CISR: ecossistema como vantagem competitiva
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Tornar a empresa hub do ecossistema de IA do setor: outros querem se integrar à plataforma da empresa
+2
+Criar programa de startups de IA: investimento, aceleração e integração ao ecossistema da empresa
+3
+Desenvolver API pública ou plataforma de parceiros que cria efeito de rede
+4
+Definir padrões de integração de IA para o setor junto com parceiros e reguladores
+5
+Criar evento ou fórum próprio de ecossistema de IA que reúna o setor anualmente
+
+Como confirmar que você atingiu o Nível 5
+	•	A empresa atrai parceiros proativamente para se integrar à sua plataforma
+	•	Programa de startups de IA operacional com ao menos 5 startups aceleradas
+	•	API pública ou plataforma de parceiros lançada
+	•	Ao menos 1 padrão de integração de IA definido pela empresa sendo adotado no setor
+
+
+NÍVEL
+5
+OTIMIZADO
+Ecossistema e Parcerias — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+MIT CISR
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	A empresa é hub do ecossistema de IA do setor: parceiros querem se integrar
+	•	Programa de investimento e aceleração de startups de IA estratégicas
+	•	API pública com efeito de rede
+	•	A empresa define padrões de integração de IA para o setor
+	•	Fórum próprio que reúne o setor anualmente
+	•	O ecossistema é barreira de entrada: concorrentes não replicam a rede
+
+O que você observa na prática
+	•	Parceiros se integram à plataforma da empresa, não o contrário
+	•	A empresa captura efeitos de rede: mais parceiros gera mais valor para todos
+	•	Top 4% MIT CISR: ecossistema como diferencial competitivo estrutural
+	•	Concorrentes tentam criar ecossistemas similares mas não conseguem a massa crítica
+
+
+Parabéns. Você atingiu o topo da Dimensão 8.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar ecossistema para IA Agêntica: agentes que se integram autonomamente com parceiros
+	•	Internacionalizar o ecossistema: parcerias globais para o programa de startups
+	•	Criar fundo de investimento em IA dedicado para formalizar o portfólio de startups
+	•	Publicar relatório anual de impacto do ecossistema como referência do setor
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Sem uso estratégico de serviços de IA externos
+Mapear os serviços de IA disponíveis no mercado relevantes para os casos de uso planejados (OpenAI, Anthropic, AWS, Azure, GCP)
+2
+Inicial
+Inicial
+Uso pontual de serviços cloud para IA mas sem estratégia definida
+Documentar e aprovar Estratégia Make vs. Buy vs. Partner para capacidades de IA
+3
+Definido
+Definido
+Estratégia Make vs. Buy vs. Partner documentada e seguida pelos times
+Desenvolver parcerias estratégicas com co-desenvolvimento: co-criar com parceiros, não apenas comprar
+4
+Gerenciado
+Gerenciado
+Ecossistema estratégico de parceiros com co-desenvolvimento e inovação compartilhada
+Tornar a empresa hub do ecossistema de IA do setor: outros querem se integrar à plataforma da empresa
+5
+Otimizado
+Otimizado
+A empresa é hub do ecossistema de IA do setor: parceiros querem se integrar
+Preparar ecossistema para IA Agêntica: agentes que se integram autonomamente com parceiros

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FolderKanban, ClipboardCheck, Plus, ArrowLeft, Trash2, FileText, BarChart3, CheckSquare, Download, Archive, ClipboardList, Sparkles } from 'lucide-react';
+import { FolderKanban, ClipboardCheck, Plus, ArrowLeft, Trash2, FileText, BarChart3, CheckSquare, Download, Archive, ClipboardList, Sparkles, Lightbulb, TrendingUp, GitBranch, AlertTriangle, CheckCircle, RotateCcw } from 'lucide-react';
 import { projetosApi, avaliacoesApi, usuariosApi, areasApi, exportarApi } from '../services/api';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
@@ -15,6 +15,8 @@ export default function ProjetoDetalhe() {
   const toast = useToast();
   const [projeto, setProjeto] = useState(null);
   const [painelAvaliadores, setPainelAvaliadores] = useState(null);
+  const [versoesInfo, setVersoesInfo] = useState(null);
+  const [acaoVersao, setAcaoVersao] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
   const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,13 +50,15 @@ export default function ProjetoDetalhe() {
 
   async function loadProjeto() {
     try {
-      const [projetoData, areasData] = await Promise.all([
+      const [projetoData, areasData, versoesData] = await Promise.all([
         projetosApi.buscar(id),
-        areasApi.listar()
+        areasApi.listar(),
+        projetosApi.versoes(id)
       ]);
       
       setProjeto(projetoData);
       setAreas(areasData);
+      setVersoesInfo(versoesData);
       
       const usuariosData = await usuariosApi.listar(projetoData.empresaId);
       setUsuarios(usuariosData);
@@ -119,6 +123,63 @@ export default function ProjetoDetalhe() {
     }
   }
 
+  async function handleFecharVersaoAtual() {
+    const versao = (versoesInfo?.versoes || []).find((v) => v.id === versoesInfo?.versaoAtual?.id) || versoesInfo?.versaoAtual;
+    if (!versao || versao.status !== 'aberta') return;
+    const pendencias = versao.checklistFechamento?.pendencias || [];
+    const checklistMsg = pendencias.length
+      ? `\n\nPendências encontradas:\n${pendencias.map((p) => `- ${p.mensagem}`).join('\n')}`
+      : '\n\nChecklist sem pendências críticas.';
+    if (!confirm(`Fechar ${versao.titulo}? Depois disso, novas avaliações entrarão em uma próxima versão.${checklistMsg}`)) return;
+    try {
+      setAcaoVersao(true);
+      await projetosApi.fecharVersao(id, versao.id);
+      toast.success(`${versao.titulo} fechada com sucesso.`);
+      await loadProjeto();
+    } catch (error) {
+      toast.error('Erro ao fechar versão: ' + error.message);
+    } finally {
+      setAcaoVersao(false);
+    }
+  }
+
+  async function handleCriarProximaVersao() {
+    try {
+      setAcaoVersao(true);
+      await projetosApi.criarVersao(id);
+      toast.success('Nova versão criada. Próximas avaliações serão vinculadas a ela.');
+      await loadProjeto();
+    } catch (error) {
+      toast.error('Erro ao criar versão: ' + error.message);
+    } finally {
+      setAcaoVersao(false);
+    }
+  }
+
+  async function handleReabrirVersao(versao) {
+    if (!versao) return;
+    const motivo = prompt(`Informe o motivo para reabrir ${versao.titulo}:`, 'Correção de dados da versão');
+    if (motivo == null) return;
+    try {
+      setAcaoVersao(true);
+      await projetosApi.reabrirVersao(id, versao.id, { motivo });
+      toast.success(`${versao.titulo} reaberta. Outras versões abertas foram fechadas automaticamente.`);
+      await loadProjeto();
+    } catch (error) {
+      toast.error('Erro ao reabrir versão: ' + error.message);
+    } finally {
+      setAcaoVersao(false);
+    }
+  }
+
+  function handleExportarPacoteVersao(versao) {
+    if (!versao) return;
+    exportarApi.download(
+      exportarApi.pacoteVersao(projeto.id, versao.id),
+      `pacote-${projeto.nome.replace(/\s+/g, '-')}-${versao.titulo.replace(/\s+/g, '-')}.zip`
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -141,6 +202,8 @@ export default function ProjetoDetalhe() {
   const avaliacoesFinalizadas = projeto.avaliacoes.filter(a => a.status === 'finalizada');
   const linhasPainel = painelAvaliadores?.avaliadores || [];
   const finalizadasPainel = linhasPainel.filter((a) => a.statusFormulario === 'finalizada').length;
+  const versaoAtual = (versoesInfo?.versoes || []).find((v) => v.id === versoesInfo?.versaoAtual?.id) || versoesInfo?.versaoAtual;
+  const versaoAtualQuery = versaoAtual?.id ? `?versaoId=${versaoAtual.id}` : '';
 
   return (
     <div className="space-y-6">
@@ -239,6 +302,112 @@ export default function ProjetoDetalhe() {
         </div>
       )}
 
+      {versoesInfo && (
+        <div className="card border border-blue-200 bg-blue-50/40 dark:border-blue-900/50 dark:bg-blue-950/20">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+                <GitBranch className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                Versões da pesquisa
+              </h2>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                A versão ativa recebe novos convites e avaliações. Feche uma versão para congelar aquela rodada e criar a próxima.
+              </p>
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                {(versoesInfo.versoes || []).map((versao) => {
+                  const resumo = versao.resumoExecutivo || {};
+                  const pendencias = versao.checklistFechamento?.pendencias || [];
+                  const tendencia = resumo.deltaScore == null
+                    ? 'sem comparação'
+                    : `${resumo.deltaScore > 0 ? '+' : ''}${Number(resumo.deltaScore).toFixed(2)} vs anterior`;
+                  return (
+                    <div key={versao.id} className="rounded-xl border border-blue-100 bg-white p-4 shadow-sm dark:border-blue-900/40 dark:bg-gray-900">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white">{versao.titulo}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {versao.status} · {versao.finalizadas || 0}/{versao.totalAvaliacoes || 0} finalizada(s) · score {versao.scoreMedio ?? '-'}
+                          </p>
+                        </div>
+                        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                          versao.status === 'aberta'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                        }`}>
+                          {versao.status}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid gap-2 text-xs text-gray-600 dark:text-gray-300 sm:grid-cols-2">
+                        <div className="rounded-lg bg-gray-50 p-2 dark:bg-gray-800">
+                          <span className="font-semibold">Evolução:</span> {tendencia}
+                        </div>
+                        <div className="rounded-lg bg-gray-50 p-2 dark:bg-gray-800">
+                          <span className="font-semibold">Convites pendentes:</span> {versao.convitesPorStatus?.pendente || 0}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-2">
+                        {pendencias.length === 0 ? (
+                          <p className="flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                            <CheckCircle className="h-4 w-4" />
+                            Checklist de fechamento sem pendências.
+                          </p>
+                        ) : (
+                          pendencias.slice(0, 3).map((pendencia) => (
+                            <p key={pendencia.tipo} className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
+                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                              {pendencia.mensagem}
+                            </p>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => handleExportarPacoteVersao(versao)} className="btn btn-secondary btn-sm inline-flex items-center gap-1">
+                          <Archive className="h-3.5 w-3.5" />
+                          Exportar versão
+                        </button>
+                        {versao.status === 'fechada' && (
+                          <button type="button" onClick={() => handleReabrirVersao(versao)} disabled={acaoVersao} className="btn btn-secondary btn-sm inline-flex items-center gap-1">
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Reabrir/corrigir
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {versaoAtual?.status === 'aberta' ? (
+                <button
+                  type="button"
+                  onClick={handleFecharVersaoAtual}
+                  disabled={acaoVersao}
+                  className="btn btn-secondary"
+                >
+                  Fechar {versaoAtual.titulo}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCriarProximaVersao}
+                  disabled={acaoVersao}
+                  className="btn btn-primary"
+                >
+                  Criar próxima versão
+                </button>
+              )}
+              <Link to={`/dashboard/projeto/${projeto.id}/evolucao`} className="btn btn-secondary">
+                Comparar versões
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isGestor() && !isAvaliador() && linhasPainel.length > 0 && (
         <div className="card border-l-4 border-primary-500 bg-primary-50/50 dark:bg-primary-950/20 dark:border-primary-400">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -285,16 +454,32 @@ export default function ProjetoDetalhe() {
             <div>
               <h2 className="text-lg font-semibold mb-1">Dashboard de Maturidade</h2>
               <p className="text-blue-100 text-sm">
-                {avaliacoesFinalizadas.length} avaliação(ões) finalizada(s) • Veja o resultado consolidado
+                {avaliacoesFinalizadas.length} avaliação(ões) finalizada(s) • Resultado consolidado da {versaoAtual?.titulo || 'versão atual'}
               </p>
             </div>
-            <Link
-              to={`/dashboard/projeto/${projeto.id}`}
-              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-            >
-              <BarChart3 className="w-5 h-5" />
-              Ver Dashboard
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                to={`/dashboard/projeto/${projeto.id}/plano-acao${versaoAtualQuery}`}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+              >
+                <Lightbulb className="w-5 h-5" />
+                Plano de ação
+              </Link>
+              <Link
+                to={`/dashboard/projeto/${projeto.id}/evolucao`}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+              >
+                <TrendingUp className="w-5 h-5" />
+                Evolução
+              </Link>
+              <Link
+                to={`/dashboard/projeto/${projeto.id}${versaoAtualQuery}`}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+              >
+                <BarChart3 className="w-5 h-5" />
+                Ver Dashboard
+              </Link>
+            </div>
           </div>
         </div>
       )}
@@ -362,6 +547,7 @@ export default function ProjetoDetalhe() {
               <thead>
                 <tr className="text-left text-sm text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
                   <th className="pb-3 font-medium">Avaliador</th>
+                  <th className="pb-3 font-medium">Versão</th>
                   <th className="pb-3 font-medium">Áreas</th>
                   <th className="pb-3 font-medium">Status</th>
                   <th className="pb-3 font-medium">Score</th>
@@ -380,6 +566,12 @@ export default function ProjetoDetalhe() {
                       <td className="py-3">
                         <p className="font-medium text-gray-900 dark:text-white">{avaliacao.usuario.nome}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{avaliacao.usuario.email}</p>
+                      </td>
+                      <td className="py-3">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">
+                          <GitBranch className="h-3 w-3" />
+                          {avaliacao.projetoVersao?.titulo || 'Versão 1'}
+                        </span>
                       </td>
                       <td className="py-3">
                         <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -441,6 +633,11 @@ export default function ProjetoDetalhe() {
         title="Nova Avaliação"
       >
         <form onSubmit={handleNovaAvaliacao} className="space-y-4">
+          {versaoAtual && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100">
+              Esta avaliação será vinculada à <strong>{versaoAtual.titulo}</strong> ({versaoAtual.status}).
+            </div>
+          )}
           <div>
             <label className="label">Avaliador *</label>
             <select

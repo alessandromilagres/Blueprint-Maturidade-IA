@@ -1,0 +1,281 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 2: Dados e Tecnologia
+Framework: MIT CISR  ·  Peso no score: 7%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 2
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Dados e Tecnologia — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+MIT CISR
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Dados completamente siloados: cada time tem sua própria cópia desatualizada
+	•	Nenhum catálogo de dados: ninguém sabe o que existe, onde está ou quem é o dono
+	•	Qualidade de dados desconhecida: projetos descobrem problemas ao produzir resultados errados
+	•	Infraestrutura não preparada para IA: sem GPU, sem orquestração, sem APIs
+	•	Modelos de ML feitos à mão sem versionamento ou reprodutibilidade
+	•	ETL em scripts únicos não documentados e quebrados com frequência
+
+O que você observa na prática
+	•	Projetos de IA falham ou são cancelados por dados ruins
+	•	Data scientists gastam 80% do tempo limpando dados e 20% fazendo IA
+	•	Cada projeto recria os mesmos pipelines do zero
+	•	Sem possibilidade de auditoria: ninguém sabe qual versão do modelo está em produção
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Inventariar os 10–15 datasets mais importantes mapeando dono, localização e formato
+2
+Escolher uma ferramenta de catálogo de dados (Alation, Collibra ou planilha bem estruturada)
+3
+Criar processo mínimo de versionamento de modelos — mesmo que seja convenção de nomenclatura
+4
+Designar um Data Engineer responsável pelos pipelines críticos
+5
+Levantar requisitos de infraestrutura (GPU, storage) para os primeiros casos de uso planejados
+
+Como confirmar que você atingiu o Nível 2
+	•	Inventário com ao menos 10 datasets mapeados e donos identificados
+	•	Ao menos 1 pipeline documentado e reproduzível
+	•	Data Engineer designado para os primeiros projetos
+
+
+NÍVEL
+2
+INICIAL
+Dados e Tecnologia — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+MIT CISR
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Acesso a dados existe mas é pontual e manual: cada projeto negocia acesso individualmente
+	•	Catálogo de dados em construção mas incompleto e frequentemente desatualizado
+	•	Qualidade inconsistente: alguns datasets com governança, a maioria sem
+	•	Primeiros pipelines de ML mas manuais e frágeis
+	•	Infraestrutura básica disponível mas mal dimensionada
+	•	Scripts de ETL difíceis de manter e dependentes de pessoas específicas
+
+O que você observa na prática
+	•	É possível fazer pilotos mas escalar é difícil e custoso
+	•	Modelos chegam a produção ocasionalmente mas sem monitoramento formal
+	•	Funciona na minha máquina é o estado padrão
+	•	Time de dados é o gargalo de todos os projetos de IA
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Implementar catálogo de dados operacional com metadados essenciais em todos os datasets críticos
+2
+Instalar ferramentas básicas de MLOps: DVC para versionamento, MLflow para rastreamento
+3
+Criar padrões de qualidade de dados mensuráveis e monitorados automaticamente
+4
+Implantar infraestrutura cloud com capacidade de GPU/TPU sob demanda
+5
+Documentar e automatizar os 3–5 pipelines mais críticos com CI/CD
+6
+Definir e publicar APIs padronizadas para acesso aos datasets mais consumidos
+
+Como confirmar que você atingiu o Nível 3
+	•	Catálogo operacional com ao menos 70% dos datasets críticos catalogados
+	•	MLOps básico: experimentos rastreados e modelos versionados
+	•	Ao menos 3 pipelines automatizados com CI/CD
+	•	APIs de acesso a dados publicadas e documentadas
+
+
+NÍVEL
+3
+DEFINIDO
+Dados e Tecnologia — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+MIT CISR
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Catálogo de dados operacional com metadados completos e donos definidos
+	•	Qualidade monitorada automaticamente em datasets críticos com alertas
+	•	MLOps básico: versionamento, tracking de experimentos, CI/CD para modelos
+	•	APIs padronizadas e documentadas para consumo de dados e modelos
+	•	Infraestrutura cloud escalável com GPU sob demanda
+	•	Pipelines automatizados e monitorados nos casos de uso principais
+
+O que você observa na prática
+	•	Projetos chegam a produção de forma reproduzível e previsível
+	•	Time-to-production abaixo de 8 semanas para casos similares
+	•	Incidentes de qualidade detectados antes de impactar modelos
+	•	Data scientists passam mais tempo em modelagem do que em engenharia de dados
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Implementar Feature Store para centralizar e reutilizar features entre projetos
+2
+Criar Model Registry centralizado com versionamento, staging e promoção controlada
+3
+Implantar monitoramento automático de drift com alertas e rollback automático
+4
+Implementar arquitetura de dados em tempo real (streaming) para casos de baixa latência
+5
+Construir capacidade de A/B testing automático para modelos em produção
+6
+Estabelecer SLAs formais de disponibilidade e qualidade para datasets e modelos críticos
+
+Como confirmar que você atingiu o Nível 4
+	•	Feature Store operacional usada por ao menos 3 projetos diferentes
+	•	Model Registry com ciclo completo de promoção
+	•	Monitoramento de drift automático em todos os modelos críticos
+	•	Time-to-production abaixo de 4 semanas
+
+
+NÍVEL
+4
+GERENCIADO
+Dados e Tecnologia — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+MIT CISR
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Plataforma unificada com Feature Store, Model Registry e data lineage completo
+	•	Qualidade com SLAs formais, medidos e reportados automaticamente
+	•	MLOps avançado: deploy automático, A/B testing, rollback, drift detection
+	•	Infraestrutura elástica otimizada por custo: spot instances, auto-scaling
+	•	Dados em tempo real para modelos críticos com latência abaixo de 100ms
+	•	Reuso de features e componentes acima de 60% entre projetos
+
+O que você observa na prática
+	•	Time-to-production abaixo de 4 semanas para qualquer tipo de modelo
+	•	Incidentes detectados e resolvidos antes de impactar o negócio
+	•	Data scientists operam com autonomia total dentro da plataforma
+	•	A empresa entrega 10x mais projetos de IA com o mesmo time
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Implementar Data Mesh ou Data Fabric com dados como produto gerenciado por domínio
+2
+Criar capacidade de AutoML para automatizar seleção de modelos e hyperparameter tuning
+3
+Implementar plataforma de dados sintéticos para treinar modelos sem dados reais sensíveis
+4
+Desenvolver capacidade de federated learning para dados distribuídos e privados
+5
+Criar observabilidade de ponta a ponta com XAI automático para todos os modelos
+6
+Publicar internamente e externamente os padrões técnicos adotados
+
+Como confirmar que você atingiu o Nível 5
+	•	Data Mesh ou Data Fabric operacional com domínios autônomos
+	•	AutoML disponível para times sem data scientist
+	•	Time-to-production abaixo de 2 semanas com validação de qualidade
+	•	Taxa de reuso de componentes acima de 80%
+
+
+NÍVEL
+5
+OTIMIZADO
+Dados e Tecnologia — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+MIT CISR
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Data Mesh com dados como produto gerenciado por domínio com SLAs
+	•	AutoML democratizado: times de negócio criam modelos sem data scientist
+	•	Modelos se retreinam automaticamente quando drift é detectado
+	•	Federated learning para dados sensíveis e distribuídos
+	•	Dados sintéticos gerados automaticamente para treinamento seguro
+	•	Infraestrutura invisível: elasticidade e qualidade como utilidade
+
+O que você observa na prática
+	•	A empresa é referência técnica em dados e MLOps no setor
+	•	Contribuições para open source e comunidade de dados
+	•	Tempo médio de criação de novo modelo medido em horas, não semanas
+	•	Infraestrutura de dados avaliada como ativo estratégico em M&A
+
+
+Parabéns. Você atingiu o topo da Dimensão 2.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar plataforma para Multi-Agent Systems com dados em tempo real
+	•	Investir em pesquisa de foundation models proprietários treinados com dados únicos
+	•	Publicar papers técnicos sobre os padrões de dados desenvolvidos internamente
+	•	Criar programa de certificação de dados para fornecedores e parceiros
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Dados completamente siloados: cada time tem sua própria cópia desatualizada
+Inventariar os 10–15 datasets mais importantes mapeando dono, localização e formato
+2
+Inicial
+Inicial
+Acesso a dados existe mas é pontual e manual: cada projeto negocia acesso individualmente
+Implementar catálogo de dados operacional com metadados essenciais em todos os datasets críticos
+3
+Definido
+Definido
+Catálogo de dados operacional com metadados completos e donos definidos
+Implementar Feature Store para centralizar e reutilizar features entre projetos
+4
+Gerenciado
+Gerenciado
+Plataforma unificada com Feature Store, Model Registry e data lineage completo
+Implementar Data Mesh ou Data Fabric com dados como produto gerenciado por domínio
+5
+Otimizado
+Otimizado
+Data Mesh com dados como produto gerenciado por domínio com SLAs
+Preparar plataforma para Multi-Agent Systems com dados em tempo real

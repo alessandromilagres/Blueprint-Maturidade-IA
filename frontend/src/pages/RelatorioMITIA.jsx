@@ -10,7 +10,8 @@ import {
   queryNivelMapeamentoMaturidade,
   labelFiltroNivelMapeamento,
   filtroNivelFromDadosUsados,
-  perguntarFiltroNivelMapeamento
+  carregarRelatorioSalvoSeCompativel,
+  relatorioSalvoIdFromSearchParams
 } from '../utils/filtroNivelMaturidade';
 
 export default function RelatorioMITIA() {
@@ -18,7 +19,10 @@ export default function RelatorioMITIA() {
   const [searchParams] = useSearchParams();
   const filtroNivelUrl = filtroNivelMapeamentoFromSearchParams(searchParams);
   const navigate = useNavigate();
-  const versaoId = searchParams.get('versaoId');
+  const relatorioSalvoId = relatorioSalvoIdFromSearchParams(searchParams);
+  const projetoVersaoId = searchParams.get('projetoVersaoId');
+  const buildQueryComProjetoVersao = (nivel) =>
+    `${queryNivelMapeamentoMaturidade(nivel)}${projetoVersaoId ? `&projetoVersaoId=${projetoVersaoId}` : ''}`;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
@@ -34,14 +38,41 @@ export default function RelatorioMITIA() {
   const pollingRef = useRef(null);
   const backgroundRunningRef = useRef(false);
   const skipVersaoEffectRef = useRef(false);
+  const geracaoIniciadaRef = useRef(false);
+
+  async function obterJobAtivo() {
+    try {
+      const jobs = await dashboardApi.listarRelatoriosIaJobs({
+        projetoId: parseInt(id, 10),
+        tipo: 'executivo',
+        limit: 20
+      });
+      return (Array.isArray(jobs) ? jobs : []).find((j) =>
+        ['queued', 'running'].includes(j.status)
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  async function anexarJobAtivoSeExistir() {
+    const ativo = await obterJobAtivo();
+    if (!ativo) return false;
+    backgroundRunningRef.current = true;
+    setJobBg(ativo);
+    setProgresso(Math.min(99, Math.max(10, Number(ativo.progresso) || 10)));
+    setMensagemProgresso(ativo.etapa || 'Gerando relatório em background...');
+    return true;
+  }
 
   useEffect(() => {
     if (skipVersaoEffectRef.current) {
       skipVersaoEffectRef.current = false;
       return;
     }
+    geracaoIniciadaRef.current = false;
     gerarRelatorio();
-  }, [id, versaoId, filtroNivelUrl]);
+  }, [id, relatorioSalvoId, projetoVersaoId, filtroNivelUrl]);
 
   useEffect(() => {
     return () => {
@@ -130,10 +161,9 @@ export default function RelatorioMITIA() {
     }, forceRegenerate ? 2500 : 600);
 
     try {
-      const vid = searchParams.get('versaoId');
-      if (vid && !forceRegenerate) {
-        const salvoId = parseInt(vid, 10);
-        if (Number.isNaN(salvoId)) throw new Error('Identificador de versão inválido.');
+      if (relatorioSalvoId && !forceRegenerate) {
+        const salvoId = parseInt(relatorioSalvoId, 10);
+        if (Number.isNaN(salvoId)) throw new Error('Identificador de relatório inválido.');
         const row = await relatoriosIAApi.buscar(salvoId);
         if (row.projetoId !== parseInt(id, 10)) {
           throw new Error('Este relatório não pertence a este projeto.');
@@ -149,32 +179,37 @@ export default function RelatorioMITIA() {
       }
 
       if (!forceRegenerate) {
-        try {
-          const salvo = await relatoriosIAApi.ultimaVersao(id, 'executivo', {
-            nivelPrioridadeMapeamentoMaturidade: filtroNivelUrl
-          });
+        const salvo = await carregarRelatorioSalvoSeCompativel({
+          relatoriosIAApi,
+          projetoId: id,
+          tipo: 'executivo',
+          filtroNivel: filtroNivelUrl,
+          projetoVersaoId
+        });
+        if (salvo) {
           clearInterval(intervalo);
           setProgresso(100);
           setMensagemProgresso('Versão salva carregada!');
           setData(mapRelatorioIASalvoToViewShape(salvo));
           return;
-        } catch (_) {
-          // Sem versão salva: inicia geração em background.
         }
       }
 
       clearInterval(intervalo);
-      if (forceRegenerate && searchParams.get('versaoId')) {
+      if (forceRegenerate && relatorioSalvoId) {
         skipVersaoEffectRef.current = true;
-        navigate(`/relatorios/${id}/mit-ia?${queryNivelMapeamentoMaturidade(filtroNivelUrl)}`, { replace: true });
+        navigate(`/relatorios/${id}/mit-ia?${buildQueryComProjetoVersao(filtroNivelUrl)}`, { replace: true });
       }
-      await handleGerarPerguntandoNivel();
+      if (geracaoIniciadaRef.current) return;
+      if (await anexarJobAtivoSeExistir()) return;
+      geracaoIniciadaRef.current = true;
+      await iniciarGeracaoBackground(filtroNivelUrl);
     } catch (err) {
       clearInterval(intervalo);
       setError(err.message || 'Erro ao gerar relatório com IA');
     } finally {
-      if (!backgroundRunningRef.current) {
-        setTimeout(() => setLoading(false), 600);
+      if (!backgroundRunningRef.current || relatorioSalvoId) {
+        setLoading(false);
       }
     }
   }
@@ -187,7 +222,8 @@ export default function RelatorioMITIA() {
       setProgresso(8);
       setMensagemProgresso('Enfileirando geração em background...');
       const res = await dashboardApi.iniciarRelatorioIABackground(id, 'executivo', {
-        nivelPrioridadeMapeamentoMaturidade: filtroNivel
+        nivelPrioridadeMapeamentoMaturidade: filtroNivel,
+        versaoId: projetoVersaoId
       });
       const job = res?.job;
       if (!job?.id) throw new Error('Não foi possível iniciar job em background');
@@ -199,31 +235,20 @@ export default function RelatorioMITIA() {
     }
   }
 
-  async function handleGerarPerguntandoNivel() {
-    const nivel = perguntarFiltroNivelMapeamento({
-      defaultValue: filtroNivelUrl,
-      contexto: 'relatório estratégico C-Level'
-    });
-    if (nivel == null) return;
-    if (nivel !== filtroNivelUrl || searchParams.get('versaoId')) {
-      skipVersaoEffectRef.current = true;
-      navigate(`/relatorios/${id}/mit-ia?${queryNivelMapeamentoMaturidade(nivel)}`, { replace: true });
-    }
-    await iniciarGeracaoBackground(nivel);
-  }
-
   async function handleRegerar() {
-    const nivel = perguntarFiltroNivelMapeamento({
-      defaultValue: filtroNivelUrl,
-      contexto: 'relatório estratégico C-Level'
-    });
-    if (nivel == null) return;
-    if (!confirm('Gerar uma nova versão? Isso consumirá tokens da IA. A versão anterior continuará disponível na biblioteca.')) return;
-    if (nivel !== filtroNivelUrl || searchParams.get('versaoId')) {
-      skipVersaoEffectRef.current = true;
-      navigate(`/relatorios/${id}/mit-ia?${queryNivelMapeamentoMaturidade(nivel)}`, { replace: true });
+    if (
+      !confirm(
+        'Gerar uma nova versão? Isso consumirá tokens da IA. A versão anterior continuará disponível na biblioteca.'
+      )
+    ) {
+      return;
     }
-    await iniciarGeracaoBackground(nivel);
+    geracaoIniciadaRef.current = false;
+    if (relatorioSalvoId) {
+      skipVersaoEffectRef.current = true;
+      navigate(`/relatorios/${id}/mit-ia?${buildQueryComProjetoVersao(filtroNivelUrl)}`, { replace: true });
+    }
+    await iniciarGeracaoBackground(filtroNivelUrl);
   }
 
   function handlePrint() {
@@ -373,6 +398,12 @@ export default function RelatorioMITIA() {
                 <p className="text-sm text-slate-700 font-medium">{data?.dadosUsados?.projeto}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   {labelFiltroNivelMapeamento(filtroNivelExibicao)}
+                  {data?.dadosUsados?.projetoVersao?.titulo
+                    ? ` · ${data.dadosUsados.projetoVersao.titulo}`
+                    : ''}
+                  {data?.dadosUsados?.comparativoVersoes?.disponivel
+                    ? ` · Δ ${data.dadosUsados.comparativoVersoes.delta > 0 ? '+' : ''}${Number(data.dadosUsados.comparativoVersoes.delta).toFixed(2)} vs ${data.dadosUsados.comparativoVersoes.versaoBase?.titulo}`
+                    : ''}
                   {data?.dadosUsados?.totalAvaliadores != null
                     ? ` · ${data.dadosUsados.totalAvaliadores} avaliador(es) no consolidado`
                     : ''}
@@ -552,6 +583,21 @@ export default function RelatorioMITIA() {
 
           {/* Conteúdo do relatório */}
           <div className="px-10 py-10 print:px-8 print:py-6">
+            {data?.dadosUsados?.comparativoVersoes?.disponivel && (
+              <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/60 p-4 print:hidden">
+                <p className="text-sm font-semibold text-blue-900">Evolução entre versões da pesquisa</p>
+                <p className="mt-1 text-xs text-blue-800">
+                  {data.dadosUsados.comparativoVersoes.versaoBase.titulo} ({Number(data.dadosUsados.comparativoVersoes.versaoBase.score).toFixed(1)})
+                  {' → '}
+                  {data.dadosUsados.comparativoVersoes.versaoComparada.titulo} ({Number(data.dadosUsados.comparativoVersoes.versaoComparada.score).toFixed(1)})
+                  {' · Δ '}
+                  {data.dadosUsados.comparativoVersoes.delta > 0 ? '+' : ''}
+                  {Number(data.dadosUsados.comparativoVersoes.delta).toFixed(2)}
+                  {' · '}
+                  {data.dadosUsados.comparativoVersoes.tendencia}
+                </p>
+              </div>
+            )}
             <article className="prose prose-slate max-w-none prose-headings:font-bold prose-h1:text-3xl prose-h1:text-purple-900 prose-h1:border-b prose-h1:border-purple-200 prose-h1:pb-3 prose-h1:mt-10 prose-h1:mb-6 prose-h2:text-xl prose-h2:text-slate-800 prose-h2:mt-8 prose-h2:mb-3 prose-h3:text-lg prose-h3:text-slate-700 prose-p:text-slate-700 prose-p:leading-relaxed prose-strong:text-slate-900 prose-table:text-sm prose-th:bg-purple-50 prose-th:text-purple-900 prose-th:p-3 prose-td:p-3 prose-td:border prose-td:border-slate-200 prose-th:border prose-th:border-purple-200 prose-li:text-slate-700 prose-blockquote:border-l-purple-500 prose-blockquote:bg-purple-50 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r print:prose-h1:text-2xl print:prose-h2:text-lg">
               <MarkdownRenderer content={data?.relatorio || ''} />
             </article>

@@ -1,0 +1,278 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 5: Operações e Processos
+Framework: MIT CISR  ·  Peso no score: 6%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 5
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Operações e Processos — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+MIT CISR
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	Nenhum modelo de IA em produção: tudo em laboratório ou piloto
+	•	Todos os processos são 100% manuais sem automação inteligente
+	•	Sem SLAs para sistemas de IA porque não existem sistemas de IA em produção
+	•	IA existe apenas como projeto de TI sem impacto operacional real
+	•	Processos core dependem completamente de intervenção humana
+
+O que você observa na prática
+	•	A empresa fala muito sobre IA mas não tem nada gerando valor
+	•	Projetos ficam em ciclos infinitos de piloto sem nunca serem escalados
+	•	Time de IA não é visto como parceiro estratégico pelo negócio
+	•	Funcionou no teste mas nunca em produção é a narrativa padrão
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Escolher UM processo de alto volume com critérios claros e dados disponíveis e colocar IA em produção em 90 dias
+2
+Definir o critério de sucesso antes de começar: qual métrica vai mudar, em quanto e em qual prazo
+3
+Criar processo mínimo de deploy e monitoramento mesmo que manual inicialmente
+4
+Integrar equipe de IA com equipe de operações do processo escolhido
+5
+Documentar o processo de deploy para que possa ser repetido no segundo caso de uso
+
+Como confirmar que você atingiu o Nível 2
+	•	Ao menos 1 modelo de IA em produção em processo de negócio real
+	•	Métricas de impacto definidas e sendo medidas
+	•	Processo de deploy documentado e repetível
+
+
+NÍVEL
+2
+INICIAL
+Operações e Processos — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+MIT CISR
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	2–5 modelos em produção mas em processos não-críticos ou de suporte
+	•	Deploy manual: lento, propenso a erros e dependente de poucas pessoas
+	•	Monitoramento básico ou inexistente: degradação descoberta por usuários reclamando
+	•	SLAs informais ou ausentes
+	•	Integração com sistemas legados parcial
+	•	Processos de IA são frágeis: qualquer mudança quebra o modelo
+
+O que você observa na prática
+	•	IA gera impacto marginal: alguns processos melhorados, operação core não foi tocada
+	•	Alta dependência de 1–2 engenheiros para manter tudo funcionando
+	•	Cada atualização de modelo é evento de alto risco e esforço
+	•	A empresa tem IA em produção mas os benefícios são limitados
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Implementar pipeline de CI/CD dedicado para modelos de ML com testes de qualidade
+2
+Criar dashboard de monitoramento em tempo real para todos os modelos em produção
+3
+Definir SLAs formais para cada modelo: latência máxima, disponibilidade mínima, threshold de drift
+4
+Integrar os modelos mais importantes aos sistemas core: ERP, CRM ou sistema principal
+5
+Mapear os 3–5 processos com maior potencial de impacto e criar roadmap para IA neles
+6
+Criar processo formal de gestão de incidentes de IA com runbook de resposta
+
+Como confirmar que você atingiu o Nível 3
+	•	CI/CD para modelos operacional em todos os projetos novos
+	•	Dashboard de monitoramento cobrindo todos os modelos críticos
+	•	SLAs formais definidos e sendo monitorados
+	•	Ao menos 1 integração com sistema core de negócio
+
+
+NÍVEL
+3
+DEFINIDO
+Operações e Processos — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+MIT CISR
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Modelos de IA em produção em processos relevantes com SLAs formais
+	•	CI/CD automático para deploy com testes de qualidade e rollback
+	•	Monitoramento contínuo de performance e drift com alertas automáticos
+	•	Integração com sistemas core (ERP, CRM, plataformas principais)
+	•	Processos automatizados com uptime acima de 99% gerenciados como sistemas críticos
+	•	Equipe de MLOps dedicada ou função clara de responsabilidade pelos modelos
+
+O que você observa na prática
+	•	A empresa consegue dizer quanto IA melhorou cada processo com dados concretos
+	•	Incidentes detectados pelo monitoramento, não por reclamação de usuários
+	•	Novos projetos têm caminho claro para produção usando o pipeline estabelecido
+	•	MIT CISR Estágio 2–3: a empresa industrializou os primeiros casos de uso
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Expandir IA para processos críticos e de alto volume que afetam imediatamente o negócio se pararem
+2
+Implementar automação agêntica nos primeiros processos: agentes executam tarefas complexas sem supervisão
+3
+Criar capacidade de shadow mode: rodar novos modelos em paralelo antes do deploy definitivo
+4
+Implementar retraining automático quando drift é detectado
+5
+Criar AI Operations Center com monitoramento 24x7 para modelos críticos
+6
+Medir e publicar o impacto operacional de IA em cada processo
+
+Como confirmar que você atingiu o Nível 4
+	•	IA em ao menos 3 processos críticos de negócio (não apenas de suporte)
+	•	Retraining automático operacional em ao menos 2 modelos
+	•	AI Operations Center com monitoramento 24x7
+	•	Impacto operacional documentado e reportado mensalmente
+
+
+NÍVEL
+4
+GERENCIADO
+Operações e Processos — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+MIT CISR
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	IA integrada aos processos críticos: o core da operação roda com IA
+	•	Automação agêntica em workflows complexos com múltiplas decisões sequenciais
+	•	Retraining automático quando drift é detectado
+	•	Shadow mode operacional: novos modelos validados antes de substituir os atuais
+	•	AI Operations Center com monitoramento 24x7 e SLAs rigorosos
+	•	Uptime de modelos críticos acima de 99.9% com failover automático
+
+O que você observa na prática
+	•	A empresa opera com eficiência impossível sem IA
+	•	Processos que antes levavam horas levam minutos
+	•	Qualidade de decisões automatizadas igual ou superior à humana em processos estruturados
+	•	Top 11% das empresas globais — MIT CISR Estágio 3–4
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Implementar Multi-Agent Systems para orquestração de processos de ponta a ponta
+2
+Criar capacidade de processos que se redesenham autonomamente quando o contexto muda
+3
+Implementar digital twin de processos críticos para simulação e otimização contínua
+4
+Desenvolver capacidade de IA robótica para processos físicos
+5
+Publicar externamente os casos de uso de operações com IA como referência do setor
+
+Como confirmar que você atingiu o Nível 5
+	•	Multi-Agent Systems em ao menos 1 processo de negócio complexo
+	•	Processos que se adaptam autonomamente a mudanças de contexto
+	•	Digital twin operacional para processos críticos
+	•	Publicação externa de casos de uso como referência
+
+
+NÍVEL
+5
+OTIMIZADO
+Operações e Processos — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+MIT CISR
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Multi-Agent Systems orquestrando processos de ponta a ponta sem supervisão humana
+	•	Processos que se redesenham autonomamente quando o contexto muda
+	•	Digital twins de todos os processos críticos para simulação e otimização
+	•	IA Robótica integrada a processos físicos ou de atendimento
+	•	Novos processos desenhados IA-first por padrão: humano supervisiona, IA executa
+	•	Capacidade operacional impossível com equipes humanas do mesmo tamanho
+
+O que você observa na prática
+	•	A empresa opera com eficiência estruturalmente superior à concorrência
+	•	Novos concorrentes não conseguem alcançar a mesma eficiência sem anos de investimento
+	•	Operações de IA da empresa estudadas por acadêmicos e citadas na mídia
+	•	O modelo de negócio seria inviável sem as operações automatizadas
+
+
+Parabéns. Você atingiu o topo da Dimensão 5.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar operação para Quantum AI: primeiras aplicações de otimização quântica
+	•	Desenvolver capacidade de operações autônomas em contextos adversariais
+	•	Publicar white papers sobre arquitetura de operações com IA como referência setorial
+	•	Criar programa de certificação de operadores de sistemas de IA agêntica
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+Nenhum modelo de IA em produção: tudo em laboratório ou piloto
+Escolher UM processo de alto volume com critérios claros e dados disponíveis e colocar IA em produção em 90 dias
+2
+Inicial
+Inicial
+2–5 modelos em produção mas em processos não-críticos ou de suporte
+Implementar pipeline de CI/CD dedicado para modelos de ML com testes de qualidade
+3
+Definido
+Definido
+Modelos de IA em produção em processos relevantes com SLAs formais
+Expandir IA para processos críticos e de alto volume que afetam imediatamente o negócio se pararem
+4
+Gerenciado
+Gerenciado
+IA integrada aos processos críticos: o core da operação roda com IA
+Implementar Multi-Agent Systems para orquestração de processos de ponta a ponta
+5
+Otimizado
+Otimizado
+Multi-Agent Systems orquestrando processos de ponta a ponta sem supervisão humana
+Preparar operação para Quantum AI: primeiras aplicações de otimização quântica

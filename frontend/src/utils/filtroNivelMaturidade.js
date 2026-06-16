@@ -1,3 +1,5 @@
+import { relatorioBookSecao3Completo } from '../constants/ordemDimensoesFramework.js';
+
 /** Lê o filtro de prioridade da URL (alinhado ao dashboard). Padrão: 3. */
 export function filtroNivelMapeamentoFromSearchParams(searchParams) {
   const raw = searchParams.get('nivelPrioridadeMapeamentoMaturidade');
@@ -19,30 +21,6 @@ export function labelFiltroNivelMapeamento(filtro) {
   return 'Até nível 3 (prioridades 1, 2 e 3)';
 }
 
-export function perguntarFiltroNivelMapeamento({
-  defaultValue = 3,
-  contexto = 'relatório IA'
-} = {}) {
-  const padrao = defaultValue === 0 || (defaultValue >= 1 && defaultValue <= 3) ? defaultValue : 3;
-  const resposta = window.prompt(
-    `Qual nível de avaliadores deve ser analisado para gerar o ${contexto}?\n\n` +
-      `1 = somente prioridade 1\n` +
-      `2 = prioridades 1 e 2\n` +
-      `3 = prioridades 1, 2 e 3\n` +
-      `0 = todos os avaliadores finalizados\n\n` +
-      `Digite 1, 2, 3 ou 0:`,
-    String(padrao)
-  );
-
-  if (resposta == null) return null;
-  const raw = resposta.trim().toLowerCase();
-  if (raw === 'todos' || raw === 'all') return 0;
-  const n = parseInt(raw, 10);
-  if (n === 0 || (n >= 1 && n <= 3)) return n;
-  window.alert('Nível inválido. Digite 1, 2, 3 ou 0 para todos.');
-  return null;
-}
-
 /** Filtro gravado no snapshot do relatório IA (biblioteca / cache). */
 export function filtroNivelFromDadosUsados(dadosUsados) {
   const salvo = dadosUsados?.filtroNivelPrioridadeMapeamentoMaturidadeAplicado;
@@ -56,15 +34,31 @@ export function queryVersaoBibliotecaRelatorioIA(r) {
   if (r.tipo === 'completo_rapido') qs.set('modo', 'rapido');
   const filtro =
     r.dadosUsados?.filtroNivelPrioridadeMapeamentoMaturidadeAplicado ??
-    r.dadosSnapshot?.filtroNivelPrioridadeMapeamentoMaturidadeAplicado;
+    (typeof r.dadosSnapshot === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(r.dadosSnapshot)?.filtroNivelPrioridadeMapeamentoMaturidadeAplicado;
+          } catch {
+            return undefined;
+          }
+        })()
+      : r.dadosSnapshot?.filtroNivelPrioridadeMapeamentoMaturidadeAplicado);
   if (filtro === null) qs.set('nivelPrioridadeMapeamentoMaturidade', '0');
   else if (filtro >= 1 && filtro <= 3) {
     qs.set('nivelPrioridadeMapeamentoMaturidade', String(filtro));
   } else {
     qs.set('nivelPrioridadeMapeamentoMaturidade', '3');
   }
-  qs.set('versaoId', String(r.id));
+  qs.set('relatorioSalvoId', String(r.id));
   return qs.toString();
+}
+
+/** ID do relatório salvo na biblioteca (não confundir com versão da pesquisa do projeto). */
+export function relatorioSalvoIdFromSearchParams(searchParams) {
+  const explicito = searchParams.get('relatorioSalvoId');
+  if (explicito) return explicito;
+  if (searchParams.get('projetoVersaoId')) return null;
+  return searchParams.get('versaoId');
 }
 
 export function pathRelatorioMitIaCompleto(projetoId, { modoRapido = false, filtroNivel = 3 } = {}) {
@@ -73,4 +67,38 @@ export function pathRelatorioMitIaCompleto(projetoId, { modoRapido = false, filt
   const n = filtroNivel === 0 ? 0 : filtroNivel >= 1 && filtroNivel <= 3 ? filtroNivel : 3;
   p.set('nivelPrioridadeMapeamentoMaturidade', String(n));
   return `/relatorios/${projetoId}/mit-ia-completo?${p.toString()}`;
+}
+
+/** Carrega relatório salvo se o filtro e a versão da pesquisa forem compatíveis. */
+export async function carregarRelatorioSalvoSeCompativel({
+  relatoriosIAApi,
+  projetoId,
+  tipo,
+  filtroNivel,
+  projetoVersaoId = null
+}) {
+  try {
+    const row = await relatoriosIAApi.ultimaVersao(projetoId, tipo, {
+      nivelPrioridadeMapeamentoMaturidade: filtroNivel
+    });
+    const dados = row.dadosUsados;
+    if (
+      projetoVersaoId &&
+      Number(dados?.projetoVersao?.id || 0) !== Number(projetoVersaoId)
+    ) {
+      return null;
+    }
+    if (tipo === 'completo' || tipo === 'completo_rapido') {
+      if (
+        Number(dados?.totalDimensoesFramework || 0) !== 16 ||
+        (dados?.scoresPorArea?.length || 0) !== 16 ||
+        !relatorioBookSecao3Completo(row.conteudoMd || '').ok
+      ) {
+        return null;
+      }
+    }
+    return row;
+  } catch {
+    return null;
+  }
 }

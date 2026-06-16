@@ -19,8 +19,388 @@ import {
 } from '../utils/avaliacaoAreasRecusadas.js';
 import { desejosIaParaRespostasEmail, desejosIaTemRespostasGuardadas } from '../utils/desejosIaAvaliacaoMaturidade.js';
 import { isMissingAvaliacaoDesejosIaTableError } from '../utils/avaliacaoDesejosIaMerge.js';
+import {
+  nivelNumericoDeScore,
+  faixaNivelPorScore,
+  RUBRICA_FAIXAS_NIVEL,
+  RUBRICA_LIMITES_NIVEL
+} from '../utils/nivelMaturidadeRubrica.js';
 
 const router = express.Router();
+
+function normalizarProjetoVersaoExport(row) {
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    projetoId: Number(row.projetoId),
+    numero: Number(row.numero),
+    titulo: row.titulo,
+    status: row.status,
+    iniciadaEm: row.iniciadaEm,
+    fechadaEm: row.fechadaEm
+  };
+}
+
+async function obterVersaoExportacao(req, projetoId) {
+  try {
+    const raw = req.query?.versaoId || req.query?.projetoVersaoId;
+    if (raw) {
+      const versaoId = parseInt(String(raw), 10);
+      if (Number.isFinite(versaoId) && versaoId > 0) {
+        const rows = await prisma.$queryRaw`
+          SELECT * FROM "ProjetoVersao"
+          WHERE "id" = ${versaoId} AND "projetoId" = ${projetoId}
+          LIMIT 1
+        `;
+        if (rows.length > 0) return normalizarProjetoVersaoExport(rows[0]);
+      }
+    }
+    const rows = await prisma.$queryRaw`
+      SELECT * FROM "ProjetoVersao"
+      WHERE "projetoId" = ${projetoId}
+      ORDER BY CASE WHEN "status" = 'aberta' THEN 0 ELSE 1 END, "numero" DESC
+      LIMIT 1
+    `;
+    return rows.length > 0 ? normalizarProjetoVersaoExport(rows[0]) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function filtrarAvaliacoesPorVersaoExportacao(avaliacoes, projetoVersao) {
+  if (!projetoVersao?.id || !Array.isArray(avaliacoes)) return avaliacoes;
+  try {
+    const rows = await prisma.$queryRaw`
+      SELECT "avaliacaoId"
+      FROM "ProjetoVersaoAvaliacao"
+      WHERE "projetoVersaoId" = ${projetoVersao.id}
+    `;
+    const ids = new Set(rows.map((row) => Number(row.avaliacaoId)));
+    return avaliacoes.filter((avaliacao) => ids.has(Number(avaliacao.id)));
+  } catch {
+    return avaliacoes;
+  }
+}
+
+function slugArquivo(texto) {
+  return String(texto || 'arquivo')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+function parseJsonSeguroExport(raw) {
+  if (!raw) return null;
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return null;
+  }
+}
+
+function gerarPlanoAcaoPorDimensao(scoresPorArea) {
+  return (scoresPorArea || [])
+    .filter((area) => Number(area.score) > 0 && Number(area.score) < 3.5)
+    .sort((a, b) => Number(a.score) - Number(b.score))
+    .slice(0, 6)
+    .map((area) => {
+      const score = Number(area.score) || 0;
+      const criticidade = score < 2 ? 'critica' : score < 3 ? 'alta' : 'media';
+      const responsavelSugerido = area.area?.toLowerCase().includes('governança')
+        ? 'Sponsor executivo + Segurança/Compliance'
+        : area.area?.toLowerCase().includes('dados') || area.area?.toLowerCase().includes('tecnologia')
+          ? 'CTO / Head de Dados'
+          : area.area?.toLowerCase().includes('pessoas') || area.area?.toLowerCase().includes('cultura')
+            ? 'RH + Lideranças de negócio'
+            : 'Sponsor executivo + dono da dimensão';
+
+      return {
+        areaId: area.areaId,
+        area: area.area,
+        score: area.score,
+        nivel: area.nivel,
+        criticidade,
+        responsavelSugerido,
+        acoes30Dias: [
+          `Validar diagnóstico da dimensão "${area.area}" com os responsáveis.`,
+          'Definir dono, métrica de sucesso e evidências esperadas.',
+          'Priorizar 2 ações rápidas que reduzam risco ou desbloqueiem valor.'
+        ],
+        acoes90Dias: [
+          'Executar piloto controlado com acompanhamento quinzenal.',
+          'Formalizar processo, política ou ritual de governança necessário.',
+          'Medir avanço e preparar nova rodada de avaliação da dimensão.'
+        ]
+      };
+    });
+}
+
+function gerarMarkdownPlanoAcaoVersao({ projeto, projetoVersao, planoAcao }) {
+  const versaoLabel = `${projetoVersao.titulo} (${projetoVersao.status})`;
+  return `# Plano de Ação da ${projetoVersao.titulo}
+
+**Empresa:** ${projeto.empresa.nome}
+**Projeto:** ${projeto.nome}
+**Versão:** ${versaoLabel}
+**Gerado em:** ${new Date().toLocaleString('pt-BR')}
+
+${planoAcao.length === 0 ? 'Nenhuma dimensão crítica encontrada para plano de ação nesta versão.' : planoAcao.map((item, index) => `## ${index + 1}. ${item.area}
+
+- **Score:** ${Number(item.score).toFixed(2)} (${item.nivel})
+- **Criticidade:** ${item.criticidade}
+- **Responsável sugerido:** ${item.responsavelSugerido}
+
+### Ações 30 dias
+${item.acoes30Dias.map((acao) => `- ${acao}`).join('\n')}
+
+### Ações 90 dias
+${item.acoes90Dias.map((acao) => `- ${acao}`).join('\n')}
+`).join('\n')}
+`;
+}
+
+function gerarMarkdownDashboardVersao({ projeto, projetoVersao, avaliacoes, scoresPorArea }) {
+  const finalizadas = avaliacoes.filter((av) => av.status === 'finalizada');
+  const scoreGeral = scoresPorArea.length
+    ? scoresPorArea.reduce((acc, area) => acc + Number(area.score), 0) / scoresPorArea.length
+    : 0;
+  const versaoLabel = `${projetoVersao.titulo} (${projetoVersao.status})`;
+
+  return `# Dashboard da ${projetoVersao.titulo}
+
+**Empresa:** ${projeto.empresa.nome}
+**Projeto:** ${projeto.nome}
+**Versão:** ${versaoLabel}
+**Gerado em:** ${new Date().toLocaleString('pt-BR')}
+
+## Indicadores Consolidados
+
+| Métrica | Valor |
+|---|---|
+| Score geral | ${scoreGeral ? scoreGeral.toFixed(2) : '-'} |
+| Nível | ${scoreGeral ? calcularNivel(scoreGeral) : '-'} |
+| Avaliações finalizadas | ${finalizadas.length} |
+| Avaliações totais | ${avaliacoes.length} |
+
+## Scores por Dimensão
+
+| Dimensão | Score | Nível | Respostas |
+|---|---:|---|---:|
+${scoresPorArea.map((area) => `| ${area.area} | ${Number(area.score).toFixed(2)} | ${area.nivel} | ${area.respondidas || '-'} |`).join('\n') || '| - | - | - | - |'}
+
+## Avaliadores da Versão
+
+| Avaliador | Email | Status | Score | Nível |
+|---|---|---|---:|---|
+${avaliacoes.map((av) => `| ${av.usuario?.nome || '-'} | ${av.usuario?.email || '-'} | ${av.status} | ${av.scoreGeral ?? '-'} | ${av.nivelGeral || '-'} |`).join('\n') || '| - | - | - | - | - |'}
+`;
+}
+
+function gerarMarkdownExecutiveVersao(projeto, projetoVersao) {
+  const dataGeracao = new Date().toLocaleDateString('pt-BR', {
+    day: '2-digit', month: 'long', year: 'numeric'
+  });
+  const versaoLabelExecutive = `${projetoVersao.titulo} (${projetoVersao.status})`;
+  const todasRespostas = projeto.avaliacoes.flatMap((a) =>
+    respostasParaCalculo(a).filter((r) => r.pontuacao != null)
+  );
+  const scoreGeral = todasRespostas.length > 0
+    ? todasRespostas.reduce((sum, r) => sum + r.pontuacao, 0) / todasRespostas.length
+    : 0;
+  const nivel = nivelNumericoDeScore(scoreGeral);
+  const nomeNivel = faixaNivelPorScore(scoreGeral).nome;
+  const scoresPorArea = {};
+  todasRespostas.forEach((r) => {
+    const area = r.pergunta?.area?.nome || 'Outros';
+    if (!scoresPorArea[area]) scoresPorArea[area] = { total: 0, count: 0 };
+    scoresPorArea[area].total += r.pontuacao;
+    scoresPorArea[area].count += 1;
+  });
+  const areasOrdenadas = Object.entries(scoresPorArea)
+    .map(([area, { total, count }]) => ({ area, score: total / count }))
+    .sort((a, b) => a.score - b.score);
+  const top5Gaps = areasOrdenadas.filter((a) => a.score < 3.5).slice(0, 5);
+  const projecoes = {
+    1: { roi: '15-35%', payback: '24+ meses', economia: '5-15%' },
+    2: { roi: '35-70%', payback: '18-24 meses', economia: '15-25%' },
+    3: { roi: '70-120%', payback: '12-18 meses', economia: '25-40%' },
+    4: { roi: '120-200%', payback: '6-12 meses', economia: '40-55%' },
+    5: { roi: '200%+', payback: '3-6 meses', economia: '55%+' }
+  };
+  const projecao = projecoes[nivel];
+  const pctRefMd = percentualReferenciaRoi(projeto.faturamentoAnualProjeto);
+  const fatLinha =
+    projeto.faturamentoAnualProjeto != null && Number(projeto.faturamentoAnualProjeto) > 0
+      ? `R$ ${Number(projeto.faturamentoAnualProjeto).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+      : 'Não informado';
+
+  return `# RELATÓRIO EXECUTIVO
+## Maturidade em Inteligência Artificial
+
+---
+
+**Empresa:** ${projeto.empresa.nome}
+**Projeto:** ${projeto.nome}
+**Versão da pesquisa:** ${versaoLabelExecutive}
+**Data:** ${dataGeracao}
+
+---
+
+# 📊 RESUMO EXECUTIVO
+
+## Score Geral: **${scoreGeral.toFixed(1)}** — ${nomeNivel} (Nível ${nivel})
+
+A avaliação identificou que a empresa encontra-se no **Nível ${nivel} (${nomeNivel})** de maturidade em IA.
+Este relatório apresenta os principais achados e recomendações estratégicas para a liderança.
+
+### Indicadores-Chave
+
+| Métrica | Valor |
+|---------|-------|
+| **Score Geral** | ${scoreGeral.toFixed(1)} / 5.0 |
+| **Nível de Maturidade** | ${nomeNivel} |
+| **Total de Avaliadores** | ${projeto.avaliacoes.length} |
+| **Versão da pesquisa** | ${versaoLabelExecutive} |
+| **Faturamento anual (projeto)** | ${fatLinha} |
+| **% referência ROI** | ${pctRefMd != null ? `${pctRefMd}% (calibra projeções)` : '—'} |
+| **ROI Típico do Nível** | ${projecao.roi} |
+| **Payback Esperado** | ${projecao.payback} |
+
+---
+
+# 🎯 TOP 5 GAPS PRIORITÁRIOS
+
+${top5Gaps.length > 0 ? top5Gaps.map((gap, i) => {
+    const prioridade = gap.score < 2 ? '🔴 Crítica' : gap.score < 2.5 ? '🟠 Alta' : '🟡 Média';
+    return `### ${i + 1}. ${gap.area}
+- **Score:** ${gap.score.toFixed(1)} / 5.0
+- **Gap:** -${(3.5 - gap.score).toFixed(1)} pontos
+- **Prioridade:** ${prioridade}
+`;
+  }).join('\n') : '✅ Todas as áreas estão acima do nível ideal (3.5). Foco em otimização contínua.\n'}
+
+---
+
+# 📈 PROJEÇÃO DE IMPACTO FINANCEIRO
+
+## Cenários de Retorno
+
+| Cenário | ROI Esperado | Payback | Economia Anual |
+|---------|--------------|---------|----------------|
+| 🐢 **Conservador** | ${parseInt(projecao.roi) * 0.6 || '10-25'}% | +6 meses | ${parseInt(projecao.economia) * 0.6 || '5-10'}% |
+| ⚖️ **Base (Recomendado)** | ${projecao.roi} | ${projecao.payback} | ${projecao.economia} |
+| 🚀 **Agressivo** | ${parseInt(projecao.roi) * 1.3 || '25-50'}%+ | -6 meses | ${parseInt(projecao.economia) * 1.3 || '10-20'}%+ |
+
+### Metodologia
+
+Projeções baseadas em:
+- **MIT CISR** Enterprise AI Maturity Model (Weill, Woerner & Sebastian, 2024)
+- **McKinsey** "The State of AI in 2024"
+- **Gartner** AI Maturity Model
+
+> ⚠️ **Nota:** Valores são referenciais de mercado, não promessas contratuais. Resultados podem variar conforme execução e condições de mercado.
+
+---
+
+# 📅 PLANO DE AÇÃO — 90 DIAS
+
+## Semana 1-4: Quick Wins
+- [ ] Validar estratégia de IA com liderança
+- [ ] Identificar patrocinador executivo (C-level)
+- [ ] Mapear dados e sistemas críticos
+
+## Semana 5-8: Fundação
+- [ ] Formar comitê de governança de IA
+- [ ] Priorizar 3-5 casos de uso com ROI mensurável
+- [ ] Definir políticas de uso e privacidade
+
+## Semana 9-10: Pilotos
+- [ ] Iniciar POCs nas áreas priorizadas
+- [ ] Capacitar equipe-chave
+- [ ] Estabelecer baseline de métricas
+
+## Semana 11-12: Validação
+- [ ] Avaliar resultados dos pilotos
+- [ ] Ajustar roadmap baseado em aprendizados
+- [ ] Planejar próxima fase de escala
+
+---
+
+# ✅ PRÓXIMOS PASSOS PARA LIDERANÇA
+
+| Ação | Descrição | Responsável Sugerido |
+|------|-----------|---------------------|
+| **1. Aprovar Roadmap** | Validar plano de 90 dias e alocar recursos | CEO / Comitê Executivo |
+| **2. Nomear Sponsor** | Definir executivo C-level como sponsor de IA | CEO |
+| **3. Definir Budget** | Aprovar investimento para Fase 1 | CFO |
+| **4. Formar Comitê** | Criar comitê de governança multidisciplinar | Sponsor de IA |
+| **5. Comunicar Estratégia** | Compartilhar visão de IA com a organização | CEO / RH |
+
+---
+
+<div align="center">
+
+**Blueprint Agêntico — Relatório Executivo**
+
+**${dataGeracao}**
+
+© ${new Date().getFullYear()} SysMap Solutions
+
+*Este documento é confidencial e destinado exclusivamente à liderança.*
+
+</div>
+`;
+}
+
+async function buscarRelatoriosIAPorVersao(projetoId, versaoId) {
+  const rows = await prisma.relatorioIA.findMany({
+    where: { projetoId },
+    orderBy: { createdAt: 'desc' },
+    take: 80
+  });
+  const porTipo = new Map();
+  for (const row of rows) {
+    const dados = parseJsonSeguroExport(row.dadosSnapshot);
+    if (Number(dados?.projetoVersao?.id) !== Number(versaoId)) continue;
+    if (!porTipo.has(row.tipo)) porTipo.set(row.tipo, row);
+  }
+  return porTipo;
+}
+
+function gerarMarkdownPacoteVersao({ projeto, projetoVersao, avaliacoes, scoresPorArea }) {
+  const finalizadas = avaliacoes.filter((av) => av.status === 'finalizada');
+  const scoresValidos = finalizadas.map((av) => Number(av.scoreGeral)).filter((score) => Number.isFinite(score));
+  const scoreMedio = scoresValidos.length
+    ? scoresValidos.reduce((acc, score) => acc + score, 0) / scoresValidos.length
+    : 0;
+  const areasOrdenadas = [...scoresPorArea].sort((a, b) => a.score - b.score);
+  return `# Pacote da ${projetoVersao.titulo}
+
+**Empresa:** ${projeto.empresa.nome}
+**Projeto:** ${projeto.nome}
+**Versão:** ${projetoVersao.titulo} (${projetoVersao.status})
+**Gerado em:** ${new Date().toLocaleString('pt-BR')}
+
+## Resumo Executivo
+
+| Métrica | Valor |
+|---|---|
+| Avaliações totais | ${avaliacoes.length} |
+| Avaliações finalizadas | ${finalizadas.length} |
+| Score médio | ${scoreMedio ? scoreMedio.toFixed(2) : '-'} |
+| Nível | ${scoreMedio ? calcularNivel(scoreMedio) : '-'} |
+
+## Pontos Fortes
+
+${areasOrdenadas.slice(-3).reverse().map((area) => `- **${area.area}:** ${area.score.toFixed(2)} (${area.nivel})`).join('\n') || '- Sem dados suficientes.'}
+
+## Pontos de Atenção
+
+${areasOrdenadas.slice(0, 3).map((area) => `- **${area.area}:** ${area.score.toFixed(2)} (${area.nivel})`).join('\n') || '- Sem dados suficientes.'}
+`;
+}
 
 function ajustarProjecaoExportacao(baseProjecao, faturamentoAnual) {
   const fat = faturamentoAnual != null && Number(faturamentoAnual) > 0 ? Number(faturamentoAnual) : null;
@@ -49,11 +429,7 @@ function ajustarProjecaoExportacao(baseProjecao, faturamentoAnual) {
  * Função auxiliar para calcular nível de maturidade
  */
 function calcularNivel(score) {
-  if (score >= 4.5) return 'Otimizado';
-  if (score >= 3.5) return 'Gerenciado';
-  if (score >= 2.5) return 'Estruturado';
-  if (score >= 1.5) return 'Oportunista';
-  return 'Inicial';
+  return faixaNivelPorScore(score).nome;
 }
 
 function calcularScoreGeralAvaliacao(scoresPorArea) {
@@ -78,6 +454,7 @@ function gerarMarkdownRelatorio(avaliacao, projeto, empresa, scoresPorArea, resu
       ? resultadoAvaliacao.scoreGeral
       : avaliacao.scoreGeral;
   const nivelGeral = resultadoAvaliacao.nivelGeral || avaliacao.nivelGeral;
+  const projetoVersaoLabel = resultadoAvaliacao.projetoVersao?.titulo || 'Versão 1';
   
   let md = `# Relatório de Maturidade em IA
 
@@ -91,6 +468,7 @@ function gerarMarkdownRelatorio(avaliacao, projeto, empresa, scoresPorArea, resu
 |-------|-------|
 | **Empresa** | ${empresa.nome} |
 | **Projeto** | ${projeto.nome} |
+| **Versão da pesquisa** | ${projetoVersaoLabel} |
 | **Avaliador** | ${avaliacao.usuario?.nome || 'N/A'} |
 | **Data da Avaliação** | ${dataAvaliacao} |
 | **Status** | ${avaliacao.status} |
@@ -123,11 +501,10 @@ function gerarMarkdownRelatorio(avaliacao, projeto, empresa, scoresPorArea, resu
 
 | Nível | Score | Descrição |
 |-------|-------|-----------|
-| Inicial | 1.0 - 1.5 | Sem estratégia formal de IA, iniciativas isoladas e reativas |
-| Oportunista | 1.5 - 2.5 | Experimentos iniciais, algumas iniciativas de IA em andamento |
-| Estruturado | 2.5 - 3.5 | Processos definidos, projetos de IA estruturados e alinhados |
-| Gerenciado | 3.5 - 4.5 | IA integrada ao negócio, governança estabelecida, escala |
-| Otimizado | 4.5 - 5.0 | IA como diferencial competitivo, inovação contínua, referência |
+${RUBRICA_FAIXAS_NIVEL.map(
+  (f) =>
+    `| ${f.nome} | ${f.min.toFixed(1)} - ${f.max.toFixed(1)} | Nível ${f.nivel} da rubrica Blueprint IA |`
+).join('\n')}
 
 ---
 
@@ -489,6 +866,134 @@ function gerarMarkdownEspecificacao(especificacao, produto) {
 // ROTAS DE EXPORTAÇÃO
 // ==========================================
 
+router.get('/versao/:projetoId/:versaoId/zip', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.projetoId, 10);
+    const versaoId = parseInt(req.params.versaoId, 10);
+    if (!Number.isFinite(projetoId) || !Number.isFinite(versaoId)) {
+      return res.status(400).json({ error: 'IDs inválidos' });
+    }
+
+    const projeto = await prisma.projeto.findUnique({
+      where: { id: projetoId },
+      include: {
+        empresa: true,
+        avaliacoes: {
+          include: {
+            usuario: true,
+            respostas: { include: { pergunta: { include: { area: true } } } }
+          },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+    if (!projeto) return res.status(404).json({ error: 'Projeto não encontrado' });
+    const projetoVersao = await obterVersaoExportacao({ query: { versaoId } }, projetoId);
+    if (!projetoVersao || Number(projetoVersao.id) !== versaoId) {
+      return res.status(404).json({ error: 'Versão não encontrada' });
+    }
+
+    projeto.avaliacoes = await filtrarAvaliacoesPorVersaoExportacao(projeto.avaliacoes, projetoVersao);
+    const areas = await prisma.area.findMany({ include: { perguntas: true }, orderBy: { ordem: 'asc' } });
+    const todasAreaIds = areas.map((area) => area.id);
+    const scoresPorArea = areas.map((area) => {
+      let totalScore = 0;
+      let totalRespostas = 0;
+      projeto.avaliacoes
+        .filter((av) => av.status === 'finalizada')
+        .forEach((av) => {
+          if (!areaContaParaAvaliacao(av, area.id, todasAreaIds)) return;
+          const respostasArea = respostasParaCalculo(av).filter(
+            (r) => r.pergunta?.areaId === area.id && r.pontuacao != null
+          );
+          respostasArea.forEach((r) => {
+            totalScore += Number(r.pontuacao);
+            totalRespostas += 1;
+          });
+        });
+      const score = totalRespostas > 0 ? totalScore / totalRespostas : 0;
+      return {
+        areaId: area.id,
+        area: area.nome,
+        score,
+        nivel: calcularNivel(score),
+        respondidas: totalRespostas
+      };
+    }).filter((area) => area.respondidas > 0);
+
+    const csvAvaliacoes = [
+      ['Avaliador', 'Email', 'Cargo', 'Status', 'Score', 'Nivel', 'Data'].join(';'),
+      ...projeto.avaliacoes.map((av) => [
+        av.usuario?.nome || '',
+        av.usuario?.email || '',
+        av.usuario?.cargo || '',
+        av.status || '',
+        av.scoreGeral ?? '',
+        av.nivelGeral || '',
+        av.updatedAt ? new Date(av.updatedAt).toLocaleString('pt-BR') : ''
+      ].map((valor) => `"${String(valor).replaceAll('"', '""')}"`).join(';'))
+    ].join('\n');
+    const avaliacoesFinalizadas = projeto.avaliacoes.filter((av) => av.status === 'finalizada');
+    const planoAcao = gerarPlanoAcaoPorDimensao(scoresPorArea);
+    const markdownDashboard = gerarMarkdownDashboardVersao({
+      projeto,
+      projetoVersao,
+      avaliacoes: avaliacoesFinalizadas,
+      scoresPorArea
+    });
+    const markdownPlano = gerarMarkdownPlanoAcaoVersao({ projeto, projetoVersao, planoAcao });
+    const markdownExecutive = gerarMarkdownExecutiveVersao(
+      { ...projeto, avaliacoes: avaliacoesFinalizadas },
+      projetoVersao
+    );
+    const relatoriosIA = await buscarRelatoriosIAPorVersao(projetoId, versaoId);
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    const nomeBase = `${slugArquivo(projeto.nome)}-${slugArquivo(projetoVersao.titulo)}`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="pacote-versao-${nomeBase}.zip"`);
+    archive.on('error', (err) => {
+      throw err;
+    });
+    archive.pipe(res);
+    archive.append(gerarMarkdownPacoteVersao({ projeto, projetoVersao, avaliacoes: projeto.avaliacoes, scoresPorArea }), {
+      name: '01-resumo-executivo-versao.md'
+    });
+    archive.append(markdownDashboard, { name: '02-dashboard-versao.md' });
+    archive.append(csvAvaliacoes, { name: '03-analise-avaliacoes.csv' });
+    archive.append(markdownPlano, { name: '04-plano-acao-versao.md' });
+    archive.append(markdownExecutive, { name: '05-relatorio-executivo-versao.md' });
+    if (relatoriosIA.get('executivo')?.conteudoMd) {
+      archive.append(relatoriosIA.get('executivo').conteudoMd, { name: '06-relatorio-ia-executivo.md' });
+    }
+    if (relatoriosIA.get('completo')?.conteudoMd) {
+      archive.append(relatoriosIA.get('completo').conteudoMd, { name: '07-relatorio-ia-completo.md' });
+    } else if (relatoriosIA.get('completo_rapido')?.conteudoMd) {
+      archive.append(relatoriosIA.get('completo_rapido').conteudoMd, { name: '07-relatorio-ia-completo-rapido.md' });
+    }
+    archive.append(JSON.stringify({
+      projeto: { id: projeto.id, nome: projeto.nome },
+      empresa: projeto.empresa,
+      projetoVersao,
+      scoresPorArea,
+      planoAcao,
+      relatoriosIA: [...relatoriosIA.values()].map((row) => ({
+        id: row.id,
+        tipo: row.tipo,
+        titulo: row.titulo,
+        versao: row.versao,
+        createdAt: row.createdAt
+      }))
+    }, null, 2), {
+      name: '08-dados-versao.json'
+    });
+    await archive.finalize();
+  } catch (error) {
+    console.error('exportar-pacote-versao:', error);
+    res.status(500).json({ error: 'Erro ao exportar pacote da versão', details: error.message });
+  }
+});
+
 /**
  * GET /api/exportar/relatorio/:avaliacaoId
  * Exporta relatório de avaliação em Markdown
@@ -550,6 +1055,16 @@ router.get('/relatorio/:avaliacaoId', async (req, res) => {
     }).filter(a => a.respondidas > 0);
     const scoreGeralAvaliacao = calcularScoreGeralAvaliacao(scoresPorArea);
     const nivelGeralAvaliacao = calcularNivel(scoreGeralAvaliacao);
+    const projetoVersaoRows = await prisma.$queryRaw`
+      SELECT v.*
+      FROM "ProjetoVersaoAvaliacao" pva
+      JOIN "ProjetoVersao" v ON v."id" = pva."projetoVersaoId"
+      WHERE pva."avaliacaoId" = ${avaliacao.id}
+      LIMIT 1
+    `.catch(() => []);
+    const projetoVersao = projetoVersaoRows.length > 0
+      ? normalizarProjetoVersaoExport(projetoVersaoRows[0])
+      : null;
 
     const markdown = gerarMarkdownRelatorio(
       avaliacao, 
@@ -558,7 +1073,8 @@ router.get('/relatorio/:avaliacaoId', async (req, res) => {
       scoresPorArea,
       {
         scoreGeral: scoreGeralAvaliacao,
-        nivelGeral: nivelGeralAvaliacao
+        nivelGeral: nivelGeralAvaliacao,
+        projetoVersao
       }
     );
 
@@ -608,6 +1124,8 @@ router.get('/projeto/:projetoId', async (req, res) => {
     if (!projeto) {
       return res.status(404).json({ error: 'Projeto não encontrado' });
     }
+    const projetoVersao = await obterVersaoExportacao(req, parseInt(projetoId));
+    projeto.avaliacoes = await filtrarAvaliacoesPorVersaoExportacao(projeto.avaliacoes, projetoVersao);
 
     const markdown = await gerarMarkdownProjeto(projeto);
 
@@ -683,6 +1201,9 @@ router.get('/projeto/:projetoId/cadastro-docx', async (req, res) => {
 
     const empresa = projeto.empresa;
     const dataGeracao = new Date().toLocaleDateString('pt-BR');
+    const versaoLinha = projetoVersao
+      ? `**Versão da pesquisa:** ${projetoVersao.titulo} (${projetoVersao.status})  \n`
+      : '';
     
     // Parse dos campos JSON
     let audiencias = [];
@@ -1115,6 +1636,9 @@ router.get('/projeto/:projetoId/zip-relatorio-maturidade', async (req, res) => {
 
     const nivelGeral = calcularNivel(scoreGeral);
     const dataGeracao = new Date().toLocaleDateString('pt-BR');
+    const versaoLabel = projetoVersao
+      ? `${projetoVersao.titulo} (${projetoVersao.status})`
+      : 'Versão atual';
 
     // MIT CISR Levels - Completo
     const MIT_CISR_LEVELS = {
@@ -1229,7 +1753,7 @@ router.get('/projeto/:projetoId/zip-relatorio-maturidade', async (req, res) => {
       { fase: 5, areas: ['Inovação e Experimentação', 'Ecossistema e Parcerias'], descricao: 'Escala - amplia impacto', duracao: '6-12 meses' }
     ];
 
-    const nivelNumerico = scoreGeral >= 4.5 ? 5 : scoreGeral >= 3.5 ? 4 : scoreGeral >= 2.5 ? 3 : scoreGeral >= 1.5 ? 2 : 1;
+    const nivelNumerico = nivelNumericoDeScore(scoreGeral);
     const levelInfo = MIT_CISR_LEVELS[nivelNumerico];
     const benchmark = projeto.vertical ? BENCHMARKING[projeto.vertical] : null;
     const projecao = ajustarProjecaoExportacao(PROJECAO_FINANCEIRA[nivelNumerico], projeto.faturamentoAnualProjeto);
@@ -1249,6 +1773,8 @@ router.get('/projeto/:projetoId/zip-relatorio-maturidade', async (req, res) => {
 **${projeto.empresa.nome}**
 
 ${projeto.nome}
+
+Versão da pesquisa: ${versaoLabel}
 
 *${dataGeracao}*
 
@@ -1681,7 +2207,7 @@ ${scoreGeral >= 3.5
 
 ## Modelo MIT CISR de Maturidade em IA
 
-O **MIT CISR Enterprise AI Maturity Model** (Weill, Woerner & Sebastian, 2024) é baseado em pesquisa com **721 empresas** e identifica 5 níveis de maturidade em IA empresarial.
+O **MIT CISR Enterprise AI Maturity Model** (Weill, Woerner & Sebastian, 2024) é baseado em pesquisa com **721 empresas** e identifica **quatro estágios empresariais** de maturidade em IA. A escala operacional Blueprint IA usa **cinco níveis** (faixas 1,8 / 2,6 / 3,4 / 4,2) compatíveis com os guias de progressão do framework.
 
 ### Referência Bibliográfica
 
@@ -2565,6 +3091,8 @@ router.get('/dashboard/:projetoId', async (req, res) => {
     if (!projeto) {
       return res.status(404).json({ error: 'Projeto não encontrado' });
     }
+    const projetoVersaoDashboard = await obterVersaoExportacao(req, parseInt(projetoId));
+    projeto.avaliacoes = await filtrarAvaliacoesPorVersaoExportacao(projeto.avaliacoes, projetoVersaoDashboard);
 
     // Buscar áreas
     const areas = await prisma.area.findMany({
@@ -2610,6 +3138,9 @@ router.get('/dashboard/:projetoId', async (req, res) => {
 
     const nivelGeral = calcularNivel(scoreGeral);
     const dataGeracao = new Date().toLocaleDateString('pt-BR');
+    const versaoLabelDashboard = projetoVersaoDashboard
+      ? `${projetoVersaoDashboard.titulo} (${projetoVersaoDashboard.status})`
+      : 'Versão atual';
 
     // MIT CISR Levels - Completo
     const MIT_CISR_LEVELS = {
@@ -2784,7 +3315,7 @@ router.get('/dashboard/:projetoId', async (req, res) => {
       { fase: 5, areas: ['Inovação e Experimentação', 'Ecossistema e Parcerias'], descricao: 'Escala - amplia impacto', duracao: '6-12 meses' }
     ];
 
-    const nivelNumerico = scoreGeral >= 4.5 ? 5 : scoreGeral >= 3.5 ? 4 : scoreGeral >= 2.5 ? 3 : scoreGeral >= 1.5 ? 2 : 1;
+    const nivelNumerico = nivelNumericoDeScore(scoreGeral);
     const levelInfo = MIT_CISR_LEVELS[nivelNumerico];
     const benchmark = projeto.vertical ? BENCHMARKING[projeto.vertical] : null;
     const projecao = ajustarProjecaoExportacao(PROJECAO_FINANCEIRA[nivelNumerico], projeto.faturamentoAnualProjeto);
@@ -2812,6 +3343,8 @@ router.get('/dashboard/:projetoId', async (req, res) => {
 **${projeto.empresa.nome}**
 
 ${projeto.nome}
+
+Versão da pesquisa: ${versaoLabelDashboard}
 
 *${dataGeracao}*
 
@@ -3434,7 +3967,7 @@ ${scoreGeral >= 3.5
 
 ## Modelo MIT CISR de Maturidade em IA
 
-O **MIT CISR Enterprise AI Maturity Model** (Weill, Woerner & Sebastian, 2024) é baseado em pesquisa com **721 empresas** e identifica 5 níveis de maturidade em IA empresarial.
+O **MIT CISR Enterprise AI Maturity Model** (Weill, Woerner & Sebastian, 2024) é baseado em pesquisa com **721 empresas** e identifica **quatro estágios empresariais** de maturidade em IA. A escala operacional Blueprint IA usa **cinco níveis** (faixas 1,8 / 2,6 / 3,4 / 4,2) compatíveis com os guias de progressão do framework.
 
 ### Principais Descobertas do MIT CISR
 
@@ -3527,7 +4060,7 @@ router.get('/executive/:projetoId', async (req, res) => {
         avaliacoes: {
           include: {
             respostas: { include: { pergunta: { include: { area: true } } } },
-            avaliador: { select: { nome: true, email: true, cargo: true } }
+            usuario: { select: { nome: true, email: true, cargo: true } }
           }
         }
       }
@@ -3536,168 +4069,13 @@ router.get('/executive/:projetoId', async (req, res) => {
     if (!projeto) {
       return res.status(404).json({ error: 'Projeto não encontrado' });
     }
+    const projetoVersaoExecutive = await obterVersaoExportacao(req, parseInt(projetoId));
+    projeto.avaliacoes = await filtrarAvaliacoesPorVersaoExportacao(projeto.avaliacoes, projetoVersaoExecutive);
 
-    const dataGeracao = new Date().toLocaleDateString('pt-BR', { 
-      day: '2-digit', month: 'long', year: 'numeric' 
+    const md = gerarMarkdownExecutiveVersao(projeto, projetoVersaoExecutive || {
+      titulo: 'Versão atual',
+      status: 'aberta'
     });
-
-    // Calcular scores (exclui áreas que o avaliador marcou como não aptas)
-    const todasRespostas = projeto.avaliacoes.flatMap(a =>
-      respostasParaCalculo(a).filter(r => r.pontuacao != null)
-    );
-    const scoreGeral = todasRespostas.length > 0
-      ? todasRespostas.reduce((sum, r) => sum + r.pontuacao, 0) / todasRespostas.length
-      : 0;
-
-    const nivel = scoreGeral < 1.5 ? 1 : scoreGeral < 2.5 ? 2 : scoreGeral < 3.5 ? 3 : scoreGeral < 4.5 ? 4 : 5;
-    const nomeNivel = ['Inicial', 'Oportunista', 'Sistemático', 'Diferenciado', 'Transformador'][nivel - 1];
-
-    // Scores por área
-    const scoresPorArea = {};
-    todasRespostas.forEach(r => {
-      const area = r.pergunta?.area?.nome || 'Outros';
-      if (!scoresPorArea[area]) scoresPorArea[area] = { total: 0, count: 0 };
-      scoresPorArea[area].total += r.pontuacao;
-      scoresPorArea[area].count++;
-    });
-
-    const areasOrdenadas = Object.entries(scoresPorArea)
-      .map(([area, { total, count }]) => ({ area, score: total / count }))
-      .sort((a, b) => a.score - b.score);
-
-    const top5Gaps = areasOrdenadas.filter(a => a.score < 3.5).slice(0, 5);
-
-    // Projeções financeiras baseadas no nível
-    const projecoes = {
-      1: { roi: '15-35%', payback: '24+ meses', economia: '5-15%' },
-      2: { roi: '35-70%', payback: '18-24 meses', economia: '15-25%' },
-      3: { roi: '70-120%', payback: '12-18 meses', economia: '25-40%' },
-      4: { roi: '120-200%', payback: '6-12 meses', economia: '40-55%' },
-      5: { roi: '200%+', payback: '3-6 meses', economia: '55%+' }
-    };
-    const projecao = projecoes[nivel];
-    const pctRefMd = percentualReferenciaRoi(projeto.faturamentoAnualProjeto);
-    const fatLinha =
-      projeto.faturamentoAnualProjeto != null && Number(projeto.faturamentoAnualProjeto) > 0
-        ? `R$ ${Number(projeto.faturamentoAnualProjeto).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
-        : 'Não informado';
-
-    const md = `# RELATÓRIO EXECUTIVO
-## Maturidade em Inteligência Artificial
-
----
-
-**Empresa:** ${projeto.empresa.nome}  
-**Projeto:** ${projeto.nome}  
-**Data:** ${dataGeracao}
-
----
-
-# 📊 RESUMO EXECUTIVO
-
-## Score Geral: **${scoreGeral.toFixed(1)}** — ${nomeNivel} (Nível ${nivel})
-
-A avaliação identificou que a empresa encontra-se no **Nível ${nivel} (${nomeNivel})** de maturidade em IA.
-Este relatório apresenta os principais achados e recomendações estratégicas para a liderança.
-
-### Indicadores-Chave
-
-| Métrica | Valor |
-|---------|-------|
-| **Score Geral** | ${scoreGeral.toFixed(1)} / 5.0 |
-| **Nível de Maturidade** | ${nomeNivel} |
-| **Total de Avaliadores** | ${projeto.avaliacoes.length} |
-| **Faturamento anual (projeto)** | ${fatLinha} |
-| **% referência ROI** | ${pctRefMd != null ? `${pctRefMd}% (calibra projeções)` : '—'} |
-| **ROI Típico do Nível** | ${projecao.roi} |
-| **Payback Esperado** | ${projecao.payback} |
-
----
-
-# 🎯 TOP 5 GAPS PRIORITÁRIOS
-
-As áreas abaixo apresentam os maiores gaps e devem ser priorizadas:
-
-${top5Gaps.length > 0 ? top5Gaps.map((gap, i) => {
-  const prioridade = gap.score < 2 ? '🔴 Crítica' : gap.score < 2.5 ? '🟠 Alta' : '🟡 Média';
-  return `### ${i + 1}. ${gap.area}
-- **Score:** ${gap.score.toFixed(1)} / 5.0
-- **Gap:** -${(3.5 - gap.score).toFixed(1)} pontos
-- **Prioridade:** ${prioridade}
-`;
-}).join('\n') : '✅ Todas as áreas estão acima do nível ideal (3.5). Foco em otimização contínua.\n'}
-
----
-
-# 📈 PROJEÇÃO DE IMPACTO FINANCEIRO
-
-## Cenários de Retorno
-
-| Cenário | ROI Esperado | Payback | Economia Anual |
-|---------|--------------|---------|----------------|
-| 🐢 **Conservador** | ${parseInt(projecao.roi) * 0.6 || '10-25'}% | +6 meses | ${parseInt(projecao.economia) * 0.6 || '5-10'}% |
-| ⚖️ **Base (Recomendado)** | ${projecao.roi} | ${projecao.payback} | ${projecao.economia} |
-| 🚀 **Agressivo** | ${parseInt(projecao.roi) * 1.3 || '25-50'}%+ | -6 meses | ${parseInt(projecao.economia) * 1.3 || '10-20'}%+ |
-
-### Metodologia
-
-Projeções baseadas em:
-- **MIT CISR** Enterprise AI Maturity Model (Weill, Woerner & Sebastian, 2024)
-- **McKinsey** "The State of AI in 2024"
-- **Gartner** AI Maturity Model
-
-> ⚠️ **Nota:** Valores são referenciais de mercado, não promessas contratuais. Resultados podem variar conforme execução e condições de mercado.
-
----
-
-# 📅 PLANO DE AÇÃO — 90 DIAS
-
-## Semana 1-4: Quick Wins
-- [ ] Validar estratégia de IA com liderança
-- [ ] Identificar patrocinador executivo (C-level)
-- [ ] Mapear dados e sistemas críticos
-
-## Semana 5-8: Fundação
-- [ ] Formar comitê de governança de IA
-- [ ] Priorizar 3-5 casos de uso com ROI mensurável
-- [ ] Definir políticas de uso e privacidade
-
-## Semana 9-10: Pilotos
-- [ ] Iniciar POCs nas áreas priorizadas
-- [ ] Capacitar equipe-chave
-- [ ] Estabelecer baseline de métricas
-
-## Semana 11-12: Validação
-- [ ] Avaliar resultados dos pilotos
-- [ ] Ajustar roadmap baseado em aprendizados
-- [ ] Planejar próxima fase de escala
-
----
-
-# ✅ PRÓXIMOS PASSOS PARA LIDERANÇA
-
-| Ação | Descrição | Responsável Sugerido |
-|------|-----------|---------------------|
-| **1. Aprovar Roadmap** | Validar plano de 90 dias e alocar recursos | CEO / Comitê Executivo |
-| **2. Nomear Sponsor** | Definir executivo C-level como sponsor de IA | CEO |
-| **3. Definir Budget** | Aprovar investimento para Fase 1 | CFO |
-| **4. Formar Comitê** | Criar comitê de governança multidisciplinar | Sponsor de IA |
-| **5. Comunicar Estratégia** | Compartilhar visão de IA com a organização | CEO / RH |
-
----
-
-<div align="center">
-
-**Blueprint Agêntico — Relatório Executivo**
-
-**${dataGeracao}**
-
-© ${new Date().getFullYear()} SysMap Solutions
-
-*Este documento é confidencial e destinado exclusivamente à liderança.*
-
-</div>
-`;
 
     res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="relatorio-executivo-${projeto.nome.replace(/\s+/g, '-')}.md"`);

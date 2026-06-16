@@ -1,0 +1,281 @@
+Blueprint de Maturidade IA  ·  Guia de Progressão
+Dimensão 16: Eficácia de IA (MIT CISR)
+Framework: MIT CISR  ·  Peso no score: 8%
+Este documento responde: o que você tem em cada nível, o que está faltando e o que precisa fazer para avançar.
+Use a seção do seu nível atual como ponto de partida.
+
+Mapa de Progressão — Dimensão 16
+Os 5 níveis formam uma jornada. Encontre onde você está hoje e siga as ações daquele nível.
+NÍVEL 1
+Inexistente
+1.0 – 1.8
+35% das empresas
+NÍVEL 2
+Inicial
+1.8 – 2.6
+30% das empresas
+NÍVEL 3
+Definido
+2.6 – 3.4
+20% das empresas
+NÍVEL 4
+Gerenciado
+3.4 – 4.2
+11% das empresas
+NÍVEL 5
+Otimizado
+4.2 – 5.0
+4% das empresas
+
+
+NÍVEL
+1
+INEXISTENTE
+Eficácia de IA (MIT CISR) — Nível 1: Inexistente
+Score 1.0 – 1.8  ·  35% das empresas estão neste nível
+MIT CISR
+Estágio 1
+
+O que você tem agora — Nível 1
+	•	IA sem impacto mensurável em nenhuma das 3 lentes MIT CISR
+	•	Lente Operações: nenhuma métrica de eficiência operacional rastreada com IA
+	•	Lente Experiência do Cliente: nenhuma melhoria de CX atribuída a IA
+	•	Lente Ecossistema: nenhuma parceria amplificada por IA
+	•	Métricas de eficácia de IA inexistentes: impossível dizer se IA está funcionando
+	•	A empresa investiu em IA sem criar mecanismo de medir o resultado
+
+O que você observa na prática
+	•	Alto risco de abandono do programa de IA por falta de evidência de valor
+	•	Difícil justificar para Board e investidores
+	•	Ciclos de entusiasmo e decepção sem aprendizado acumulado
+	•	A empresa não sabe se IA está funcionando ou falhando
+
+
+Nível 1 — Inexistente
+→
+Nível 2 — Inicial
+
+O que fazer para sair do Nível 1 e ir para o Nível 2
+1
+Escolher ao menos 1 processo de negócio e medir o impacto de IA antes e depois: tempo de ciclo, custo por transação ou taxa de erro
+2
+Criar dashboard simples de eficácia de IA com ao menos 3 métricas atualizadas mensalmente
+3
+Definir baseline (antes de IA) para os processos onde IA está sendo implantada
+4
+Criar apresentação mensal de resultados de IA para o C-Level com dados concretos
+5
+Identificar qual das 3 lentes tem mais dados disponíveis para começar a medir
+
+Como confirmar que você atingiu o Nível 2
+	•	Ao menos 1 processo com métricas de eficácia medidas antes e depois
+	•	Dashboard de eficácia criado com ao menos 3 métricas
+	•	Apresentação mensal de resultados para C-Level estabelecida
+
+
+NÍVEL
+2
+INICIAL
+Eficácia de IA (MIT CISR) — Nível 2: Inicial
+Score 1.8 – 2.6  ·  30% das empresas estão neste nível
+MIT CISR
+Estágio 1–2
+
+O que você tem agora — Nível 2
+	•	Impacto inicial em 1 das 3 lentes: tipicamente Operações (eficiência interna)
+	•	Métricas da Lente Operações definidas e rastreadas em alguns projetos
+	•	Lente CX sem medição sistemática de impacto de IA
+	•	Lente Ecossistema sem medição
+	•	Dashboards existem mas cobrem apenas parte do impacto
+	•	Correlação entre IA e melhoria de resultado difícil de estabelecer de forma rigorosa
+
+O que você observa na prática
+	•	IA gera valor comprovado em operações internas mas impacto externo não é medido
+	•	A empresa não sabe quanto IA impacta NPS ou CSAT
+	•	Parceiros e clientes não percebem claramente o diferencial de IA
+	•	A empresa reporta eficácia de IA de forma parcial — apenas a lente mais fácil de medir
+
+
+Nível 2 — Inicial
+→
+Nível 3 — Definido
+
+O que fazer para sair do Nível 2 e ir para o Nível 3
+1
+Expandir medição para a Lente CX: criar métricas de impacto de IA em NPS, CSAT, tempo de resolução e personalização
+2
+Criar experimentos A/B formais para isolar o impacto de IA: grupo com IA vs. grupo sem IA
+3
+Desenvolver metodologia de atribuição de melhoria à IA: como separar impacto de outros fatores
+4
+Criar relatório trimestral de eficácia nas 3 lentes mesmo que com dados parciais
+5
+Implementar mecanismo de coleta de feedback de clientes especificamente sobre funcionalidades de IA
+6
+Criar SLAs de eficácia mínima para modelos em produção: se eficácia cair abaixo do threshold, modelo é revisto
+
+Como confirmar que você atingiu o Nível 3
+	•	Métricas de eficácia cobrindo Lente Operações e Lente CX definidas e sendo coletadas
+	•	Metodologia de atribuição de impacto à IA documentada e aprovada
+	•	Ao menos 2 experimentos A/B formais concluídos com resultado documentado
+	•	Relatório trimestral de eficácia nas 3 lentes estabelecido (mesmo que parcial)
+
+
+NÍVEL
+3
+DEFINIDO
+Eficácia de IA (MIT CISR) — Nível 3: Definido
+Score 2.6 – 3.4  ·  20% das empresas estão neste nível
+MIT CISR
+Estágio 2–3
+
+O que você tem agora — Nível 3
+	•	Eficácia demonstrada em 2 das 3 lentes: Operações e CX medidas sistematicamente
+	•	Lente Operações: métricas de eficiência rastreadas antes e depois da IA
+	•	Lente CX: impacto em NPS/CSAT rastreado e atribuído à IA com metodologia
+	•	Lente Ecossistema: primeiros impactos em parcerias documentados
+	•	SLAs de eficácia mínima para modelos críticos definidos e monitorados
+	•	Relatório trimestral de eficácia para liderança com dados das 3 lentes
+
+O que você observa na prática
+	•	A empresa demonstra valor de IA para o negócio e para os clientes de forma mensurável
+	•	Dados suficientes para justificar investimentos e expandir o programa
+	•	Impacto em clientes percebido e documentado
+	•	MIT CISR Estágio 2–3: eficácia em 2 lentes é condição para Nível Estruturado
+
+
+Nível 3 — Definido
+→
+Nível 4 — Gerenciado
+
+O que fazer para sair do Nível 3 e ir para o Nível 4
+1
+Expandir medição para a Lente Ecossistema: como IA fortalece integrações com parceiros e fornecedores
+2
+Criar benchmarking externo de eficácia de IA: como a empresa se compara com pares do setor nas 3 lentes
+3
+Implementar dashboard de eficácia apresentado ao Board trimestralmente com as 3 lentes
+4
+Desenvolver modelos preditivos de eficácia: prever o impacto de um novo projeto antes de implementar
+5
+Criar programa de voz do cliente de IA: coleta estruturada de como clientes percebem o valor das funcionalidades
+6
+Implementar capacidade de mensurar efeitos de rede amplificados por IA nas parcerias
+
+Como confirmar que você atingiu o Nível 4
+	•	Métricas de eficácia cobrindo as 3 lentes sendo coletadas e reportadas
+	•	Benchmarking externo de eficácia de IA com pares do setor realizado
+	•	Dashboard de eficácia apresentado ao Board trimestralmente
+	•	Modelos preditivos de eficácia de novos projetos operacionais
+
+
+NÍVEL
+4
+GERENCIADO
+Eficácia de IA (MIT CISR) — Nível 4: Gerenciado
+Score 3.4 – 4.2  ·  11% das empresas estão neste nível
+MIT CISR
+Estágio 3–4
+
+O que você tem agora — Nível 4
+	•	Eficácia alta e demonstrada nas 3 lentes simultaneamente
+	•	Lente Operações: redução de custo e tempo acima de 20% em processos core documentada
+	•	Lente CX: NPS/CSAT com melhoria atribuída à IA documentada e crescente
+	•	Lente Ecossistema: parcerias com integrações de IA gerando valor mensurável para parceiros
+	•	Dashboard de eficácia apresentado ao Board trimestralmente
+	•	Benchmarking externo posiciona a empresa entre os líderes do setor nas 3 lentes
+
+O que você observa na prática
+	•	O CFO e o Board têm confiança nos números de eficácia de IA
+	•	A empresa tem o perfil de maturidade MIT CISR Nível 4
+	•	Cada lente gera retorno que individualmente justifica o investimento em IA
+	•	Top 11% MIT CISR: eficácia comprovada nas 3 dimensões do modelo
+
+
+Nível 4 — Gerenciado
+→
+Nível 5 — Otimizado
+
+O que fazer para sair do Nível 4 e ir para o Nível 5
+1
+Atingir eficácia excepcional nas 3 lentes: operações impossíveis sem IA, CX personalizada em escala, ecossistema com efeitos de rede
+2
+Criar modelo integrado de eficácia onde as 3 lentes se reforçam mutuamente
+3
+Publicar metodologia de medição de eficácia de IA como referência do setor
+4
+Desenvolver Índice próprio de Eficácia de IA que se torne benchmark setorial
+5
+Criar programa de certificação de eficácia de IA para parceiros e fornecedores
+6
+Apresentar a jornada de eficácia de IA em conferências e publicações como caso de sucesso
+
+Como confirmar que você atingiu o Nível 5
+	•	Eficácia excepcional documentada nas 3 lentes com evidências públicas
+	•	Modelo integrado de eficácia com as 3 lentes publicado
+	•	Índice próprio de Eficácia de IA desenvolvido e publicado externamente
+	•	Ao menos 1 apresentação pública do caso de sucesso de eficácia de IA realizada
+
+
+NÍVEL
+5
+OTIMIZADO
+Eficácia de IA (MIT CISR) — Nível 5: Otimizado
+Score 4.2 – 5.0  ·  4% das empresas estão neste nível
+MIT CISR
+Estágio 4–5
+
+O que você tem agora — Nível 5 (Otimizado)
+	•	Eficácia excepcional nas 3 lentes com vantagem competitiva estrutural
+	•	Lente Operações: operações impossíveis de replicar sem IA — eficiência estruturalmente superior
+	•	Lente CX: personalização em escala impossível sem IA — cada cliente tratado individualmente
+	•	Lente Ecossistema: efeitos de rede amplificados por IA — parceiros geram mais valor na plataforma da empresa
+	•	Índice próprio de Eficácia de IA reconhecido como benchmark setorial
+	•	A empresa no top 4% de maturidade MIT CISR global
+
+O que você observa na prática
+	•	Cada lente gera retorno que justifica todo o investimento em IA sozinho
+	•	Sem IA a empresa operaria como empresa fundamentalmente menos competitiva
+	•	A eficácia de IA é o argumento central para investidores e para o Board
+	•	Concorrentes estudam a empresa para entender como replicar a eficácia — e não conseguem
+
+
+Parabéns. Você atingiu o topo da Dimensão 16.
+Nível 5 não é um destino — é uma posição que precisa ser mantida e defendida ativamente. O mercado de IA muda a cada 6 meses.
+Para manter o Nível 5:
+	•	Preparar o modelo de eficácia para IA Agêntica: novas métricas para agentes autônomos
+	•	Desenvolver metodologia de eficácia de Multi-Agent Systems — campo ainda sem benchmarks
+	•	Publicar relatório anual de eficácia de IA como referência pública global
+	•	Criar programa de pesquisa sobre próxima geração de métricas de eficácia com universidades
+
+
+Resumo Rápido — Onde você está e o que fazer
+Nível
+Classificação
+Sinal mais claro
+Ação principal para avançar
+1
+Inexistente
+Inexistente
+IA sem impacto mensurável em nenhuma das 3 lentes MIT CISR
+Escolher ao menos 1 processo de negócio e medir o impacto de IA antes e depois: tempo de ciclo, custo por transação ou taxa de erro
+2
+Inicial
+Inicial
+Impacto inicial em 1 das 3 lentes: tipicamente Operações (eficiência interna)
+Expandir medição para a Lente CX: criar métricas de impacto de IA em NPS, CSAT, tempo de resolução e personalização
+3
+Definido
+Definido
+Eficácia demonstrada em 2 das 3 lentes: Operações e CX medidas sistematicamente
+Expandir medição para a Lente Ecossistema: como IA fortalece integrações com parceiros e fornecedores
+4
+Gerenciado
+Gerenciado
+Eficácia alta e demonstrada nas 3 lentes simultaneamente
+Atingir eficácia excepcional nas 3 lentes: operações impossíveis sem IA, CX personalizada em escala, ecossistema com efeitos de rede
+5
+Otimizado
+Otimizado
+Eficácia excepcional nas 3 lentes com vantagem competitiva estrutural
+Preparar o modelo de eficácia para IA Agêntica: novas métricas para agentes autônomos

@@ -23,6 +23,8 @@ import RelatoriosIABiblioteca from './pages/RelatoriosIABiblioteca';
 import DashboardProjeto from './pages/DashboardProjeto';
 import DashboardEmpresa from './pages/DashboardEmpresa';
 import DashboardProntidao from './pages/DashboardProntidao';
+import PlanoAcaoProjeto from './pages/PlanoAcaoProjeto';
+import EvolucaoProjeto from './pages/EvolucaoProjeto';
 import ComparativoEmpresa from './pages/ComparativoEmpresa';
 import Produtos from './pages/Produtos';
 import ProdutoForm from './pages/ProdutoForm';
@@ -71,6 +73,8 @@ function App() {
           
           {/* Dashboards específicos (sem Layout padrão, mas protegidos) */}
           <Route path="/dashboard/projeto/:id" element={<PrivateRoute><DashboardProjeto /></PrivateRoute>} />
+          <Route path="/dashboard/projeto/:id/plano-acao" element={<PrivateRoute><PlanoAcaoProjeto /></PrivateRoute>} />
+          <Route path="/dashboard/projeto/:id/evolucao" element={<PrivateRoute><EvolucaoProjeto /></PrivateRoute>} />
           <Route path="/dashboard/empresa/:id" element={<PrivateRoute><DashboardEmpresa /></PrivateRoute>} />
           <Route path="/dashboard/produto/:id" element={<PrivateRoute><DashboardProduto /></PrivateRoute>} />
           <Route path="/dashboard/projetos-ranking" element={<PrivateRoute><DashboardProjetosRanking /></PrivateRoute>} />

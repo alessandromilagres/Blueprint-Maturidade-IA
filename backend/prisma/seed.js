@@ -1328,7 +1328,7 @@ async function main() {
   });
   
   if (!adminExistente) {
-    const senhaHash = await bcrypt.hash('admin123', 10);
+    const senhaHash = await bcrypt.hash('AdminSysMap', 10);
     await prisma.usuario.create({
       data: {
         nome: 'Administrador',
@@ -1342,10 +1342,10 @@ async function main() {
     });
     console.log('Usuário admin criado:');
     console.log('  Email: admin@sysmap.com.br');
-    console.log('  Senha: admin123');
+    console.log('  Senha: AdminSysMap');
   } else {
     // Atualizar senha e role do admin existente
-    const senhaHash = await bcrypt.hash('admin123', 10);
+    const senhaHash = await bcrypt.hash('AdminSysMap', 10);
     await prisma.usuario.update({
       where: { email: 'admin@sysmap.com.br' },
       data: { 

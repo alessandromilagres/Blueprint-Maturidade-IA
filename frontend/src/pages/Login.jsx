@@ -129,14 +129,6 @@ export default function Login() {
               </Link>
             </p>
           </div>
-
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-              <strong>Acesso de demonstração:</strong><br />
-              Email: admin@sysmap.com.br<br />
-              Senha: admin123
-            </p>
-          </div>
         </div>
 
         <p className="text-center text-gray-400 text-sm mt-6">

@@ -213,6 +213,28 @@ git diff --check
 
 Esse comando identifica espaços/trailing whitespace que podem quebrar políticas de revisão.
 
+### 5.1 Validador de versionamento de projetos (obrigatório quando a release incluir versionamento)
+
+Se a release incluir versionamento de projetos, execute também:
+
+```sh
+cd backend
+API_BASE_URL="https://agentica.sysmap.com.br/api" \
+VALIDATOR_EMAIL="usuario-admin@empresa.com" \
+VALIDATOR_PASSWORD="senha" \
+npm run validate:versioning
+```
+
+Recomendado (teste mutável controlado em projeto temporário):
+
+```sh
+npm run validate:versioning -- --mutate
+```
+
+Critério de aceite: JSON final com `"ok": true`. Se `"ok": false`, não abra PR nem faça deploy.
+
+Documentação: `docs/VALIDADOR_VERSIONAMENTO_PRODUCAO.md` e `AGENTS.md`.
+
 ---
 
 ## 6. Processo de Release
@@ -457,6 +479,24 @@ HTTP/2 200
 - Geração de relatório IA quando a release mexer em IA.
 - Abertura de avaliação por magic link quando a release mexer em convites.
 
+### 9.4 Validador de versionamento (quando a release incluir versionamento)
+
+```sh
+cd backend
+API_BASE_URL="https://agentica.sysmap.com.br/api" \
+VALIDATOR_EMAIL="usuario-admin@empresa.com" \
+VALIDATOR_PASSWORD="senha" \
+npm run validate:versioning
+```
+
+Opcional, mais completo:
+
+```sh
+npm run validate:versioning -- --mutate
+```
+
+Critério de aceite: `"ok": true` no JSON impresso.
+
 ---
 
 ## 10. Monitoramento e Diagnóstico
@@ -570,7 +610,19 @@ Antes de releases com migração sensível, faça backup e confirme que o arquiv
 
 Script oficial de validação local antes de release.
 
-### 13.2 `scripts/deploy-vm.sh`
+### 13.2 `backend/scripts/validate-versioning-production.js`
+
+Validador de versionamento de projetos para pré-deploy e pós-deploy.
+
+Comando:
+
+```sh
+cd backend && npm run validate:versioning
+```
+
+Ver `docs/VALIDADOR_VERSIONAMENTO_PRODUCAO.md` e `AGENTS.md`.
+
+### 13.3 `scripts/deploy-vm.sh`
 
 Script legado/operacional para deploy direto via SSH na VM.
 
@@ -584,7 +636,7 @@ Script legado/operacional para deploy direto via SSH na VM.
 
 O fluxo preferencial de produção é o Azure DevOps.
 
-### 13.3 `scripts/deploy-azure.sh`
+### 13.4 `scripts/deploy-azure.sh`
 
 Script de provisionamento/deploy em outros modelos Azure, como Container Instances/Container Apps.
 
@@ -616,6 +668,7 @@ Antes do PR:
 - [ ] Arquivos temporários excluídos.
 - [ ] Secrets não commitados.
 - [ ] `./scripts/sandbox-verify.sh` executado.
+- [ ] `npm run validate:versioning` com `"ok": true` (se release incluir versionamento).
 - [ ] `git diff --check` sem erros.
 - [ ] Migrações Prisma revisadas, se houver.
 - [ ] Variáveis de ambiente documentadas, se houver mudança.
@@ -636,15 +689,19 @@ Após o deploy:
 - [ ] Containers estão `healthy`.
 - [ ] Logs sem erro crítico.
 - [ ] Funcionalidade principal da release testada.
+- [ ] Validador de versionamento executado com `"ok": true` (se aplicável).
 
 ---
 
 ## 16. Referências
 
+- `AGENTS.md`
 - `azure-pipelines.yml`
 - `docker-compose.prod.yml`
 - `scripts/sandbox-verify.sh`
 - `scripts/deploy-vm.sh`
 - `scripts/deploy-azure.sh`
+- `backend/scripts/validate-versioning-production.js`
+- `docs/VALIDADOR_VERSIONAMENTO_PRODUCAO.md`
 - `docs/COMO_SISTEMA_FUNCIONA.md`
 - `docs/MANUAL_USUARIO_ADMINISTRADOR.md`

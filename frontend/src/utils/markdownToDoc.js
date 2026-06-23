@@ -1,6 +1,8 @@
 // Utilitário para converter Markdown em arquivo .doc (Word)
 // Gera um HTML com namespaces MSO compatível com Word
 
+import { FOOTER_DOC_METODOLOGIA } from '../constants/consultorRelatorioIA';
+
 function escapeHtml(text) {
   return text
     .replace(/&/g, '&amp;')
@@ -242,7 +244,8 @@ export function generateDocFromMarkdown(markdown, options = {}) {
     projeto = '',
     autor = 'BluePrint IA',
     headerColor = '#6b21a8',
-    accentColor = '#a855f7'
+    accentColor = '#a855f7',
+    logoDataUrl = null
   } = options;
   
   const dataAtual = new Date().toLocaleDateString('pt-BR', { 
@@ -328,6 +331,7 @@ br.page-break {
 <body>
 
 <div class="cover">
+  ${logoDataUrl ? `<div style="margin-bottom:20pt;"><img src="${logoDataUrl}" alt="Logo" style="max-height:72pt;max-width:220pt;object-fit:contain;" /></div>` : ''}
   <div class="cover-banner">
     <div style="font-size:10pt;letter-spacing:3pt;opacity:0.9;text-transform:uppercase;margin-bottom:8pt;">${escapeHtml(autor)}</div>
     <div class="cover-title">${escapeHtml(titulo)}</div>
@@ -341,8 +345,7 @@ br.page-break {
   </div>
   
   <div class="footer-info">
-    Documento gerado com tecnologia de Inteligência Artificial<br>
-    Validado pela metodologia <strong>MIT CISR Enterprise AI Maturity Model</strong>
+    ${FOOTER_DOC_METODOLOGIA}
   </div>
 </div>
 

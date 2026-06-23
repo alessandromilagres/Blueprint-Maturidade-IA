@@ -156,6 +156,12 @@ Todo relatório gerado por IA pode ser salvo com:
 
 Isso permite rastreabilidade e comparação entre versões.
 
+### 6.4 Metodologia de ROI e projeções financeiras
+
+Books e relatórios financeiros separam **benefício bruto**, **investimento**, **ganho líquido (custo abatido)** e **ROI líquido %**. Benchmarks MIT/McKinsey/BCG por nível de maturidade indicam ROI líquido típico *sobre investimento em IA*, não margem sobre o faturamento total.
+
+Documentação completa: [`docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`](Atual/METODOLOGIA_ROI_FINANCEIRO.md).
+
 ---
 
 ## 7. Avaliação de Produtos IA-First

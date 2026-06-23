@@ -17,6 +17,8 @@ import exportacaoRoutes from './routes/exportacao.js';
 import diagnosticoRoutes from './routes/diagnostico.js';
 import relatoriosIARoutes, { salvarRelatorioIA } from './routes/relatorios-ia.js';
 import relatoriosIAJobsRoutes from './routes/relatorios-ia-jobs.js';
+import empresaLogoRoutes from './routes/empresa-logo.js';
+import regulatorioRoutes from './routes/regulatorio.js';
 import { authMiddleware, roleMiddleware, generateToken } from './middlewares/auth.js';
 import { validate, globalSanitizer } from './middlewares/validate.js';
 import { 
@@ -59,6 +61,10 @@ import {
 import { gerarApoioEspecificacaoDaIdealizacao } from './services/idealizacaoApoioEspecificacaoIA.js';
 import { adicionarIndiceAoBookMarkdown } from './utils/bookMarkdownIndice.js';
 import { percentualReferenciaRoi, projecaoFinanceiraRelatorio } from './utils/roiPorFaturamento.js';
+import {
+  blocoParametrosFinanceirosMarkdown,
+  blocoMetodologiaRoiExecutivaMarkdown
+} from './utils/metodologiaRoiFinanceiro.js';
 import { blocoTrajetoriaMitMarkdown } from './utils/mitTrajetoriaFinanceira.js';
 import {
   blocoEvolucaoVersoesMarkdown,
@@ -67,6 +73,7 @@ import {
 } from './utils/evolucaoVersoesProjeto.js';
 import {
   blocoDadosExtrasBookRapido,
+  blocoGanhoLongoPrazoMitBookRapido,
   tabelaPerguntasDimensaoMarkdown,
   dimensaoComScoreZero,
   blocoDimensaoScoreZeroSecao3,
@@ -112,6 +119,22 @@ import {
 } from './utils/ordemDimensoesFramework.js';
 import { idsAreasSugeridasPorCargo } from './utils/mapaCargosDimensoesAvaliacao.js';
 import { getEstagioMitDeScore, mitCisrReferenciaDashboard } from './constants/mitCisrEnterpriseAiMaturity.js';
+import {
+  SYSTEM_PROMPT_PERSONA_EXECUTIVO,
+  SYSTEM_PROMPT_PERSONA_BOOK,
+  SYSTEM_PROMPT_PERSONA_BOOK_RAPIDO
+} from './constants/consultorRelatorioIA.js';
+import { removerArquivosLogoEmpresa, enriquecerDadosUsadosComLogo, resolverLogoEmpresa, enriquecerEmpresasComLogo, enriquecerEmpresaComLogo, probeEmpresaLogoPathColumn } from './utils/empresaLogo.js';
+import {
+  enriquecerScoresPorAreaComRegulatorio,
+  resumoRegulatorioProjeto
+} from './utils/regulatorioCrosswalk.js';
+import { calculateRegulatorySnapshot, obterRegulatorySnapshotProduto } from './utils/regulatorioSnapshot.js';
+import { listarCiclosProduto } from './utils/regulatorioCiclo.js';
+import {
+  gerarSecao14RegulatorioBookMarkdown,
+  montarDashboardRegulatorioProjeto
+} from './utils/regulatorioDashboard.js';
 import {
   enviarLembreteProjetoComAuditoria,
   executarLembreteLoteProjeto,
@@ -857,6 +880,7 @@ app.post('/api/migrate-schema', async (req, res) => {
     // Adicionar campos faltantes com tratamento de erro individual
     const alterations = [
       'ALTER TABLE "Empresa" ADD COLUMN IF NOT EXISTS "website" TEXT',
+      'ALTER TABLE "Empresa" ADD COLUMN IF NOT EXISTS "logoPath" TEXT',
       'ALTER TABLE "Projeto" ADD COLUMN IF NOT EXISTS "audienciaPrimaria" TEXT',
       'ALTER TABLE "Projeto" ADD COLUMN IF NOT EXISTS "lentesPrioritarias" TEXT',
       'ALTER TABLE "Produto" ADD COLUMN IF NOT EXISTS "scoreBlueprint" DOUBLE PRECISION',
@@ -1334,6 +1358,12 @@ app.use('/api/arquiteturas-referencia', arquiteturasReferenciaRoutes);
 // Rotas de exportação de documentos (Markdown)
 app.use('/api/exportar', exportacaoRoutes);
 
+// Logo da empresa (GET/POST/DELETE /api/empresas/:id/logo)
+app.use('/api/empresas', empresaLogoRoutes);
+
+// Módulo regulatório — crosswalk dimensões × ISO 42001 / PL 2338 / LGPD (Semana 1)
+app.use('/api/regulatorio', regulatorioRoutes);
+
 // Rotas de relatórios IA persistidos (versionamento + biblioteca)
 app.use('/api/relatorios-ia', relatoriosIARoutes);
 app.use('/api/relatorios-ia-jobs', relatoriosIAJobsRoutes);
@@ -1350,7 +1380,7 @@ app.get('/api/empresas', async (req, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(empresas);
+    res.json(await enriquecerEmpresasComLogo(empresas));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1377,7 +1407,7 @@ app.get('/api/empresas/:id', async (req, res) => {
     if (!empresa) {
       return res.status(404).json({ error: 'Empresa não encontrada' });
     }
-    res.json(empresa);
+    res.json(await enriquecerEmpresaComLogo(empresa));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1426,6 +1456,8 @@ app.delete('/api/empresas/:id', async (req, res) => {
     if (isNaN(id) || id <= 0) {
       return res.status(400).json({ error: 'ID inválido' });
     }
+
+    await removerArquivosLogoEmpresa(id);
     
     await prisma.empresa.delete({
       where: { id }
@@ -3930,6 +3962,7 @@ app.get('/api/relatorios/avaliacao/:id', async (req, res) => {
         ? scoresPorArea.reduce((acc, item) => acc + item.score * item.peso, 0) / totalPeso
         : 0;
     
+    const logoMeta = await resolverLogoEmpresa(avaliacao.projeto.empresa);
     const relatorio = {
       avaliacao: {
         id: avaliacao.id,
@@ -3945,8 +3978,10 @@ app.get('/api/relatorios/avaliacao/:id', async (req, res) => {
       usuario: avaliacao.usuario,
       scoreGeral: parseFloat(scoreGeral.toFixed(2)),
       nivelGeral: getNivelMaturidade(scoreGeral),
-      scoresPorArea,
-      respostas: avaliacao.respostas
+      scoresPorArea: enriquecerScoresPorAreaComRegulatorio(scoresPorArea),
+      resumoRegulatorio: resumoRegulatorioProjeto(scoresPorArea),
+      respostas: avaliacao.respostas,
+      ...logoMeta
     };
     
     res.json(relatorio);
@@ -4096,6 +4131,7 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
     const eficaciaMIT = calcularEficaciaMIT(scoresPorArea);
     const maturidadeTiposIA = calcularMaturidadePorTipoIA(scoresPorArea);
     
+    const logoMetaProjeto = await resolverLogoEmpresa(projeto.empresa);
     const dashboard = {
       projeto: {
         id: projeto.id,
@@ -4123,9 +4159,10 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
       prazoAvaliacao: extrairPrazoAvaliacaoProjeto(projeto),
       etapasAvaliadas: areasComScore.length,
       totalEtapas: areas.length,
-      scoresPorArea,
+      scoresPorArea: enriquecerScoresPorAreaComRegulatorio(scoresPorArea),
       scoresPorEtapa,
       planoAcao: gerarPlanoAcaoPorDimensao(scoresPorArea),
+      resumoRegulatorio: resumoRegulatorioProjeto(scoresPorArea),
       resumoComentarios: gerarResumoComentariosAvaliacoes(avaliacoesFinalizadas),
       comparativoAvaliacoes: gerarComparativoAvaliacoesProjeto(avaliacoesFinalizadas, areas),
       avaliadores: avaliacoesFinalizadas.map((a) => ({
@@ -4145,7 +4182,8 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
           observacoes: r.observacoes
         }))
       })),
-      areas
+      areas,
+      ...logoMetaProjeto
     };
 
     res.json(dashboard);
@@ -4318,6 +4356,7 @@ app.get('/api/dashboard/empresa/:id', async (req, res) => {
     const eficaciaMIT = calcularEficaciaMIT(scoresPorArea);
     const maturidadeTiposIA = calcularMaturidadePorTipoIA(scoresPorArea);
     
+    const logoMetaEmpresa = await resolverLogoEmpresa(empresa);
     const dashboard = {
       empresa,
       filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
@@ -4338,9 +4377,10 @@ app.get('/api/dashboard/empresa/:id', async (req, res) => {
       progresso,
       etapasAvaliadas: areasComScore.length,
       totalEtapas: areas.length,
-      scoresPorArea,
+      scoresPorArea: enriquecerScoresPorAreaComRegulatorio(scoresPorArea),
       scoresPorEtapa,
       projetos: projetosComScore,
+      resumoRegulatorio: resumoRegulatorioProjeto(scoresPorArea),
       avaliadores: todasAvaliacoes.map((a) => ({
         id: a.usuario.id,
         nome: a.usuario.nome,
@@ -4358,7 +4398,8 @@ app.get('/api/dashboard/empresa/:id', async (req, res) => {
           observacoes: r.observacoes
         }))
       })),
-      areas
+      areas,
+      ...logoMetaEmpresa
     };
 
     res.json(dashboard);
@@ -5211,6 +5252,14 @@ app.put('/api/avaliacoes-produto/:id/finalizar', async (req, res) => {
     
     // 4. Atualizar a classificação de todos os produtos do projeto
     await atualizarClassificacaoProdutos(avaliacao.produto.projetoId);
+
+    // 5. Snapshot regulatório (Semana 2) — classificação PL 2338 / ISO / LGPD
+    let regulatorySnapshot = null;
+    try {
+      regulatorySnapshot = await calculateRegulatorySnapshot(prisma, avaliacao.produtoId);
+    } catch (regErr) {
+      console.warn('[regulatorio] Snapshot não calculado ao finalizar produto:', regErr?.message || regErr);
+    }
     
     // Buscar avaliação atualizada com produto atualizado
     const avaliacaoFinal = await prisma.avaliacaoProduto.findUnique({
@@ -5232,7 +5281,7 @@ app.put('/api/avaliacoes-produto/:id/finalizar', async (req, res) => {
       }
     });
     
-    res.json(avaliacaoFinal);
+    res.json({ ...avaliacaoFinal, regulatorySnapshot });
   } catch (error) {
     console.error('Erro ao finalizar avaliação:', error);
     res.status(400).json({ error: error.message });
@@ -5505,6 +5554,25 @@ app.get('/api/dashboard/produto/:id', async (req, res) => {
       return '🚀 Transformação Transformacional';
     };
     
+    const logoMetaProduto = await resolverLogoEmpresa(produto.projeto?.empresa);
+    let regulatorySnapshot = await obterRegulatorySnapshotProduto(prisma, produto.id);
+    if (!regulatorySnapshot && totalAvaliadores > 0) {
+      try {
+        regulatorySnapshot = await calculateRegulatorySnapshot(prisma, produto.id);
+      } catch {
+        /* sem snapshot se cálculo falhar */
+      }
+    }
+
+    let regulatorioCiclos = null;
+    if (regulatorySnapshot) {
+      try {
+        regulatorioCiclos = await listarCiclosProduto(prisma, produto.id);
+      } catch {
+        /* ciclo opcional */
+      }
+    }
+
     const dashboard = {
       produto: {
         id: produto.id,
@@ -5560,7 +5628,10 @@ app.get('/api/dashboard/produto/:id', async (req, res) => {
         scoreVerticais: a.scoreVerticais
       })),
       verticais,
-      perguntasObrigatorias
+      perguntasObrigatorias,
+      regulatorySnapshot,
+      regulatorioCiclos,
+      ...logoMetaProduto
     };
     
     res.json(dashboard);
@@ -5618,6 +5689,7 @@ app.get('/api/dashboard/produtos-projeto/:id', async (req, res) => {
       }))
     }));
     
+    const logoMetaProdutosProjeto = await resolverLogoEmpresa(projeto.empresa);
     const dashboard = {
       projeto: {
         id: projeto.id,
@@ -5629,7 +5701,8 @@ app.get('/api/dashboard/produtos-projeto/:id', async (req, res) => {
       totalProdutos: projeto.produtos.length,
       produtosAvaliados: projeto.produtos.filter(p => p.scoreRelevancia > 0).length,
       produtos: produtosComDados,
-      verticais
+      verticais,
+      ...logoMetaProdutosProjeto
     };
     
     res.json(dashboard);
@@ -5664,6 +5737,10 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
           Number(dadosSnap?.projetoVersao?.id || 0) === Number(projetoVersao?.id || 0)
         ) {
           console.log(`[Relatório IA] Reusando versão salva ${ultimoSalvo.id} (v${ultimoSalvo.versao}) para projeto ${projetoId}`);
+          const empresaAtual = await prisma.projeto.findUnique({
+            where: { id: projetoId },
+            select: { empresa: { select: { id: true, logoPath: true } } }
+          });
           return res.json({
             relatorio: ultimoSalvo.conteudoMd,
             provider: ultimoSalvo.provider,
@@ -5673,7 +5750,7 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
               saida: ultimoSalvo.tokensSaida
             },
             tempoResposta: ultimoSalvo.tempoGeracaoMs,
-            dadosUsados: dadosSnap,
+            dadosUsados: await enriquecerDadosUsadosComLogo(dadosSnap, empresaAtual?.empresa),
             relatorioSalvoId: ultimoSalvo.id,
             versao: ultimoSalvo.versao,
             dataGeracao: ultimoSalvo.createdAt,
@@ -5779,7 +5856,7 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
     }[setor.toLowerCase()] || 2.8;
 
     // System prompt e prompt do usuário
-    const systemPrompt = `Você é um Consultor Sênior de Estratégia de IA, especialista na metodologia do MIT CISR Enterprise AI Maturity Model. Sua missão é analisar dados brutos de assessment de maturidade em IA e redigir Relatórios Executivos de Alto Impacto para C-Level (CEO, COO, CIO).
+    const systemPrompt = `${SYSTEM_PROMPT_PERSONA_EXECUTIVO}
 
 DIRETRIZES DE REDAÇÃO (CRÍTICO):
 1. Tom de Voz: Executivo, direto, bottom-line first. Sem jargões técnicos desnecessários. Use frases curtas e parágrafos concisos.
@@ -5787,7 +5864,7 @@ DIRETRIZES DE REDAÇÃO (CRÍTICO):
 3. Contextualização Setorial: Use o setor da empresa para dar exemplos reais. Se for Fintech, fale de credit scoring, fraude, etc. Se for Varejo, fale de supply chain, personalização.
 4. Playbook Atlas: Para cada gap estrutural identificado, você DEVE recomendar a busca por aceleradores (motores, agentes, APIs) no "Playbook Atlas" (plataforma com +1200 componentes prontos) para acelerar o roadmap.
 5. Formatação: Use Markdown. Utilize tabelas para comparações e listas apenas quando estritamente necessário.
-6. **ROI MIT**: Os percentuais de ROI do modelo são, em geral, **retorno sobre o investimento em capacidades de IA** (não margem da empresa). O ganho de longo prazo vem de **subir de nível de maturidade**. Use obrigatoriamente o bloco "Trajetória de valor MIT CISR" dos dados abaixo nas Seções 1 e 3.
+6. **ROI MIT**: benchmarks por nível são **ROI líquido típico sobre investimento em IA** (ganho após abater custo), não margem sobre faturamento. Nas projeções em R$, separe **benefício bruto**, **investimento**, **ganho líquido** e **ROI líquido %**. Use o bloco "Parâmetros financeiros" e "Trajetória de valor MIT CISR" dos dados.
 7. **Prioridade dos avaliadores**: o sistema insere automaticamente no **início do documento** a seção "Nível dos avaliadores no consolidado" (não repita essa seção). Os scores vêm só do filtro do dashboard (1–3).
 8. **Evolução entre versões**: quando o bloco "Evolução entre versões da pesquisa" estiver disponível, a Seção 1 deve mencionar a evolução vs. a rodada anterior e a Seção 2 deve interpretar os deltas por dimensão em termos de maturidade (subiu, manteve ou regrediu).
 
@@ -5797,7 +5874,7 @@ ESTRUTURA OBRIGATÓRIA DO RELATÓRIO:
 - Um parágrafo de impacto resumindo a situação atual (Score e Nível) e a contradição principal (ex: "A empresa tem cultura forte, mas infraestrutura zero").
 - O gap competitivo em relação à média do setor.
 - **Parágrafo dedicado** explicando por que o número de ROI pode parecer modesto no curto prazo e qual é o **ganho esperado ao consolidar o próximo nível** (faixas MIT + horizonte 12–36 meses), usando o bloco Trajetória dos dados.
-- O impacto financeiro projetado alinhado à subida de nível (investimento em IA vs. retorno típico da faixa do nível-alvo).
+- O impacto financeiro projetado com **investimento**, **benefício bruto**, **ganho líquido (custo abatido)** e **ROI líquido %** alinhados à subida de nível.
 
 # Seção 2: Diagnóstico Estratégico (Onde estamos)
 - Destaque os 2 maiores pontos fortes e explique como eles podem ser alavancados.
@@ -5862,7 +5939,9 @@ ${blocoEvolucaoVersoes}
 
 ${blocoTrajetoriaMitMarkdown({ scoreGeral, faturamentoAnualProjeto: projeto.faturamentoAnualProjeto })}
 
-Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a estrutura obrigatória de 5 seções. Use exemplos REAIS do setor ${setor} em todas as recomendações. Nas Seções 1 e 3, incorpore explicitamente a interpretação da trajetória MIT e o contraste entre nível atual e próximo nível. Se houver evolução entre versões, incorpore também o comparativo de rodadas nas Seções 1 e 2.`;
+${blocoMetodologiaRoiExecutivaMarkdown()}
+
+Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a estrutura obrigatória de 5 seções. Use exemplos REAIS do setor ${setor} em todas as recomendações. Nas Seções 1 e 3, incorpore explicitamente a interpretação da trajetória MIT e o contraste entre nível atual e próximo nível. Na Seção 4 (impacto financeiro), use **sempre** as colunas investimento | benefício bruto | ganho líquido | ROI líquido % — nunca confunda múltiplo bruto com ROI líquido. Se houver evolução entre versões, incorpore também o comparativo de rodadas nas Seções 1 e 2.`;
 
     await loadPersistedAIConfig();
     console.log(`[Relatório IA] Gerando para projeto ${projetoId} usando ${getProvider().name}`);
@@ -5881,9 +5960,11 @@ Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a
       console.log(`[Relatório IA] Resposta completada com ${resultado.continuations} continuação(ões) automática(s).`);
     }
 
+    const logoMeta = await resolverLogoEmpresa(projeto.empresa);
     const dadosUsados = {
       empresa: projeto.empresa.nome,
       projeto: projeto.nome,
+      ...logoMeta,
       setor,
       scoreGeral,
       nivel,
@@ -6009,6 +6090,10 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
               ultimaAval.updatedAt.getTime() > relatorioVersaoGeradoEm.getTime()
           );
           console.log(`[Book IA] Reusando versão salva ${ultimoSalvo.id} (v${ultimoSalvo.versao}) para projeto ${projetoId}`);
+          const empresaAtual = await prisma.projeto.findUnique({
+            where: { id: projetoId },
+            select: { empresa: { select: { id: true, logoPath: true } } }
+          });
           return res.json({
             relatorio: ultimoSalvo.conteudoMd,
             provider: ultimoSalvo.provider,
@@ -6020,7 +6105,7 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
             tempoResposta: ultimoSalvo.tempoGeracaoMs,
             chunksGerados: ultimoSalvo.chunksGerados,
             totalChunks: ultimoSalvo.totalChunks,
-            dadosUsados: dadosSnap,
+            dadosUsados: await enriquecerDadosUsadosComLogo(dadosSnap, empresaAtual?.empresa),
             relatorioSalvoId: ultimoSalvo.id,
             versao: ultimoSalvo.versao,
             dataGeracao: ultimoSalvo.createdAt,
@@ -6137,9 +6222,9 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
     }[setor.toLowerCase()] || 2.8;
 
     // ============= SYSTEM PROMPT BASE (compartilhado entre chunks) =============
-    const systemPromptBase = `Você é um Consultor Sênior de Estratégia de IA, especialista na metodologia do MIT CISR Enterprise AI Maturity Model, com 20+ anos liderando transformações de IA em grandes corporações. Sua missão é produzir partes de um BOOK DE TRABALHO COMPLETO de maturidade em IA — um documento aprofundado de referência.
+    const systemPromptBase = `${SYSTEM_PROMPT_PERSONA_BOOK}
 
-MODELO MIT CISR (referência pública): use o framework oficial de **quatro estágios** empresariais — (1) Experiment and Prepare, (2) Build Pilots and Capabilities, (3) Develop AI Ways of Working, (4) Become AI Future Ready — conforme os Research Briefings do MIT CISR (ex.: "Building Enterprise AI Maturity", 2024; atualização "Grow Enterprise AI Maturity…", 2025). O score numérico deste assessment é uma **adaptação SysMap Blueprint IA** em escala 1–5 por dimensões; ao narrar maturidade, conecte-o explicitamente a esses estágios quando pertinente e não sugira que o MIT gerou ou validou automaticamente este relatório.
+MODELO MIT CISR (referência pública): use o framework oficial de **quatro estágios** empresariais — (1) Experiment and Prepare, (2) Build Pilots and Capabilities, (3) Develop AI Ways of Working, (4) Become AI Future Ready — conforme os Research Briefings do MIT CISR (ex.: "Building Enterprise AI Maturity", 2024; atualização "Grow Enterprise AI Maturity…", 2025). O score numérico deste assessment é uma **adaptação SysMap Blueprint IA** em escala 1–5 por dimensões; ao narrar maturidade, conecte-o explicitamente a esses estágios quando pertinente e **não** sugira que o MIT gerou, validou ou emitiu este relatório.
 
 DIRETRIZES DE REDAÇÃO (CRÍTICO):
 1. **Profundidade Técnica + Linguagem Estratégica**: rigor técnico com narrativa executiva.
@@ -6153,14 +6238,14 @@ DIRETRIZES DE REDAÇÃO (CRÍTICO):
 8b. **Hierarquia Seção 3**: o sistema insere # 3. e ## 3.N Dimensão — nome; gere somente ### 3.N.1, ### 3.N.2, … (não duplique títulos de dimensão).
 8c. **Hierarquia Seções 8–13**: use # para seção principal, ## para subseção numerada (ex.: ## 8.1, ## 9.2) e ### para itens (ex.: ### 13.1.1). Não use negrito no lugar de cabeçalho Markdown.
 9. **Importante**: Gere SOMENTE as seções solicitadas em cada chamada. NÃO repita seções já produzidas. NÃO inclua título de capa ou metadados, apenas o conteúdo das seções pedidas.
-10. **Calibração financeira**: quando o bloco "Parâmetros financeiros" trouxer faturamento anual e percentual de referência de ROI, use EXCLUSIVAMENTE essa base para ROI %, economia anual em R$, investimento e payback em todas as seções (inclusive Seção 8). Não invente outro percentual-base de ROI.
-11. **Trajetória MIT (ROI × maturidade)**: o ROI do benchmark MIT CISR é, em geral, **retorno sobre o investimento em capacidades de IA**—não lucro da empresa sobre receita. Sempre que falar de impacto financeiro, conecte **nível de maturidade** → **faixa de ROI típica daquele nível** → **horizonte (12–36 meses)**. O ganho de longo prazo vem de **subir de nível** (ex.: de 2 para 3), não de multiplicar o faturamento geral. Use o bloco "Trajetória de valor MIT CISR" dos dados abaixo;
+10. **Calibração financeira**: use EXCLUSIVAMENTE o bloco "Parâmetros financeiros" para investimento, benefício bruto, ganho líquido e ROI líquido %. Separe sempre benefício bruto (antes de abater custo) de ROI líquido (após abater investimento).
+11. **Trajetória MIT (ROI × maturidade)**: benchmarks MIT/McKinsey/BCG por nível são **ROI líquido típico sobre investimento em IA**—não margem sobre faturamento. O ganho de longo prazo vem de **subir de nível**. Use o bloco "Trajetória de valor MIT CISR" dos dados;
 12. **Projeção temporal**: nas Seções 2, 8 e 13, inclua visão **12–36 meses** de acumulação de valor ao aproximar-se do próximo nível (roadmap de investimento em IA alinhado ao MIT).
 13. **Evolução entre versões**: quando o bloco "Evolução entre versões da pesquisa" estiver disponível, a Seção 2 deve incluir subseção **Evolução entre rodadas** interpretando score, nível e deltas por dimensão; referencie também nas Seções 8 e 13 quando pertinente.
 14. **Prioridade dos avaliadores**: a capa com filtro e lista de avaliadores é inserida **automaticamente no início** do book — **não** gere de novo "## Nível dos avaliadores no consolidado". Comece direto pela Seção 1 (Metodologia).`;
 
     // Modo rápido: menos tokens por resposta, prioridade em estrutura e tabelas compactas
-    const systemPromptBaseRapido = `Você é um Consultor Sênior de Estratégia de IA (MIT CISR). Este é o MODO RÁPIDO do book: o documento deve ser **completo em estrutura** (mesmas seções lógicas) porém **mais curto** que o book profundo — priorize síntese, tabelas enxutas e bullets; mantenha exemplos setoriais e KPIs mensuráveis, sem prolixidade.
+    const systemPromptBaseRapido = `${SYSTEM_PROMPT_PERSONA_BOOK_RAPIDO}
 
 REGRAS DO MODO RÁPIDO:
 - Textos mais curtos; evite repetir o mesmo argumento entre seções.
@@ -6219,9 +6304,9 @@ ${blocoLogicaMaturidade}
 ${blocoEvolucaoVersoes}
 
 ## Parâmetros financeiros (calibragem de ROI — obrigatório nas projeções)
-- **Faturamento anual do projeto (na organização):** ${fatFmt}
-- **Percentual de referência para projeções de ROI:** ${pctRefBook != null ? `${pctRefBook}% do faturamento (base para escalar retorno/economia/receita incremental)` : 'Não calibrado — cadastre o faturamento no projeto; use premissas conservadoras explícitas se ausente'}
-- **Indicadores derivados (referência — cenário atual):** múltiplos de ROI ~ Conservador ${finProjBook.cenarios.conservador.roi}x · Base ${finProjBook.cenarios.base.roi}x · Agressivo ${finProjBook.cenarios.agressivo.roi}x · Investimento anual referência: ${finProjBook.usaFaturamento ? `R$ ${Math.round(finProjBook.investimentoAnualReferencia).toLocaleString('pt-BR')}` : `R$ ${Math.round(finProjBook.baseInvestimento).toLocaleString('pt-BR')} (modelo legado)`}
+${blocoParametrosFinanceirosMarkdown(finProjBook)}
+
+${blocoGanhoLongoPrazoMitBookRapido({ scoreGeral, faturamentoAnualProjeto: projeto.faturamentoAnualProjeto })}
 
 ${blocoTrajetoriaMitMarkdown({ scoreGeral, faturamentoAnualProjeto: projeto.faturamentoAnualProjeto })}
 
@@ -6376,7 +6461,7 @@ ${dadosBlockRapido}`,
         label: 'Financeiro + Gov + Riscos + KPIs (modo rápido)',
         prompt: `Gere as Seções 8 a 11 em um único Markdown, **objetivo e compacto**:
 
-# 8. IMPACTO FINANCEIRO — Resuma trajetória MIT em linguagem simples (4 ideias do bloco Ganho no longo prazo) + tabela 3 cenários (12m); **não** confunda ROI MIT com margem sobre faturamento total.
+# 8. IMPACTO FINANCEIRO — Resuma trajetória MIT (4 blocos do Ganho no longo prazo) + tabela 3 cenários (12m) com colunas: **Investimento | Benefício bruto | Ganho líquido (custo abatido) | ROI líquido % | Payback**. Nunca apresente múltiplo bruto como ROI líquido.
 # 9. GOVERNANÇA — bullets: estrutura (CoE/comitês), modelo operação, 4 políticas mínimas.
 # 10. RISCOS — tabela Top 6: Risco | P×I | Mitigação | Owner
 # 11. KPIs — uma tabela consolidada (até 15 KPIs com baseline/meta 12m) por categorias curtas.
@@ -6542,7 +6627,7 @@ Gere SOMENTE as seções 6 e 7. Comece direto com "# 6. ROADMAP DE TRANSFORMAÇ�
 ## 8.1 Trajetória MIT por nível
 Reproduza ou resume a tabela de ROI típico por nível (dados do assessment) e explique o **ganho incremental esperado ao subir 1 nível de maturidade** (horizonte 18–36 meses).
 ## 8.2 Cenários 12 meses
-Tabela com 3 cenários (Conservador, Base, Agressivo): Investimento 12m | Economia 12m | Receita Incremental 12m | ROI% | Payback (meses).
+Tabela com 3 cenários (Conservador, Base, Agressivo): Investimento 12m | Benefício bruto 12m | Ganho líquido 12m (custo abatido) | ROI líquido % | Payback (meses). Use os valores do bloco "Parâmetros financeiros" dos DADOS.
 ## 8.3 Longo prazo (3–5 anos)
 Parágrafo(s) sobre acumulação de valor ao aproximar-se dos níveis 4–5, mantendo coerência com a metodologia MIT.
 ### 8.3.1 Premissas e fontes
@@ -6869,7 +6954,23 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
     });
 
     const relatorioCompleto = [...partesPreSec3, ...blocosSec3, ...partesPosSec3].join('\n\n');
-    const validacaoSec3 = relatorioBookSecao3Completo(relatorioCompleto);
+
+    let secao14Regulatorio = '';
+    try {
+      const dashReg = await montarDashboardRegulatorioProjeto(prisma, projetoId, {
+        scoresPorArea: dimensoesDiagnostico,
+        versaoId: projetoVersao?.id
+      });
+      secao14Regulatorio = gerarSecao14RegulatorioBookMarkdown(dashReg);
+    } catch (regBookErr) {
+      console.warn('[Book IA] Seção 14 regulatória omitida:', regBookErr?.message || regBookErr);
+    }
+
+    const relatorioComRegulatorio = secao14Regulatorio
+      ? `${relatorioCompleto}\n\n${secao14Regulatorio}`
+      : relatorioCompleto;
+
+    const validacaoSec3 = relatorioBookSecao3Completo(relatorioComRegulatorio);
     if (!validacaoSec3.ok) {
       console.warn(
         `[Book IA] Seção 3 ainda incompleta após montagem (${validacaoSec3.total}/16). Faltando: ${validacaoSec3.faltando.join(', ')}`
@@ -6877,7 +6978,7 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
     } else {
       console.log(`[Book IA] Seção 3 validada: ${validacaoSec3.total}/16 dimensões na ordem do framework.`);
     }
-    const relatorioComIndice = adicionarIndiceAoBookMarkdown(relatorioCompleto);
+    const relatorioComIndice = adicionarIndiceAoBookMarkdown(relatorioComRegulatorio);
     const relatorioFinal = prependCapaNivelAvaliadoresAoRelatorio(
       relatorioComIndice,
       optsCapaAvaliadoresBook
@@ -6896,9 +6997,11 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
       })
     });
 
+    const logoMeta = await resolverLogoEmpresa(projeto.empresa);
     const dadosUsados = {
       empresa: projeto.empresa.nome,
       projeto: projeto.nome,
+      ...logoMeta,
       setor,
       porte,
       scoreGeral,
@@ -8680,10 +8783,23 @@ END $$`);
   }
 }
 
+async function ensureSchemaEmpresaLogoPath() {
+  try {
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "Empresa" ADD COLUMN IF NOT EXISTS "logoPath" TEXT'
+    );
+    console.log('[schema] Empresa.logoPath verificada.');
+  } catch (e) {
+    console.warn('[schema] Empresa.logoPath:', e?.message || e);
+  }
+}
+
 initPrismaUsuarioColumnProbe()
   .then(() => ensureSchemaUsuarioNivelPrioridadeMaturidade())
   .then(() => ensureSchemaRespostaSemInformacao())
   .then(() => ensureSchemaAvaliacaoDesejosIA())
+  .then(() => ensureSchemaEmpresaLogoPath())
+  .then(() => probeEmpresaLogoPathColumn(prisma))
   .then(() => ensureProjetoVersaoSchema())
   .then(() => refreshUsuarioNivelPrioridadeColumnFlag())
   .finally(() => {

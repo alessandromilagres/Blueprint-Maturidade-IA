@@ -4,6 +4,7 @@ import {
   filtroNivelPrioridadeFromRaw,
   filtroNivelRelatorioIACompativel
 } from '../utils/nivelPrioridadeMapeamentoMaturidade.js';
+import { enriquecerDadosUsadosComLogo } from '../utils/empresaLogo.js';
 
 const router = express.Router();
 
@@ -54,7 +55,7 @@ router.get('/', async (req, res) => {
           select: {
             id: true,
             nome: true,
-            empresa: { select: { id: true, nome: true } }
+            empresa: { select: { id: true, nome: true, logoPath: true } }
           }
         },
         geradoPor: {
@@ -132,7 +133,7 @@ router.get('/latest/:projetoId/:tipo', async (req, res) => {
           select: {
             id: true,
             nome: true,
-            empresa: { select: { id: true, nome: true } }
+            empresa: { select: { id: true, nome: true, logoPath: true } }
           }
         },
         geradoPor: { select: { id: true, nome: true } }
@@ -151,7 +152,10 @@ router.get('/latest/:projetoId/:tipo', async (req, res) => {
     // Inclui dadosSnapshot parseado
     const response = {
       ...relatorio,
-      dadosUsados: parseJsonSeguro(relatorio.dadosSnapshot)
+      dadosUsados: await enriquecerDadosUsadosComLogo(
+        parseJsonSeguro(relatorio.dadosSnapshot),
+        relatorio.projeto?.empresa
+      )
     };
     delete response.dadosSnapshot;
     
@@ -175,7 +179,7 @@ router.get('/:id', async (req, res) => {
           select: {
             id: true,
             nome: true,
-            empresa: { select: { id: true, nome: true } }
+            empresa: { select: { id: true, nome: true, logoPath: true } }
           }
         },
         geradoPor: { select: { id: true, nome: true } }
@@ -188,7 +192,10 @@ router.get('/:id', async (req, res) => {
     
     const response = {
       ...relatorio,
-      dadosUsados: parseJsonSeguro(relatorio.dadosSnapshot)
+      dadosUsados: await enriquecerDadosUsadosComLogo(
+        parseJsonSeguro(relatorio.dadosSnapshot),
+        relatorio.projeto?.empresa
+      )
     };
     delete response.dadosSnapshot;
     

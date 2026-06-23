@@ -22,6 +22,7 @@ import { VERTICAIS } from './Projetos';
 import { useTheme } from '../contexts/ThemeContext';
 import { queryNivelMapeamentoMaturidade } from '../utils/filtroNivelMaturidade';
 import { nivelNumericoDeScore } from '../utils/nivelMaturidadeRubrica.js';
+import { ResumoRegulatorioProjeto } from '../components/ImplicacoesRegulatoriasDimensao';
 
 ChartJS.register(
   RadialLinearScale,
@@ -479,7 +480,7 @@ export default function DashboardProjeto() {
       setGeneratingReport(true);
       try {
         await new Promise(resolve => setTimeout(resolve, 100));
-        downloadWordDocument(dashboard);
+        await downloadWordDocument(dashboard);
       } finally {
         setTimeout(() => setGeneratingReport(false), 500);
       }
@@ -497,7 +498,7 @@ export default function DashboardProjeto() {
       setGeneratingReport(true);
       try {
         await new Promise(resolve => setTimeout(resolve, 100));
-        downloadExecutiveWordDocument(dashboard);
+        await downloadExecutiveWordDocument(dashboard);
       } finally {
         setTimeout(() => setGeneratingReport(false), 500);
       }
@@ -646,6 +647,7 @@ export default function DashboardProjeto() {
 
   const categoriasComScores = getCategoriasComScores();
   const planoAcao = dashboard.planoAcao || [];
+  const resumoRegulatorio = dashboard.resumoRegulatorio || null;
   const resumoComentarios = dashboard.resumoComentarios || { totalComentarios: 0, areas: [] };
   const comparativoAvaliacoes = dashboard.comparativoAvaliacoes || {};
   const prazoAvaliacao = dashboard.prazoAvaliacao || {};
@@ -890,7 +892,7 @@ export default function DashboardProjeto() {
                         <Brain className="w-3 h-3" />
                         Relatórios IA · MIT CISR
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Gerados pela IA com metodologia MIT CISR</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Gerados pela IA com metodologia SysMap Blueprint IA</p>
                     </div>
 
                     <button
@@ -1098,6 +1100,18 @@ export default function DashboardProjeto() {
               </div>
             </div>
           </div>
+
+          {resumoRegulatorio && (
+            <div className="mb-6 space-y-3">
+              <ResumoRegulatorioProjeto resumo={resumoRegulatorio} />
+              <Link
+                to={`/dashboard/projeto/${id}/regulatorio${dashboard.projetoVersao?.id ? `?versaoId=${dashboard.projetoVersao.id}` : ''}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600/20 border border-blue-500/40 px-4 py-2 text-sm font-medium text-blue-200 hover:bg-blue-600/30"
+              >
+                Dashboard regulatório completo + plano 30/60/90 →
+              </Link>
+            </div>
+          )}
 
           {(planoAcao.length > 0 || resumoComentarios.areas.length > 0) && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
@@ -1724,7 +1738,7 @@ export default function DashboardProjeto() {
                         Ver avaliação individual
                       </Link>
                       <button
-                        onClick={() => downloadUserReport({
+                        onClick={() => void downloadUserReport({
                           nome: avaliador.nome,
                           email: avaliador.email,
                           areasSelecionadas: avaliador.areasSelecionadas,

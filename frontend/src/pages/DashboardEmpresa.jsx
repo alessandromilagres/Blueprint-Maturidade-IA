@@ -394,7 +394,7 @@ export default function DashboardEmpresa() {
     setGeneratingReport(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 100));
-      downloadWordDocument(dashboard);
+      await downloadWordDocument(dashboard);
     } finally {
       setTimeout(() => setGeneratingReport(false), 500);
     }

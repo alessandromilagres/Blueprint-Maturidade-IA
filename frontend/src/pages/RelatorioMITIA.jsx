@@ -13,6 +13,17 @@ import {
   carregarRelatorioSalvoSeCompativel,
   relatorioSalvoIdFromSearchParams
 } from '../utils/filtroNivelMaturidade';
+import {
+  AUTOR_RELATORIO_IA,
+  LABEL_CONSULTOR_CABECALHO,
+  LABEL_VALIDADO_METODOLOGIA,
+  RODAPE_GERADO_IA,
+  DISCLAIMER_RELATORIO_EXECUTIVO,
+  EMPRESA_CONSULTORIA,
+  METODOLOGIA_BLUEPRINT_RESUMO
+} from '../constants/consultorRelatorioIA';
+import EmpresaLogoRelatorio from '../components/EmpresaLogoRelatorio';
+import { fetchEmpresaLogoDataUrl } from '../hooks/useEmpresaLogo';
 
 export default function RelatorioMITIA() {
   const { id } = useParams();
@@ -143,7 +154,7 @@ export default function RelatorioMITIA() {
       { p: 10, m: 'Coletando dados do projeto...' },
       { p: 25, m: 'Calculando scores e benchmarks...' },
       { p: 45, m: 'Enviando assessment para o consultor IA...' },
-      { p: 65, m: 'IA analisando gaps com metodologia MIT CISR...' },
+      { p: 65, m: 'IA analisando gaps com metodologia SysMap Blueprint IA...' },
       { p: 80, m: 'Construindo roadmap estratégico contextualizado...' },
       { p: 92, m: 'Salvando nova versão na biblioteca...' },
     ] : [
@@ -268,9 +279,12 @@ export default function RelatorioMITIA() {
     URL.revokeObjectURL(url);
   }
 
-  function handleDownloadDoc() {
+  async function handleDownloadDoc() {
     if (!data) return;
     const projectName = data.dadosUsados.projeto.replace(/\s+/g, '_');
+    const logoDataUrl = data.dadosUsados?.empresaLogoDisponivel
+      ? await fetchEmpresaLogoDataUrl(data.dadosUsados?.empresaId)
+      : null;
     downloadMarkdownAsDoc(
       data.relatorio,
       `Relatorio_Estrategico_MIT_IA_${projectName}`,
@@ -279,9 +293,10 @@ export default function RelatorioMITIA() {
         subtitulo: 'Análise Executiva de Maturidade em IA',
         empresa: data.dadosUsados.empresa,
         projeto: data.dadosUsados.projeto,
-        autor: 'BluePrint IA · Consultor MIT CISR',
+        autor: AUTOR_RELATORIO_IA,
         headerColor: '#6b21a8',
-        accentColor: '#a855f7'
+        accentColor: '#a855f7',
+        logoDataUrl
       }
     );
   }
@@ -303,7 +318,7 @@ export default function RelatorioMITIA() {
                 Gerando Relatório Estratégico
               </h1>
               <p className="text-purple-300 text-sm mb-1 font-medium">
-                Consultor Sênior IA · Metodologia MIT CISR
+                {LABEL_CONSULTOR_CABECALHO}
               </p>
               <p className="text-slate-400 text-sm mb-8">
                 A IA está analisando seu assessment e construindo um relatório executivo de alto impacto
@@ -523,13 +538,23 @@ export default function RelatorioMITIA() {
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-fuchsia-400/20 rounded-full translate-y-24 -translate-x-24 blur-3xl"></div>
             
             <div className="relative">
+              {data?.dadosUsados?.empresaId && data?.dadosUsados?.empresaLogoDisponivel && (
+                <div className="mb-6 flex justify-start print:mb-4">
+                  <EmpresaLogoRelatorio
+                    empresaId={data.dadosUsados.empresaId}
+                    empresaLogoDisponivel={data.dadosUsados.empresaLogoDisponivel}
+                    className="max-h-14 max-w-[200px] print:max-h-12"
+                    alt={`Logo ${data?.dadosUsados?.empresa || ''}`}
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center border border-white/30">
                   <Brain className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-purple-200 font-semibold">Relatório Estratégico</p>
-                  <p className="text-sm text-white/90">Validado pela metodologia MIT CISR</p>
+                  <p className="text-sm text-white/90">{LABEL_VALIDADO_METODOLOGIA}</p>
                 </div>
               </div>
               
@@ -568,10 +593,10 @@ export default function RelatorioMITIA() {
                 <CheckCircle2 className="w-5 h-5 text-purple-600" />
                 <div>
                   <p className="text-xs font-semibold text-purple-900">
-                    Relatório gerado por Consultor IA Sênior em Estratégia de IA
+                    Relatório produzido pela consultoria {EMPRESA_CONSULTORIA} com apoio de IA
                   </p>
                   <p className="text-[11px] text-purple-700">
-                    Especialista em MIT CISR Enterprise AI Maturity Model · Provider: {data?.provider} · Modelo: {data?.model}
+                    {METODOLOGIA_BLUEPRINT_RESUMO} · Provider: {data?.provider} · Modelo: {data?.model}
                   </p>
                 </div>
               </div>
@@ -608,11 +633,11 @@ export default function RelatorioMITIA() {
             <div className="flex items-center justify-center gap-2 mb-2">
               <Brain className="w-4 h-4 text-purple-600" />
               <p className="text-xs font-semibold text-slate-700">
-                Relatório gerado por Inteligência Artificial · Validado pela metodologia MIT CISR
+                {RODAPE_GERADO_IA} · {LABEL_VALIDADO_METODOLOGIA}
               </p>
             </div>
             <p className="text-[10px] text-slate-500 max-w-2xl mx-auto leading-relaxed">
-              Este relatório foi produzido por um Consultor Sênior IA com expertise em Enterprise AI Maturity Model do MIT Center for Information Systems Research. As recomendações são baseadas nos dados do assessment e devem ser contextualizadas pela liderança antes da execução. Projeções são referenciais.
+              {DISCLAIMER_RELATORIO_EXECUTIVO}
             </p>
             <p className="text-[10px] text-slate-400 mt-2">
               Gerado em {new Date().toLocaleString('pt-BR')} · BluePrint IA

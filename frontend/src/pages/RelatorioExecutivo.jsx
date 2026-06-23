@@ -40,6 +40,9 @@ import {
 } from 'lucide-react';
 import { relatoriosApi } from '../services/api';
 import { projecaoFinanceiraRelatorio } from '../utils/roiPorFaturamento';
+import { faixaRoiLiquidoMitNivel, formatarMoedaCompacta } from '../utils/metodologiaRoiFinanceiro';
+import NotaMetodologiaRoi from '../components/NotaMetodologiaRoi';
+import EmpresaLogoRelatorio from '../components/EmpresaLogoRelatorio';
 
 ChartJS.register(
   RadialLinearScale,
@@ -218,15 +221,16 @@ export default function RelatorioExecutivo() {
 
   const cenarios = finProj.usaFaturamento
     ? [
-        { nome: 'Conservador', cor: 'amber', roi: Math.round(finProj.cenarios.conservador.roi * 100), prazo: finProj.cenarios.conservador.payback },
-        { nome: 'Base', cor: 'blue', roi: Math.round(finProj.cenarios.base.roi * 100), prazo: finProj.cenarios.base.payback, destaque: true },
-        { nome: 'Agressivo', cor: 'green', roi: Math.round(finProj.cenarios.agressivo.roi * 100), prazo: finProj.cenarios.agressivo.payback }
+        { nome: 'Conservador', cor: 'amber', destaque: false, ...finProj.cenarios.conservador },
+        { nome: 'Base', cor: 'blue', destaque: true, ...finProj.cenarios.base },
+        { nome: 'Agressivo', cor: 'green', destaque: false, ...finProj.cenarios.agressivo }
       ]
     : [
-        { nome: 'Conservador', cor: 'amber', roi: Math.round(parseFloat(dadosMeta.roi) * 0.6) || 30, prazo: parseInt(dadosMeta.tempoROI) + 6 },
-        { nome: 'Base', cor: 'blue', roi: Math.round(parseFloat(dadosMeta.roi)) || 100, prazo: parseInt(dadosMeta.tempoROI), destaque: true },
-        { nome: 'Agressivo', cor: 'green', roi: Math.round(parseFloat(dadosMeta.roi) * 1.5) || 150, prazo: Math.max(3, parseInt(dadosMeta.tempoROI) - 3) }
+        { nome: 'Conservador', cor: 'amber', roiLiquidoPct: Math.round(parseFloat(dadosMeta.roi) * 0.6) || 30, payback: parseInt(dadosMeta.tempoROI, 10) + 6, destaque: false },
+        { nome: 'Base', cor: 'blue', roiLiquidoPct: Math.round(parseFloat(dadosMeta.roi)) || 100, payback: parseInt(dadosMeta.tempoROI, 10), destaque: true },
+        { nome: 'Agressivo', cor: 'green', roiLiquidoPct: Math.round(parseFloat(dadosMeta.roi) * 1.5) || 150, payback: Math.max(3, parseInt(dadosMeta.tempoROI, 10) - 3), destaque: false }
       ];
+  const roiLiquidoBase = finProj.cenarios?.base?.roiLiquidoPct;
 
   // Radar data
   const radarData = {
@@ -301,7 +305,15 @@ export default function RelatorioExecutivo() {
                 <p className="text-xs text-slate-400 print:text-slate-500 uppercase tracking-wider mb-1">Relatório Executivo</p>
                 <h1 className="text-xl font-bold text-amber-400 print:text-amber-600">Maturidade em IA</h1>
               </div>
-              <div className="text-right">
+              <div className="text-right flex flex-col items-end gap-2">
+                {relatorio.empresaLogoDisponivel && relatorio.empresaId && (
+                  <EmpresaLogoRelatorio
+                    empresaId={relatorio.empresaId}
+                    empresaLogoDisponivel={relatorio.empresaLogoDisponivel}
+                    className="max-h-14 max-w-[180px] print:max-h-16"
+                    alt={`Logo ${relatorio.empresa.nome}`}
+                  />
+                )}
                 <p className="text-sm font-semibold text-white print:text-slate-900">{relatorio.empresa.nome}</p>
                 <p className="text-xs text-slate-400">{relatorio.projeto.nome}</p>
                 <p className="text-[11px] text-amber-300 print:text-amber-700">{relatorio.projetoVersao?.titulo || 'Versão 1'}</p>
@@ -337,15 +349,17 @@ export default function RelatorioExecutivo() {
               </p>
             </div>
 
-            {/* ROI Potencial */}
+            {/* ROI líquido (cenário base) */}
             <div className="bg-slate-800 print:bg-slate-50 print:border print:border-slate-200 rounded-lg p-4">
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">ROI Potencial</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">ROI líquido (base)</p>
               <p className="text-2xl font-bold text-green-400 print:text-green-600">
-                {finProj.usaFaturamento
-                  ? `${(finProj.cenarios.base.roi * 100).toFixed(0)}% (ref. faturamento)`
+                {finProj.usaFaturamento && roiLiquidoBase != null
+                  ? `${roiLiquidoBase.toFixed(0)}%`
                   : dadosMeta.roi}
               </p>
-              <p className="text-xs text-slate-400 mt-0.5">no nível {nivelMeta}</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {finProj.usaFaturamento ? 'ganho líquido ÷ investimento' : `benchmark MIT nível ${nivelMeta}`}
+              </p>
             </div>
 
             {/* Investimento */}
@@ -457,39 +471,59 @@ export default function RelatorioExecutivo() {
                   </div>
                   <div className="space-y-2">
                     <div>
-                      <p className="text-[10px] text-slate-400">ROI Esperado</p>
-                      <p className={`text-xl font-bold text-${c.cor}-400 print:text-${c.cor}-600`}>{c.roi}%</p>
+                      <p className="text-[10px] text-slate-400">ROI líquido</p>
+                      <p className={`text-xl font-bold text-${c.cor}-400 print:text-${c.cor}-600`}>
+                        {c.roiLiquidoPct != null ? `${Math.round(c.roiLiquidoPct)}%` : '—'}
+                      </p>
                     </div>
+                    {finProj.usaFaturamento && (
+                      <>
+                        <div>
+                          <p className="text-[10px] text-slate-400">Benefício bruto 12m</p>
+                          <p className="text-sm font-medium text-white print:text-slate-900">
+                            {formatarMoedaCompacta(c.beneficioBrutoAnual)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400">Ganho líquido 12m</p>
+                          <p className="text-sm font-medium text-white print:text-slate-900">
+                            {formatarMoedaCompacta(c.ganhoLiquidoAnual)}
+                          </p>
+                        </div>
+                      </>
+                    )}
                     <div>
-                      <p className="text-[10px] text-slate-400">Prazo para ROI</p>
-                      <p className="text-sm font-medium text-white print:text-slate-900">{c.prazo} meses</p>
+                      <p className="text-[10px] text-slate-400">Payback</p>
+                      <p className="text-sm font-medium text-white print:text-slate-900">{c.payback} meses</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Barra comparativa */}
             <div className="bg-slate-900/50 print:bg-slate-50 rounded-lg p-3 mb-4">
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">Comparativo ROI</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">Comparativo ROI líquido</p>
               <div className="space-y-1.5">
-                {cenarios.map((c) => (
+                {cenarios.map((c) => {
+                  const roi = c.roiLiquidoPct ?? 0;
+                  const maxRoi = Math.max(...cenarios.map((x) => x.roiLiquidoPct ?? 0), 1);
+                  return (
                   <div key={c.nome} className="flex items-center gap-2">
                     <span className="w-20 text-[10px] text-slate-400">{c.nome}</span>
                     <div className="flex-1 bg-slate-700 print:bg-slate-200 rounded-full h-4 overflow-hidden">
                       <div 
                         className={`h-full bg-gradient-to-r from-${c.cor}-600 to-${c.cor}-400 flex items-center justify-end pr-2`}
-                        style={{ width: `${Math.min(100, (c.roi / cenarios[2].roi) * 100)}%` }}
+                        style={{ width: `${Math.min(100, (roi / maxRoi) * 100)}%` }}
                       >
-                        <span className="text-[10px] font-bold text-white">{c.roi}%</span>
+                        <span className="text-[10px] font-bold text-white">{Math.round(roi)}%</span>
                       </div>
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             </div>
 
-            {/* Metodologia e Fontes */}
+            <NotaMetodologiaRoi className="mb-4" />
             <div className="bg-blue-500/5 print:bg-blue-50 border border-blue-500/20 print:border-blue-200 rounded-lg p-3">
               <div className="flex items-start gap-2">
                 <BookOpen className="w-4 h-4 text-blue-400 print:text-blue-600 mt-0.5 flex-shrink-0" />
@@ -497,6 +531,11 @@ export default function RelatorioExecutivo() {
                   <p className="text-[10px] font-semibold text-blue-400 print:text-blue-700 uppercase tracking-wider mb-2">Metodologia e Fontes</p>
                   
                   <div className="space-y-2 text-[9px] text-slate-400 print:text-slate-600">
+                    <p>
+                      <span className="font-medium text-slate-300 print:text-slate-700">Consultoria e metodologia:</span> Relatório produzido pela{' '}
+                      <span className="text-blue-400 print:text-blue-600">SysMap Solutions</span> com a metodologia{' '}
+                      <span className="text-blue-400 print:text-blue-600">SysMap Blueprint IA</span>, que integra referências públicas reconhecidas.
+                    </p>
                     <p>
                       <span className="font-medium text-slate-300 print:text-slate-700">Fontes dos benchmarks:</span> As faixas de ROI e crescimento são baseadas em estudos publicados pelo 
                       <span className="text-blue-400 print:text-blue-600"> MIT CISR - Center for Information Systems Research</span> (Weill, Woerner & Sebastian, 2024) e 
@@ -507,7 +546,7 @@ export default function RelatorioExecutivo() {
                     <p>
                       <span className="font-medium text-slate-300 print:text-slate-700">Conversão do score:</span> O score de maturidade (1-5) é mapeado para faixas de impacto financeiro 
                       conforme a progressão típica observada nos estudos. Nível {nivelAtual} corresponde a empresas em fase de {nivelAtual <= 2 ? 'experimentação' : nivelAtual <= 3 ? 'estruturação' : 'industrialização'}, 
-                      com {dadosAtuais.crescimento} vs. mercado e ROI típico de {dadosAtuais.roi} em iniciativas de IA.
+                      com {dadosAtuais.crescimento} vs. mercado e {faixaRoiLiquidoMitNivel(nivelAtual) || `ROI típico de ${dadosAtuais.roi}`}.
                     </p>
                     
                     <p className="italic border-t border-slate-700 print:border-slate-200 pt-2 mt-2">
@@ -611,7 +650,7 @@ export default function RelatorioExecutivo() {
 
           {/* Footer */}
           <div className="text-center mt-6 pt-4 border-t border-slate-700 print:border-slate-200">
-            <p className="text-[10px] text-slate-500">Blueprint IA • MIT CISR Enterprise AI Maturity Model</p>
+            <p className="text-[10px] text-slate-500">Blueprint IA · SysMap Solutions · Referência MIT CISR</p>
             <p className="text-[10px] text-slate-500">{relatorio.empresa.nome} • {new Date().toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' })}</p>
           </div>
         </section>

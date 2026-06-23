@@ -21,6 +21,9 @@ import {
 import { relatoriosApi, exportarApi } from '../services/api';
 import { downloadWordFromRelatorio } from '../utils/generateReport';
 import { projecaoFinanceiraRelatorio } from '../utils/roiPorFaturamento';
+import { formatarMoedaCompacta } from '../utils/metodologiaRoiFinanceiro';
+import NotaMetodologiaRoi from '../components/NotaMetodologiaRoi';
+import ImplicacoesRegulatoriasDimensao, { DisclaimerRegulatorio } from '../components/ImplicacoesRegulatoriasDimensao';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -370,7 +373,7 @@ export default function Relatorio() {
     scoreGeral: relatorio.scoreGeral
   });
   const cenarios = fin.cenarios;
-  const baseInvestimento = fin.usaFaturamento ? fin.investimentoAnualReferencia : fin.baseInvestimento;
+  const baseInvestimento = fin.investimentoAnualReferencia ?? fin.baseInvestimento;
   const respostasPorArea = respostasAgrupadasPorArea(relatorio.respostas);
   const totalComNota = (relatorio.respostas || []).filter((r) => r.pontuacao != null).length;
   const totalSemInformacao = (relatorio.respostas || []).filter((r) => r.semInformacao === true).length;
@@ -399,7 +402,7 @@ export default function Relatorio() {
             <button onClick={() => exportarApi.download(exportarApi.relatorio(id), `relatorio-tecnico.md`)} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs">
               <FileText className="w-3.5 h-3.5" /> MD
             </button>
-            <button onClick={() => downloadWordFromRelatorio(relatorio)} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs">
+            <button onClick={() => void downloadWordFromRelatorio(relatorio)} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs">
               <FileText className="w-3.5 h-3.5" /> Word
             </button>
             <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium">
@@ -691,22 +694,34 @@ export default function Relatorio() {
             ].map((c) => (
               <div key={c.cenario} className={`bg-${c.cor}-500/10 print:bg-${c.cor}-50 border border-${c.cor}-500/30 print:border-${c.cor}-200 rounded-lg p-4 print:p-3 text-center`} style={{ pageBreakInside: 'avoid' }}>
                 <p className={`text-[10px] print:text-[9px] text-${c.cor}-400 print:text-${c.cor}-600 uppercase tracking-wider mb-2`}>{c.cenario}</p>
-                <p className={`text-2xl print:text-xl font-bold text-${c.cor}-400 print:text-${c.cor}-600`}>{c.dados.roi}x</p>
-                <p className="text-[10px] print:text-[9px] text-slate-400 mb-3">ROI Esperado</p>
+                <p className={`text-2xl print:text-xl font-bold text-${c.cor}-400 print:text-${c.cor}-600`}>
+                  {c.dados.roiLiquidoPct != null ? `${Math.round(c.dados.roiLiquidoPct)}%` : '—'}
+                </p>
+                <p className="text-[10px] print:text-[9px] text-slate-400 mb-3">ROI líquido (custo abatido)</p>
                 
                 <div className="space-y-2 print:space-y-1 text-left">
                   <div className="flex justify-between text-[10px] print:text-[9px]">
-                    <span className="text-slate-400">Payback:</span>
-                    <span className="text-white print:text-slate-900 font-medium">{c.dados.payback} meses</span>
+                    <span className="text-slate-400">Investimento 12m:</span>
+                    <span className="text-white print:text-slate-900 font-medium">{formatarMoedaCompacta(c.dados.investimentoAnual ?? baseInvestimento)}</span>
                   </div>
                   <div className="flex justify-between text-[10px] print:text-[9px]">
-                    <span className="text-slate-400">Economia anual:</span>
-                    <span className="text-white print:text-slate-900 font-medium">R$ {(c.dados.economia / 1000).toFixed(0)}k</span>
+                    <span className="text-slate-400">Benefício bruto 12m:</span>
+                    <span className="text-white print:text-slate-900 font-medium">{formatarMoedaCompacta(c.dados.beneficioBrutoAnual ?? c.dados.economia)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] print:text-[9px]">
+                    <span className="text-slate-400">Ganho líquido 12m:</span>
+                    <span className="text-white print:text-slate-900 font-medium">{formatarMoedaCompacta(c.dados.ganhoLiquidoAnual)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] print:text-[9px]">
+                    <span className="text-slate-400">Payback:</span>
+                    <span className="text-white print:text-slate-900 font-medium">{c.dados.payback} meses</span>
                   </div>
                 </div>
               </div>
             ))}
           </div>
+
+          <NotaMetodologiaRoi className="mb-4" compact={true} />
 
           {/* Disclaimer */}
           <div className="bg-slate-800 print:bg-slate-50 rounded-lg p-3 print:p-2 print:border print:border-slate-200" style={{ pageBreakInside: 'avoid' }}>
@@ -717,11 +732,11 @@ export default function Relatorio() {
                 <p className="text-[9px] print:text-[8px] text-slate-400 print:text-slate-600">
                   Valores baseados em benchmarks de mercado para empresas no nível {relatorio.nivelGeral} de maturidade.
                   {fin.usaFaturamento ? (
-                    <> Faturamento anual do projeto: R$ {Number(fin.faturamentoAnualProjeto).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}. Percentual de referência para ROI: {fin.percentualReferenciaRoi}%. </>
+                    <> Faturamento anual do projeto: R$ {Number(fin.faturamentoAnualProjeto).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}. Percentual de referência para benefício bruto: {fin.percentualReferenciaRoi}% do faturamento. </>
                   ) : (
-                    <> Investimento base considerado: R$ {(baseInvestimento / 1000).toFixed(0)}k. </>
+                    <> Investimento de referência: {formatarMoedaCompacta(baseInvestimento)}. </>
                   )}
-                  ROI calculado considerando ganhos de eficiência, redução de custos operacionais e aumento de receita por projetos de IA.
+                  ROI líquido = (benefício bruto − investimento) ÷ investimento. Benchmarks MIT por nível indicam ROI líquido típico sobre investimento em IA, não margem sobre receita total.
                 </p>
               </div>
             </div>
@@ -736,6 +751,8 @@ export default function Relatorio() {
             <div className="w-6 h-6 rounded bg-blue-500 flex items-center justify-center text-xs font-bold">5</div>
             <h2 className="text-sm font-bold text-white print:text-slate-900">Detalhamento por Dimensão</h2>
           </div>
+
+          <DisclaimerRegulatorio className="mb-4" />
 
           <div className="grid grid-cols-2 gap-3 print:gap-2">
             {relatorio.scoresPorArea.map((area) => {
@@ -755,6 +772,7 @@ export default function Relatorio() {
                   <div className="w-full bg-slate-700 print:bg-slate-200 rounded-full h-1">
                     <div className={`h-1 rounded-full ${status.bg}`} style={{ width: `${(area.score / 5) * 100}%` }} />
                   </div>
+                  <ImplicacoesRegulatoriasDimensao regulatorio={area.regulatorio} compact />
                 </div>
               );
             })}

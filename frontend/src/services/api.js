@@ -52,6 +52,41 @@ export const empresasApi = {
   criar: (data) => request('/empresas', { method: 'POST', body: JSON.stringify(data) }),
   atualizar: (id, data) => request(`/empresas/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   excluir: (id) => request(`/empresas/${id}`, { method: 'DELETE' }),
+  async buscarLogoBlob(empresaId) {
+    const response = await fetch(`${API_URL}/empresas/${empresaId}/logo`, {
+      headers: getAuthHeaders()
+    });
+    if (response.status === 404) return null;
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      window.location.href = '/login';
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Erro ao carregar logo' }));
+      throw new Error(error.error || 'Erro ao carregar logo');
+    }
+    return response.blob();
+  },
+  async uploadLogo(empresaId, file) {
+    const response = await fetch(`${API_URL}/empresas/${empresaId}/logo`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-Filename': file.name
+      },
+      body: file
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Erro no upload' }));
+      throw new Error(error.error || 'Erro no upload do logo');
+    }
+    return response.json();
+  },
+  removerLogo: (empresaId) =>
+    request(`/empresas/${empresaId}/logo`, { method: 'DELETE' })
 };
 
 export const usuariosApi = {
@@ -245,6 +280,71 @@ export const dashboardApi = {
     if (params.limit) p.set('limit', String(params.limit));
     return request(`/relatorios-ia-jobs?${p.toString()}`);
   },
+};
+
+export const regulatorioApi = {
+  crosswalk: () => request('/regulatorio/crosswalk'),
+  crosswalkDimensao: (codigo, score) => {
+    const q = score != null && score !== '' ? `?score=${encodeURIComponent(String(score))}` : '';
+    return request(`/regulatorio/crosswalk/${encodeURIComponent(codigo)}${q}`);
+  },
+  snapshotProduto: (produtoId, opts = {}) => {
+    const q = opts.recalcular ? '?recalcular=true' : '';
+    return request(`/regulatorio/snapshot/${produtoId}${q}`);
+  },
+  dashboardProjeto: (projetoId, versaoId) => {
+    const q = versaoId ? `?versaoId=${encodeURIComponent(versaoId)}` : '';
+    return request(`/regulatorio/dashboard/${projetoId}${q}`);
+  },
+  notificacoes: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.projetoId) q.set('projetoId', params.projetoId);
+    if (params.produtoId) q.set('produtoId', params.produtoId);
+    const qs = q.toString();
+    return request(`/regulatorio/notificacoes${qs ? `?${qs}` : ''}`);
+  },
+  comparativoCiclos: (produtoId) => request(`/regulatorio/produto/${produtoId}/ciclos/comparativo`),
+  uploadEvidenciaMitigacao: (produtoId, cicloId, mitigacaoId, data) =>
+    request(`/regulatorio/produto/${produtoId}/ciclos/${cicloId}/mitigacoes/${mitigacaoId}/evidencia`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  recalcularSnapshotProduto: (produtoId, opts = {}) => {
+    const q = opts.preservarValidacao === false ? '?preservarValidacao=false' : '?preservarValidacao=true';
+    return request(`/regulatorio/snapshot/${produtoId}/recalcular${q}`, { method: 'POST' });
+  },
+  confirmarSnapshotProduto: (produtoId, data) =>
+    request(`/regulatorio/snapshot/${produtoId}/confirm`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  ciclosProduto: (produtoId) => request(`/regulatorio/produto/${produtoId}/ciclos`),
+  cicloAtualProduto: (produtoId) => request(`/regulatorio/produto/${produtoId}/ciclos/atual`),
+  criarCiclo: (produtoId, data = {}) =>
+    request(`/regulatorio/produto/${produtoId}/ciclos`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  atualizarCicloAtual: (produtoId, data) =>
+    request(`/regulatorio/produto/${produtoId}/ciclos/atual`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  fecharCiclo: (produtoId, cicloId, data = {}) =>
+    request(`/regulatorio/produto/${produtoId}/ciclos/${cicloId}/fechar`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  criarMitigacao: (produtoId, cicloId, data) =>
+    request(`/regulatorio/produto/${produtoId}/ciclos/${cicloId}/mitigacoes`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  atualizarMitigacao: (produtoId, cicloId, mitigacaoId, data) =>
+    request(`/regulatorio/produto/${produtoId}/ciclos/${cicloId}/mitigacoes/${mitigacaoId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
 };
 
 export const relatoriosIAApi = {

@@ -17,6 +17,7 @@ model Empresa {
   email     String?
   endereco  String?
   website   String?
+  logoPath  String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   
@@ -115,6 +116,8 @@ model Projeto {
   lentesPrioritarias  String?
   // Faturamento anual (12m) do escopo do projeto na organização — base para % de referência de ROI nos relatórios
   faturamentoAnualProjeto Float?
+  /// Meta de score consolidado para referência ISO 42001 (opcional, definida pelo consultor)
+  isoTargetScore      Float?
   status              String    @default("ativo")
   empresaId           Int
   createdAt           DateTime  @default(now())
@@ -313,6 +316,84 @@ model Produto {
   convites      ConviteAvaliacao[]
   especificacoes EspecificacaoProduto[]
   arquivosReferencia ArquivoReferencia[]
+  regulatorySnapshot RegulatorySnapshot?
+  regulatorioCiclos    ProdutoRegulatorioCiclo[]
+}
+
+/// Ciclo de controle regulatório por produto (versões de conformidade)
+model ProdutoRegulatorioCiclo {
+  id                  Int       @id @default(autoincrement())
+  produtoId           Int
+  numero              Int
+  titulo              String
+  status              String    @default("aberta") // aberta | fechada
+  metaPlRisco         String?
+  consultorNotas      String?   @db.Text
+  snapshotAbertura    Json?
+  snapshotFechamento  Json?
+  checklistFechamento Json?
+  iniciadaEm          DateTime  @default(now())
+  fechadaEm           DateTime?
+  fechadaPorUsuarioId Int?
+  projetoVersaoId     Int?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  produto     Produto                       @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  mitigacoes  ProdutoRegulatorioMitigacao[]
+
+  @@unique([produtoId, numero])
+  @@index([produtoId, status])
+}
+
+/// Ação de mitigação de risco regulatório em um ciclo
+model ProdutoRegulatorioMitigacao {
+  id           Int       @id @default(autoincrement())
+  cicloId      Int
+  codigoMotivo String?
+  titulo       String
+  descricao    String?   @db.Text
+  responsavel  String?
+  prazo        DateTime?
+  status       String    @default("planejada") // planejada | em_andamento | concluida
+  evidenciaUrl String?
+  evidencias   Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  ciclo ProdutoRegulatorioCiclo @relation(fields: [cicloId], references: [id], onDelete: Cascade)
+
+  @@index([cicloId])
+}
+
+/// Snapshot regulatório por produto (ISO 42001, PL 2338, LGPD) — cálculo completo na Semana 2+
+model RegulatorySnapshot {
+  id                    Int       @id @default(autoincrement())
+  produtoId             Int       @unique
+  projetoId             Int
+  isoScoreEstimado      Float?
+  isoGapCount           Int?
+  plRiscoNivel          String?
+  lgpdRiscoNivel        String?
+  isoDetalhes           Json?
+  plDetalhes            Json?
+  lgpdDetalhes          Json?
+  validadoConsultor     Boolean   @default(false)
+  validadoEm            DateTime?
+  validadoPorUsuarioId  Int?
+  /// Semana 3 — complemento e validação do consultor
+  pl2338Confirmado      Boolean   @default(false)
+  plRiscoNivelConfirmado String?
+  lgpdBaseLegal         String?   @db.Text
+  lgpdRipdConfirmado    Boolean   @default(false)
+  lgpdRipdOverride      Boolean?
+  aipdStatus            String?   @default("nao_iniciada")
+  isoOverride           Json?
+  consultorNotas        String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  produto  Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
 }
 
 /// Arquitetura de referência da empresa (padrões técnicos, CI/CD, topologia).

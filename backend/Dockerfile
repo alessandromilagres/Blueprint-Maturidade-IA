@@ -1,8 +1,8 @@
 # Backend Dockerfile - Node.js + Prisma
 FROM node:20-alpine AS base
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
+# Install OpenSSL for Prisma and su-exec for dropping privileges after volume setup
+RUN apk add --no-cache openssl su-exec
 
 WORKDIR /app
 
@@ -50,11 +50,13 @@ COPY --from=build /app/prisma ./prisma
 # Copy application code
 COPY --from=build /app/src ./src
 COPY package.json ./
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Change ownership to non-root user
-RUN chown -R appuser:nodejs /app
+RUN chown -R appuser:nodejs /app \
+  && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER appuser
+USER root
 
 # Expose port
 EXPOSE 3001
@@ -63,5 +65,6 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-# Start command with migration
+# Prepare writable upload volume as root, then run the app as appuser
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]

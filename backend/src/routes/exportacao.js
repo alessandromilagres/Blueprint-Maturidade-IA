@@ -19,6 +19,7 @@ import {
 } from '../utils/avaliacaoAreasRecusadas.js';
 import { desejosIaParaRespostasEmail, desejosIaTemRespostasGuardadas } from '../utils/desejosIaAvaliacaoMaturidade.js';
 import { isMissingAvaliacaoDesejosIaTableError } from '../utils/avaliacaoDesejosIaMerge.js';
+import { gerarSecao14RegulatorioBookMarkdown, montarDashboardRegulatorioProjeto } from '../utils/regulatorioDashboard.js';
 import {
   nivelNumericoDeScore,
   faixaNivelPorScore,
@@ -942,6 +943,16 @@ router.get('/versao/:projetoId/:versaoId/zip', async (req, res) => {
       scoresPorArea
     });
     const markdownPlano = gerarMarkdownPlanoAcaoVersao({ projeto, projetoVersao, planoAcao });
+    let markdownRegulatorio = '';
+    try {
+      const dashReg = await montarDashboardRegulatorioProjeto(prisma, projetoId, {
+        scoresPorArea,
+        versaoId
+      });
+      markdownRegulatorio = gerarSecao14RegulatorioBookMarkdown(dashReg);
+    } catch {
+      markdownRegulatorio = '# Conformidade regulatória\n\nDados indisponíveis para esta versão.\n';
+    }
     const markdownExecutive = gerarMarkdownExecutiveVersao(
       { ...projeto, avaliacoes: avaliacoesFinalizadas },
       projetoVersao
@@ -962,14 +973,15 @@ router.get('/versao/:projetoId/:versaoId/zip', async (req, res) => {
     archive.append(markdownDashboard, { name: '02-dashboard-versao.md' });
     archive.append(csvAvaliacoes, { name: '03-analise-avaliacoes.csv' });
     archive.append(markdownPlano, { name: '04-plano-acao-versao.md' });
-    archive.append(markdownExecutive, { name: '05-relatorio-executivo-versao.md' });
+    archive.append(markdownRegulatorio, { name: '05-conformidade-regulatoria.md' });
+    archive.append(markdownExecutive, { name: '06-relatorio-executivo-versao.md' });
     if (relatoriosIA.get('executivo')?.conteudoMd) {
-      archive.append(relatoriosIA.get('executivo').conteudoMd, { name: '06-relatorio-ia-executivo.md' });
+      archive.append(relatoriosIA.get('executivo').conteudoMd, { name: '07-relatorio-ia-executivo.md' });
     }
     if (relatoriosIA.get('completo')?.conteudoMd) {
-      archive.append(relatoriosIA.get('completo').conteudoMd, { name: '07-relatorio-ia-completo.md' });
+      archive.append(relatoriosIA.get('completo').conteudoMd, { name: '08-relatorio-ia-completo.md' });
     } else if (relatoriosIA.get('completo_rapido')?.conteudoMd) {
-      archive.append(relatoriosIA.get('completo_rapido').conteudoMd, { name: '07-relatorio-ia-completo-rapido.md' });
+      archive.append(relatoriosIA.get('completo_rapido').conteudoMd, { name: '08-relatorio-ia-completo-rapido.md' });
     }
     archive.append(JSON.stringify({
       projeto: { id: projeto.id, nome: projeto.nome },
@@ -985,7 +997,7 @@ router.get('/versao/:projetoId/:versaoId/zip', async (req, res) => {
         createdAt: row.createdAt
       }))
     }, null, 2), {
-      name: '08-dados-versao.json'
+      name: '09-dados-versao.json'
     });
     await archive.finalize();
   } catch (error) {

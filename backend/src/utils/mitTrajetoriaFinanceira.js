@@ -29,9 +29,14 @@ export function blocoTrajetoriaMitMarkdown({ scoreGeral, faturamentoAnualProjeto
   const pctRef = percentualReferenciaRoi(fat);
 
   let md = `## Trajetória de valor MIT CISR (ROI × maturidade)\n\n`;
-  md += `**Leitura correta do ROI Blueprint:** no Enterprise AI Maturity Model (MIT CISR), os percentuais de ROI por nível significam **retorno típico sobre o investimento anual em capacidades de IA** (talento, dados, plataforma, governança, casos de uso)—**não** margem líquida nem lucro da empresa sobre receita total.\n\n`;
+  md += `**Leitura correta do ROI Blueprint:** no Enterprise AI Maturity Model (MIT CISR), os percentuais por nível são **ROI líquido típico sobre o investimento anual em capacidades de IA** (talento, dados, plataforma, governança, casos de uso)—**não** margem líquida nem lucro da empresa sobre receita total.\n\n`;
+  md += `| Conceito | Definição |\n`;
+  md += `|:---|:---|\n`;
+  md += `| **Benefício bruto estimado** | Valor econômico anual antes de abater o investimento em IA |\n`;
+  md += `| **Ganho líquido** | Benefício bruto − investimento (custo abatido) |\n`;
+  md += `| **ROI líquido % (benchmark MIT)** | (Ganho líquido ÷ investimento) × 100 — faixas por nível abaixo |\n\n`;
   md += `**Por que o número pode parecer “baixo” no curto prazo:** no nível atual (${n0}), parte do esforço ainda é **fundação** (dados, governança, pilotos); o ganho **acumulado no longo prazo** aparece quando a organização **consolida práticas do nível seguinte**, onde as faixas de ROI do benchmark MIT são sistematicamente mais altas.\n\n`;
-  md += `| Nível MIT | ROI típico sobre investimento em IA | Horizonte típico |\n`;
+  md += `| Nível MIT | ROI líquido típico (sobre invest. em IA) | Horizonte típico |\n`;
   md += `|:---:|:---:|:---:|\n`;
   for (let n = 1; n <= 5; n++) {
     const r = MIT_ROI_POR_NIVEL[n];
@@ -44,14 +49,15 @@ export function blocoTrajetoriaMitMarkdown({ scoreGeral, faturamentoAnualProjeto
     md += `- Faturamento anual do projeto: **R$ ${fat.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}**\n`;
     md += `- Percentual de referência para escalar projeções: **${pctRef}%** do faturamento\n\n`;
     md += `Para cada nível-alvo (consolidando práticas típicas daquele estágio), investimento anual em IA no benchmark costuma situar-se entre **${MIT_ROI_POR_NIVEL[1].investPctMin}% e ${MIT_ROI_POR_NIVEL[5].investPctMax}%** do faturamento, crescente com o nível. Usando o **ponto médio** da faixa de investimento de cada nível sobre o faturamento informado:\n\n`;
-    md += `| Nível-alvo | Inv. anual ref. (≈ médio da faixa MIT) | Retorno anual médio esperado (ROI médio × investimento) |\n`;
-    md += `|:---:|:---:|:---:|\n`;
+    md += `| Nível-alvo | Inv. anual ref. (≈ médio MIT) | Ganho líquido anual médio | Benefício bruto anual (líq. + invest.) |\n`;
+    md += `|:---:|:---:|:---:|:---:|\n`;
     for (let n = 1; n <= 5; n++) {
       const r = MIT_ROI_POR_NIVEL[n];
       const pctInvMed = (r.investPctMin + r.investPctMax) / 2;
       const inv = fat * (pctInvMed / 100);
-      const retornoMed = inv * (r.roiMed / 100);
-      md += `| ${n} | R$ ${Math.round(inv).toLocaleString('pt-BR')} | R$ ${Math.round(retornoMed).toLocaleString('pt-BR')} |\n`;
+      const ganhoLiquido = inv * (r.roiMed / 100);
+      const beneficioBruto = inv + ganhoLiquido;
+      md += `| ${n} | R$ ${Math.round(inv).toLocaleString('pt-BR')} | R$ ${Math.round(ganhoLiquido).toLocaleString('pt-BR')} | R$ ${Math.round(beneficioBruto).toLocaleString('pt-BR')} |\n`;
     }
     md += `\n*Valores ilustrativos para comunicar **ganho de longo prazo ao mudar de nível**; não são garantia contratual.*\n`;
   } else {

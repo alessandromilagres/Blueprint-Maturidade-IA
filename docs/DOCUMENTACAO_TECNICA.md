@@ -360,6 +360,31 @@ Benefícios:
 - Mantém histórico na biblioteca.
 - Separa relatórios por tipo e filtro de prioridade.
 
+### 10.1 Metodologia de ROI (projeções financeiras)
+
+Implementação técnica da separação entre benefício bruto, investimento e ROI líquido.
+
+| Módulo | Caminho |
+|--------|---------|
+| Métricas e blocos Markdown para IA | `backend/src/utils/metodologiaRoiFinanceiro.js` |
+| Projeção calibrada (cenários) | `backend/src/utils/roiPorFaturamento.js` |
+| Trajetória MIT por nível | `backend/src/utils/mitTrajetoriaFinanceira.js` |
+| Modelo narrativo “Ganho no longo prazo” | `backend/src/utils/bookModoRapidoMarkdown.js` |
+| UI — nota metodológica | `frontend/src/components/NotaMetodologiaRoi.jsx` |
+| Espelho frontend | `frontend/src/utils/metodologiaRoiFinanceiro.js`, `roiPorFaturamento.js` |
+
+Função central:
+
+```javascript
+calcularMetricasCenarioFinanceiro(beneficioBruto, investimentoAnual)
+// ganhoLiquidoAnual = beneficioBruto - investimento
+// roiLiquidoPct = (ganhoLiquido / investimento) * 100
+```
+
+`projecaoFinanceiraRelatorio({ faturamentoAnualProjeto, scoreGeral })` alimenta dashboards, relatórios técnicos/executivos e o bloco `dadosBlock` dos prompts de book/relatório IA em `backend/src/index.js`.
+
+Documentação funcional e fundamento teórico: [`docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`](Atual/METODOLOGIA_ROI_FINANCEIRO.md).
+
 ---
 
 ## 11. Especificação Automática
@@ -535,6 +560,7 @@ Regras principais:
 
 - `README.md`
 - `docs/COMO_SISTEMA_FUNCIONA.md`
+- `docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`
 - `docs/MANUAL_USUARIO_ADMINISTRADOR.md`
 - `docs/MANUAL_CICD_AZURE_DEVOPS.md`
 - `docs/ESPECIFICACAO_AUTOMATICA.md`

@@ -119,3 +119,27 @@ Causa provável: nomes das áreas em produção **diferentes** dos esperados (ac
 - `backend/prisma/migrations/20260616120000_alinhar_ordem_d13_d14/migration.sql`
 - `backend/src/utils/ordemDimensoesFramework.js`
 - `backend/prisma/seed.js` (ordem 13/14 já correta para ambientes novos)
+
+---
+
+## Relatórios IA — atribuição SysMap (não MIT)
+
+Nos books e relatórios executivos gerados por IA:
+
+- **Consultores são da SysMap Solutions**, não do MIT nem do MIT CISR.
+- MIT CISR é **referência metodológica** (benchmark), não autoria ou validação do documento.
+- Prompts: `backend/src/constants/consultorRelatorioIA.js`
+- UI/export Word: `frontend/src/constants/consultorRelatorioIA.js`
+
+Relatórios **já salvos na biblioteca** mantêm o texto antigo até serem regenerados.
+
+---
+
+## ROI e projeções financeiras (books e relatórios)
+
+Ao alterar lógica ou redação financeira, consulte e mantenha alinhado:
+
+- **Documentação:** `docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`
+- **Regra:** separar **benefício bruto**, **investimento**, **ganho líquido** e **ROI líquido %**; nunca apresentar múltiplo bruto (benefício÷investimento) como ROI líquido
+- **Benchmark MIT:** faixas por nível = ROI líquido típico *sobre investimento em IA*, não margem sobre faturamento
+- **Código:** `metodologiaRoiFinanceiro.js`, `roiPorFaturamento.js`, `mitTrajetoriaFinanceira.js`, prompts em `backend/src/index.js` (bloco `dadosBlock` / Seção 8)

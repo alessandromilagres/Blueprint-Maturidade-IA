@@ -4,16 +4,19 @@ import { prisma, refreshUsuarioNivelPrioridadeColumnFlag, usuarioCreateCompat } 
 import { generateToken, authMiddleware } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validate.js';
 import { authSchemas } from '../validators/schemas.js';
+import { empresaIncludeSeguro, probeEmpresaLogoPathColumn } from '../utils/empresaLogo.js';
 
 const router = express.Router();
 
 router.post('/login', validate(authSchemas.login), async (req, res) => {
   try {
     const { email, senha } = req.body;
+
+    await probeEmpresaLogoPathColumn(prisma);
     
     const usuario = await prisma.usuario.findUnique({
       where: { email },
-      include: { empresa: true }
+      include: empresaIncludeSeguro()
     });
     
     if (!usuario) {
@@ -98,7 +101,7 @@ router.post('/registro', validate(authSchemas.registro), async (req, res) => {
         empresaId,
         role: 'avaliador'
       },
-      include: { empresa: true }
+      include: empresaIncludeSeguro()
     });
     
     const token = generateToken(usuario);

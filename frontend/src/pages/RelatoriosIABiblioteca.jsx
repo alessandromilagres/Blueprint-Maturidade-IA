@@ -147,7 +147,7 @@ export default function RelatoriosIABiblioteca() {
         </div>
         <p className="text-slate-300 text-sm max-w-3xl">
           Versões persistidas dos relatórios <strong className="text-purple-200">Estratégico C-Level</strong> e{' '}
-          <strong className="text-emerald-200">Book de Trabalho Completo</strong> validados pela metodologia MIT CISR. 
+          <strong className="text-emerald-200">Book de Trabalho Completo</strong> estruturados pela metodologia SysMap Blueprint IA (referência MIT CISR).
           Cada geração cria uma nova versão consultável aqui.
         </p>
       </div>

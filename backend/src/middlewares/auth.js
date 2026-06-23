@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
+import { empresaIncludeSeguro, probeEmpresaLogoPathColumn } from '../utils/empresaLogo.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'blueprint-ia-secret-key-change-in-production';
 
 export function generateToken(usuario) {
@@ -48,10 +49,12 @@ export async function authMiddleware(req, res, next) {
     if (!decoded) {
       return res.status(401).json({ error: 'Token inválido ou expirado' });
     }
+
+    await probeEmpresaLogoPathColumn(prisma);
     
     const usuario = await prisma.usuario.findUnique({
       where: { id: decoded.id },
-      include: { empresa: true }
+      include: empresaIncludeSeguro()
     });
     
     if (!usuario) {

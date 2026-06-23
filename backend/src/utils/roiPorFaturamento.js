@@ -2,6 +2,7 @@
  * Percentual-base de referência para projeções de valor/ROI sobre o faturamento anual do projeto.
  * Faixas: menor faturamento → maior % típico de impacto relativo; maior faturamento → menor % (base maior em R$).
  */
+import { enriquecerCenarioFinanceiro } from './metodologiaRoiFinanceiro.js';
 export function percentualReferenciaRoi(faturamentoAnual) {
   if (faturamentoAnual == null || Number(faturamentoAnual) <= 0) return null;
   const x = Number(faturamentoAnual);
@@ -43,15 +44,21 @@ export function projecaoFinanceiraRelatorio({ faturamentoAnualProjeto, scoreGera
 
   if (!fat || pctRef == null) {
     const baseInvestimento = scoreGeral < 2 ? 500000 : scoreGeral < 3 ? 350000 : 200000;
+    const mk = (multEco, payback) =>
+      enriquecerCenarioFinanceiro(
+        { payback, economia: baseInvestimento * multEco },
+        baseInvestimento
+      );
     return {
       usaFaturamento: false,
       faturamentoAnualProjeto: null,
       percentualReferenciaRoi: null,
       baseInvestimento,
+      investimentoAnualReferencia: baseInvestimento,
       cenarios: {
-        conservador: { roi: 1.5, payback: 18, economia: baseInvestimento * 0.8 },
-        base: { roi: 2.5, payback: 12, economia: baseInvestimento * 1.5 },
-        agressivo: { roi: 4.0, payback: 8, economia: baseInvestimento * 2.5 }
+        conservador: mk(0.8, 18),
+        base: mk(1.5, 12),
+        agressivo: mk(2.5, 8)
       }
     };
   }
@@ -66,7 +73,14 @@ export function projecaoFinanceiraRelatorio({ faturamentoAnualProjeto, scoreGera
   const paybackMeses = (eco) =>
     eco > 0 && investimentoAnual > 0 ? Math.max(3, Math.ceil(investimentoAnual / (eco / 12))) : null;
 
-  const roiX = (eco) => (investimentoAnual > 0 ? eco / investimentoAnual : 0);
+  const mkCenario = (beneficioBruto, paybackDefault) =>
+    enriquecerCenarioFinanceiro(
+      {
+        payback: paybackMeses(beneficioBruto) ?? paybackDefault,
+        economia: beneficioBruto
+      },
+      investimentoAnual
+    );
 
   return {
     usaFaturamento: true,
@@ -74,21 +88,9 @@ export function projecaoFinanceiraRelatorio({ faturamentoAnualProjeto, scoreGera
     percentualReferenciaRoi: pctRef,
     investimentoAnualReferencia: investimentoAnual,
     cenarios: {
-      conservador: {
-        roi: parseFloat(roiX(economiaCons).toFixed(2)),
-        payback: paybackMeses(economiaCons) ?? 18,
-        economia: economiaCons
-      },
-      base: {
-        roi: parseFloat(roiX(economiaBase).toFixed(2)),
-        payback: paybackMeses(economiaBase) ?? 12,
-        economia: economiaBase
-      },
-      agressivo: {
-        roi: parseFloat(roiX(economiaAgr).toFixed(2)),
-        payback: paybackMeses(economiaAgr) ?? 8,
-        economia: economiaAgr
-      }
+      conservador: mkCenario(economiaCons, 18),
+      base: mkCenario(economiaBase, 12),
+      agressivo: mkCenario(economiaAgr, 8)
     }
   };
 }

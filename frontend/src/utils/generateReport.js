@@ -10,6 +10,7 @@ import {
   nivelNumericoDeScore,
   faixaNivelPorScore
 } from './nivelMaturidadeRubrica.js';
+import { fetchEmpresaLogoDataUrl } from '../hooks/useEmpresaLogo.js';
 
 // =============================================================================
 // BENCHMARKING POR VERTICAL (Dados de mercado baseados em pesquisas de 2024)
@@ -1676,6 +1677,23 @@ function formatDate(date) {
   });
 }
 
+function htmlLogoEmpresaCapa(dashboardData) {
+  const logoDataUrl = dashboardData?.logoDataUrl;
+  if (!logoDataUrl) return '';
+  return `<div style="margin-bottom:20pt;text-align:center;"><img src="${logoDataUrl}" alt="Logo da empresa" style="max-height:72pt;max-width:220pt;object-fit:contain;" /></div>`;
+}
+
+export async function prepararDashboardComLogo(dashboardData) {
+  if (!dashboardData) return dashboardData;
+  const empresaId = dashboardData.empresaId ?? dashboardData.empresa?.id;
+  const disponivel = dashboardData.empresaLogoDisponivel;
+  if (!disponivel || !empresaId) {
+    return { ...dashboardData, logoDataUrl: null };
+  }
+  const logoDataUrl = await fetchEmpresaLogoDataUrl(empresaId);
+  return { ...dashboardData, logoDataUrl };
+}
+
 export function generateWordReport(dashboardData) {
   const maturityLevel = getMaturityLevelFromScore(dashboardData.scoreGeral);
   const { projecao: projFin, notaFaturamento } = getProjecaoFinanceiraAjustada(dashboardData);
@@ -1827,6 +1845,7 @@ export function generateWordReport(dashboardData) {
 <!-- CAPA -->
 <!-- ============================================ -->
 <div class="header">
+  ${htmlLogoEmpresaCapa(dashboardData)}
   <div class="logo">Sys<span>Map</span> Solutions</div>
   <div class="subtitle">Blueprint IA — Relatório Técnico de Maturidade em Inteligência Artificial</div>
 </div>
@@ -3815,7 +3834,7 @@ ${vertical && BENCHMARKING_POR_VERTICAL[vertical] ? `
   return html;
 }
 
-export function downloadWordDocument(dashboardData) {
+export async function downloadWordDocument(dashboardData) {
   try {
     // Validar dados de entrada
     if (!dashboardData) {
@@ -3830,7 +3849,8 @@ export function downloadWordDocument(dashboardData) {
       return;
     }
     
-    const html = generateWordReport(dashboardData);
+    const dados = await prepararDashboardComLogo(dashboardData);
+    const html = generateWordReport(dados);
     
     if (!html) {
       console.error('downloadWordDocument: HTML gerado é vazio');
@@ -3972,6 +3992,7 @@ export function generateExecutiveWordReport(dashboardData) {
 
 <!-- CAPA -->
 <div class="cover">
+  ${htmlLogoEmpresaCapa(dashboardData)}
   <p style="color: #64748b; font-size: 12pt; text-transform: uppercase; letter-spacing: 3px;">Relatório Executivo</p>
   <h1 class="cover-title" style="border: none;">Maturidade em Inteligência Artificial</h1>
   <p class="cover-subtitle">Assessment Estratégico • MIT CISR Framework</p>
@@ -4205,7 +4226,7 @@ ${top5Gaps.slice(0, 3).map(gap => {
   return html;
 }
 
-export function downloadExecutiveWordDocument(dashboardData) {
+export async function downloadExecutiveWordDocument(dashboardData) {
   try {
     if (!dashboardData) {
       console.error('downloadExecutiveWordDocument: dashboardData é undefined');
@@ -4213,7 +4234,8 @@ export function downloadExecutiveWordDocument(dashboardData) {
       return;
     }
     
-    const html = generateExecutiveWordReport(dashboardData);
+    const dados = await prepararDashboardComLogo(dashboardData);
+    const html = generateExecutiveWordReport(dados);
     
     if (!html) {
       console.error('downloadExecutiveWordDocument: HTML gerado é vazio');
@@ -4251,10 +4273,12 @@ export function downloadExecutiveWordDocument(dashboardData) {
 }
 
 // Função para converter relatório individual em formato de dashboard
-export function downloadWordFromRelatorio(relatorio) {
+export async function downloadWordFromRelatorio(relatorio) {
   const dashboardData = {
     projeto: relatorio.projeto,
     empresa: relatorio.empresa,
+    empresaId: relatorio.empresaId ?? relatorio.empresa?.id,
+    empresaLogoDisponivel: relatorio.empresaLogoDisponivel,
     scoreGeral: relatorio.scoreGeral,
     nivelGeral: relatorio.nivelGeral,
     classificacao: getClassificacao(relatorio.scoreGeral),
@@ -4271,7 +4295,7 @@ export function downloadWordFromRelatorio(relatorio) {
     }]
   };
   
-  downloadWordDocument(dashboardData);
+  await downloadWordDocument(dashboardData);
 }
 
 function getClassificacao(score) {
@@ -4378,6 +4402,7 @@ export function generateUserReport(avaliador, dashboardData) {
 <body>
 
 <div class="header">
+  ${htmlLogoEmpresaCapa(dashboardData)}
   <div class="logo">Sys<span>Map</span> Solutions</div>
   <div class="subtitle">Blueprint IA — Relatório Completo de Avaliação Individual</div>
 </div>
@@ -4583,7 +4608,7 @@ ${Object.keys(respostasPorArea).length > 0 ? Object.entries(respostasPorArea).ma
   return html;
 }
 
-export function downloadUserReport(avaliador, dashboardData) {
+export async function downloadUserReport(avaliador, dashboardData) {
   try {
     // Validar dados de entrada
     if (!avaliador || !avaliador.nome) {
@@ -4598,7 +4623,8 @@ export function downloadUserReport(avaliador, dashboardData) {
       return;
     }
     
-    const html = generateUserReport(avaliador, dashboardData);
+    const dados = await prepararDashboardComLogo(dashboardData);
+    const html = generateUserReport(avaliador, dados);
     
     if (!html) {
       console.error('downloadUserReport: HTML gerado é vazio');

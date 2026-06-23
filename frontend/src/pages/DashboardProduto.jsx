@@ -6,7 +6,12 @@ import {
   ChevronDown, ChevronUp, Bot, DollarSign, Calendar, Clock, Percent,
   Sparkles, FileText, Layers
 } from 'lucide-react';
-import { dashboardApi } from '../services/api';
+import { dashboardApi, regulatorioApi } from '../services/api';
+import StatusRegulatorioProduto from '../components/StatusRegulatorioProduto';
+import CicloRegulatorioProduto from '../components/CicloRegulatorioProduto';
+import NotificacoesRegulatorias from '../components/NotificacoesRegulatorias';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, RadialLinearScale, PointElement, LineElement } from 'chart.js';
 import { Doughnut, Bar, Radar } from 'react-chartjs-2';
 
@@ -33,10 +38,14 @@ function formatDate(date) {
 
 export default function DashboardProduto() {
   const { id } = useParams();
+  const { isGestor } = useAuth();
+  const toast = useToast();
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showFormulas, setShowFormulas] = useState(false);
   const [showTransformacaoDetails, setShowTransformacaoDetails] = useState(false);
+  const [acaoCiclo, setAcaoCiclo] = useState(false);
+  const [notificacoesProduto, setNotificacoesProduto] = useState(null);
 
   useEffect(() => {
     loadDashboard();
@@ -46,10 +55,57 @@ export default function DashboardProduto() {
     try {
       const data = await dashboardApi.produto(id);
       setDashboard(data);
+      if (data.regulatorySnapshot) {
+        try {
+          const n = await regulatorioApi.notificacoes({ produtoId: id });
+          setNotificacoesProduto(n);
+        } catch {
+          setNotificacoesProduto(null);
+        }
+      }
     } catch (error) {
       console.error('Erro ao carregar dashboard:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleFecharCicloRegulatorio(ciclo) {
+    if (!ciclo) return;
+    const pendencias = ciclo.checklistFechamento?.pendencias || [];
+    let forcar = false;
+    let motivo = null;
+    if (pendencias.length > 0) {
+      if (!confirm(`Pendências:\n${pendencias.map((p) => `• ${p.mensagem}`).join('\n')}\n\nForçar fechamento?`)) return;
+      motivo = prompt('Motivo do fechamento forçado:', 'Decisão executiva');
+      if (motivo == null) return;
+      forcar = true;
+    } else if (!confirm(`Fechar ${ciclo.titulo}?`)) {
+      return;
+    }
+    try {
+      setAcaoCiclo(true);
+      await regulatorioApi.fecharCiclo(id, ciclo.id, { forcar, motivo });
+      toast.success('Ciclo regulatório fechado');
+      await loadDashboard();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setAcaoCiclo(false);
+    }
+  }
+
+  async function handleAbrirProximoCiclo() {
+    if (!confirm('Abrir novo ciclo regulatório?')) return;
+    try {
+      setAcaoCiclo(true);
+      await regulatorioApi.criarCiclo(id);
+      toast.success('Novo ciclo aberto');
+      await loadDashboard();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setAcaoCiclo(false);
     }
   }
 
@@ -101,7 +157,7 @@ export default function DashboardProduto() {
     produto, projeto, empresa, totalAvaliadores, scoreRelevancia, 
     scoreObrigatorio, scoreVerticais, nivelRelevancia, nivelTransformacao,
     scoresPorPerguntaObrigatoria, scoresPorVertical, scoresPorCategoria, 
-    avaliadores, ranking, perguntasObrigatorias
+    avaliadores, ranking, perguntasObrigatorias, regulatorySnapshot, regulatorioCiclos
   } = dashboard;
 
   const gaugeData = {
@@ -216,6 +272,27 @@ export default function DashboardProduto() {
               </div>
             )}
           </div>
+        )}
+
+        {regulatorySnapshot && (
+          <>
+            {notificacoesProduto?.total > 0 && (
+              <NotificacoesRegulatorias notificacoes={notificacoesProduto} />
+            )}
+            <StatusRegulatorioProduto
+              snapshot={regulatorySnapshot}
+              produtoId={produto.id}
+              podeValidar={isGestor()}
+            />
+            <CicloRegulatorioProduto
+              produtoId={produto.id}
+              regulatorioCiclos={regulatorioCiclos}
+              podeGerenciar={isGestor()}
+              acaoEmAndamento={acaoCiclo}
+              onFechar={handleFecharCicloRegulatorio}
+              onAbrirProximo={handleAbrirProximoCiclo}
+            />
+          </>
         )}
 
         {/* Card de Prioridade Estratégica */}

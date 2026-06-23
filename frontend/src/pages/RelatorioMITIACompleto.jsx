@@ -19,6 +19,16 @@ import {
   relatorioSalvoIdFromSearchParams
 } from '../utils/filtroNivelMaturidade';
 import { relatorioBookSecao3Completo } from '../constants/ordemDimensoesFramework.js';
+import {
+  AUTOR_RELATORIO_IA,
+  LABEL_VALIDADO_METODOLOGIA,
+  RODAPE_GERADO_IA,
+  DISCLAIMER_BOOK_COMPLETO,
+  EMPRESA_CONSULTORIA,
+  METODOLOGIA_BLUEPRINT_RESUMO
+} from '../constants/consultorRelatorioIA';
+import EmpresaLogoRelatorio from '../components/EmpresaLogoRelatorio';
+import { fetchEmpresaLogoDataUrl } from '../hooks/useEmpresaLogo';
 
 function formatDurationMs(ms) {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
@@ -398,7 +408,7 @@ export default function RelatorioMITIACompleto() {
     }
   }
 
-  function handleDownloadDoc() {
+  async function handleDownloadDoc() {
     if (!data) return;
     const rapid =
       modoRapido ||
@@ -406,6 +416,9 @@ export default function RelatorioMITIACompleto() {
       data?.tipoRelatorio === 'completo_rapido' ||
       data?.dadosUsados?.modoGeracao === 'rapido';
     const projectName = bookMITCompletoSafeBaseName(data);
+    const logoDataUrl = data.dadosUsados?.empresaLogoDisponivel
+      ? await fetchEmpresaLogoDataUrl(data.dadosUsados?.empresaId)
+      : null;
     downloadMarkdownAsDoc(
       data.relatorio,
       `Book_Trabalho_Maturidade_IA_${projectName}`,
@@ -414,13 +427,14 @@ export default function RelatorioMITIACompleto() {
           ? 'Book de Trabalho (modo rápido) — Maturidade em IA'
           : 'Book de Trabalho — Maturidade em IA',
         subtitulo: rapid
-          ? 'Versão condensada MIT CISR · Roadmap · KPIs'
+          ? 'Versão condensada SysMap Blueprint IA · Roadmap · KPIs'
           : 'Análise Aprofundada por Dimensão · Roadmap · KPIs · Governança',
         empresa: data.dadosUsados?.empresa ?? '',
         projeto: data.dadosUsados?.projeto ?? '',
-        autor: 'BluePrint IA · Consultor Sênior MIT CISR',
+        autor: AUTOR_RELATORIO_IA,
         headerColor: '#0f766e',
-        accentColor: '#14b8a6'
+        accentColor: '#14b8a6',
+        logoDataUrl
       }
     );
   }
@@ -451,7 +465,7 @@ export default function RelatorioMITIACompleto() {
                   ? 'Abrindo versão salva — sem consumir tokens da IA'
                   : modoRapido
                     ? 'Versão condensada · mesma estrutura · menos chamadas à IA'
-                    : 'Análise Aprofundada · Metodologia MIT CISR Completa'}
+                    : 'Análise Aprofundada · SysMap Blueprint IA'}
               </p>
               {!carregandoBiblioteca && (
               <p className="text-slate-400 text-sm mb-8">
@@ -971,13 +985,23 @@ export default function RelatorioMITIACompleto() {
                 <div className="absolute bottom-0 left-0 w-56 h-56 bg-cyan-400/20 rounded-full translate-y-24 -translate-x-24 blur-3xl"></div>
                 
                 <div className="relative">
+                  {data?.dadosUsados?.empresaId && data?.dadosUsados?.empresaLogoDisponivel && (
+                    <div className="mb-6 flex justify-start print:mb-4">
+                      <EmpresaLogoRelatorio
+                        empresaId={data.dadosUsados.empresaId}
+                        empresaLogoDisponivel={data.dadosUsados.empresaLogoDisponivel}
+                        className="max-h-16 max-w-[220px] print:max-h-14 bg-white/10 rounded-lg p-2"
+                        alt={`Logo ${data?.dadosUsados?.empresa || ''}`}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center border border-white/30">
                       <BookOpen className="w-6 h-6 text-white" />
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-[0.3em] text-emerald-200 font-semibold">Book de Trabalho</p>
-                      <p className="text-sm text-white/90">Análise aprofundada · Metodologia MIT CISR</p>
+                      <p className="text-sm text-white/90">{LABEL_VALIDADO_METODOLOGIA}</p>
                     </div>
                   </div>
                   
@@ -1029,10 +1053,10 @@ export default function RelatorioMITIACompleto() {
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                     <div>
                       <p className="text-xs font-semibold text-emerald-900">
-                        Documento de referência produzido por Consultor Sênior IA em Estratégia de IA
+                        Documento de referência produzido pela consultoria {EMPRESA_CONSULTORIA} com apoio de IA
                       </p>
                       <p className="text-[11px] text-emerald-700">
-                        Frameworks aplicados: MIT CISR · DORA · MLOps · FinOps · NIST AI RMF · Provider: {data?.provider} · Modelo: {data?.model}
+                        {METODOLOGIA_BLUEPRINT_RESUMO} · DORA · MLOps · FinOps · NIST AI RMF · Provider: {data?.provider} · Modelo: {data?.model}
                       </p>
                     </div>
                   </div>
@@ -1072,11 +1096,11 @@ export default function RelatorioMITIACompleto() {
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <BookOpen className="w-4 h-4 text-emerald-600" />
                   <p className="text-xs font-semibold text-slate-700">
-                    Book de Trabalho gerado por Inteligência Artificial · Validado pela metodologia MIT CISR
+                    {RODAPE_GERADO_IA} · {LABEL_VALIDADO_METODOLOGIA}
                   </p>
                 </div>
                 <p className="text-[10px] text-slate-500 max-w-2xl mx-auto leading-relaxed">
-                  Este documento é uma referência aprofundada produzida por um Consultor Sênior IA com expertise em Enterprise AI Maturity Model do MIT CISR. As recomendações, KPIs e roadmaps devem ser contextualizados pela liderança antes da execução. Projeções financeiras são referenciais.
+                  {DISCLAIMER_BOOK_COMPLETO}
                 </p>
                 <p className="text-[10px] text-slate-400 mt-2">
                   Gerado em {new Date().toLocaleString('pt-BR')} · BluePrint IA

@@ -204,6 +204,20 @@ Todo relatório gerado por IA pode ser salvo com:
 
 Isso permite rastreabilidade e comparação entre versões.
 
+### 7.4 Metodologia de ROI e projeções financeiras
+
+Books e relatórios financeiros seguem uma metodologia explícita que separa:
+
+- **Benefício bruto** — valor econômico anual estimado *antes* de abater investimento em IA
+- **Investimento de referência** — custo anual típico em capacidades de IA
+- **Ganho líquido** — benefício bruto menos investimento (custo abatido)
+- **ROI líquido %** — métrica padrão para CFO/conselho: (ganho líquido ÷ investimento) × 100
+- **Benchmark MIT por nível** — faixa de ROI líquido típico sobre investimento em IA (referência MIT CISR / McKinsey / BCG), **não** margem sobre faturamento total
+
+Os cenários Conservador / Base / Agressivo usam o **faturamento anual do projeto** (quando cadastrado) para calibrar benefício bruto e investimento. A Seção 8 dos books e os relatórios executivos exibem tabela com as cinco colunas acima.
+
+Documentação completa com fórmulas, tabelas MIT e referência de código: [`docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`](Atual/METODOLOGIA_ROI_FINANCEIRO.md).
+
 ---
 
 ## 8. Avaliação de Produtos IA-First

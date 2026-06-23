@@ -31,6 +31,9 @@ import ProdutoForm from './pages/ProdutoForm';
 import ProdutoDetalhe from './pages/ProdutoDetalhe';
 import AvaliacaoProdutoForm from './pages/AvaliacaoProdutoForm';
 import DashboardProduto from './pages/DashboardProduto';
+import ValidacaoRegulatoriaProduto from './pages/ValidacaoRegulatoriaProduto';
+import PlanoMitigacaoRegulatoria from './pages/PlanoMitigacaoRegulatoria';
+import DashboardRegulatorioProjeto from './pages/DashboardRegulatorioProjeto';
 import DashboardProjetosRanking from './pages/DashboardProjetosRanking';
 import DashboardProjetoProdutos from './pages/DashboardProjetoProdutos';
 import DashboardProjetoFinanceiro from './pages/DashboardProjetoFinanceiro';
@@ -75,8 +78,11 @@ function App() {
           <Route path="/dashboard/projeto/:id" element={<PrivateRoute><DashboardProjeto /></PrivateRoute>} />
           <Route path="/dashboard/projeto/:id/plano-acao" element={<PrivateRoute><PlanoAcaoProjeto /></PrivateRoute>} />
           <Route path="/dashboard/projeto/:id/evolucao" element={<PrivateRoute><EvolucaoProjeto /></PrivateRoute>} />
+          <Route path="/dashboard/projeto/:id/regulatorio" element={<PrivateRoute><DashboardRegulatorioProjeto /></PrivateRoute>} />
           <Route path="/dashboard/empresa/:id" element={<PrivateRoute><DashboardEmpresa /></PrivateRoute>} />
           <Route path="/dashboard/produto/:id" element={<PrivateRoute><DashboardProduto /></PrivateRoute>} />
+          <Route path="/dashboard/produto/:id/regulatorio" element={<PrivateRoute><ValidacaoRegulatoriaProduto /></PrivateRoute>} />
+          <Route path="/dashboard/produto/:id/regulatorio/mitigacao" element={<PrivateRoute><PlanoMitigacaoRegulatoria /></PrivateRoute>} />
           <Route path="/dashboard/projetos-ranking" element={<PrivateRoute><DashboardProjetosRanking /></PrivateRoute>} />
           <Route path="/dashboard/projeto-produtos/:id" element={<PrivateRoute><DashboardProjetoProdutos /></PrivateRoute>} />
           <Route path="/dashboard/projeto-financeiro/:id" element={<PrivateRoute><DashboardProjetoFinanceiro /></PrivateRoute>} />

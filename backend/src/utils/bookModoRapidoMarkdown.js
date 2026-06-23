@@ -35,7 +35,7 @@ export function blocoGanhoLongoPrazoMitBookRapido({ scoreGeral, faturamentoAnual
 
   md += `**2) O que o ROI do modelo NÃO é**\n`;
   md += `Os percentuais de ROI por nível **não** representam lucro da empresa sobre o faturamento total nem margem líquida automática. `;
-  md += `Eles indicam, em média, **quanto retorno típico se obtém sobre cada real investido em IA** naquele estágio de maturidade.\n\n`;
+  md += `Eles indicam **ROI líquido típico** — (benefício bruto − investimento em IA) ÷ investimento — naquele estágio de maturidade (referência MIT CISR / McKinsey / BCG).\n\n`;
 
   md += `**3) Por que o ganho parece modesto agora**\n`;
   md += `No **Nível ${n0}**, parte do esforço ainda é **fundação** (dados, governança, pilotos). `;
@@ -52,9 +52,9 @@ export function blocoGanhoLongoPrazoMitBookRapido({ scoreGeral, faturamentoAnual
     const pctInv1 = (r1.investPctMin + r1.investPctMax) / 2;
     const inv0 = fat * (pctInv0 / 100);
     const inv1 = fat * (pctInv1 / 100);
-    const ret0 = inv0 * (r0.roiMed / 100);
-    const ret1 = inv1 * (r1.roiMed / 100);
-    md += `\n*Ordem de grandeza (premissa MIT, faturamento R$ ${fat.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}): investimento médio em IA ~R$ ${Math.round(inv0).toLocaleString('pt-BR')} no nível ${n0} vs ~R$ ${Math.round(inv1).toLocaleString('pt-BR')} no nível ${n1}; retorno médio esperado sobre esse investimento ~R$ ${Math.round(ret0).toLocaleString('pt-BR')} → ~R$ ${Math.round(ret1).toLocaleString('pt-BR')}.*\n`;
+    const ganho0 = inv0 * (r0.roiMed / 100);
+    const ganho1 = inv1 * (r1.roiMed / 100);
+    md += `\n*Ordem de grandeza (premissa MIT, faturamento R$ ${fat.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}): investimento médio em IA ~R$ ${Math.round(inv0).toLocaleString('pt-BR')} (nível ${n0}) → ~R$ ${Math.round(inv1).toLocaleString('pt-BR')} (nível ${n1}); ganho líquido médio ~R$ ${Math.round(ganho0).toLocaleString('pt-BR')} → ~R$ ${Math.round(ganho1).toLocaleString('pt-BR')} (custo abatido).*\n`;
   }
 
   md += `\n*(Referência detalhada: bloco "Trajetória de valor MIT CISR" abaixo.)*\n`;
@@ -300,9 +300,7 @@ export function blocoDadosExtrasBookRapido({
     .map((dim) => `### Tabela — ${dim.area}\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`)
     .join('\n\n');
 
-  return `${blocoGanhoLongoPrazoMitBookRapido({ scoreGeral, faturamentoAnualProjeto })}
-
-## Tabelas de scores por dimensão (reproduza no book; **não remova a última linha** de cada tabela)
+  return `## Tabelas de scores por dimensão (reproduza no book; **não remova a última linha** de cada tabela)
 
 ${tabelasDim}
 

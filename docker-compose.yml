@@ -34,11 +34,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-1.0.0}
+        RELEASE_ID: ${RELEASE_ID:-dev-local}
     container_name: blueprint-ia-backend
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3001
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      RELEASE_ID: ${RELEASE_ID:-dev-local}
       DATABASE_URL: postgresql://${POSTGRES_USER:-blueprint}:${POSTGRES_PASSWORD:-blueprint123}@postgres:5432/${POSTGRES_DB:-blueprint_ia}?schema=public
       JWT_SECRET: ${JWT_SECRET:-seu_jwt_secret_aqui_mude_em_producao}
       # Email configuration (opcional)
@@ -70,6 +75,8 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: /api
+        VITE_APP_VERSION: ${APP_VERSION:-1.0.0}
+        VITE_RELEASE_ID: ${RELEASE_ID:-dev-local}
     container_name: blueprint-ia-frontend
     restart: unless-stopped
     ports:

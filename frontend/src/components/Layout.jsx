@@ -25,6 +25,10 @@ import {
   Activity,
   Mail,
   Gauge,
+  GitBranch,
+  Target,
+  TrendingUp,
+  Info,
 } from 'lucide-react';
 import { useTheme, COLOR_THEMES } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -244,6 +248,10 @@ export default function Layout() {
                   isAdmin={isAdmin()}
                   items={[
                     { to: '/estagio-ai-first', icon: Sparkles, label: 'Estágio AI-First' },
+                    { to: '/ir/roadmap-produtos', icon: TrendingUp, label: 'Classificação & Roadmap de Produtos' },
+                    { to: '/ir/roadmap', icon: GitBranch, label: 'Roadmap de Iniciativas' },
+                    { to: '/ir/executive-dashboard', icon: BarChart3, label: 'Executive Dashboard' },
+                    { to: '/ir/produtos-command-center', icon: Target, label: 'Produtos Command Center' },
                     { to: '/dashboard/prontidao', icon: Gauge, label: 'Prontidão Executiva' },
                     { to: '/dashboard/comparativo-empresa', icon: Building2, label: 'Comparativo por Empresa' },
                     { to: '/dashboard/projetos-ranking', icon: BarChart3, label: 'Ranking Projetos' },
@@ -391,6 +399,20 @@ export default function Layout() {
                         >
                           <Mail className="w-4 h-4" />
                           E-mail convite avaliação
+                        </NavLink>
+                        <NavLink
+                          to="/admin/sobre"
+                          onClick={() => setUserMenuOpen(false)}
+                          className={({ isActive }) =>
+                            `w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors ${
+                              isActive
+                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`
+                          }
+                        >
+                          <Info className="w-4 h-4" />
+                          Sobre
                         </NavLink>
                       </>
                     )}

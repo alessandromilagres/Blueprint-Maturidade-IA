@@ -11,6 +11,7 @@ import Empresas from './pages/Empresas';
 import EmpresaDetalhe from './pages/EmpresaDetalhe';
 import Projetos from './pages/Projetos';
 import ProjetoDetalhe from './pages/ProjetoDetalhe';
+import CertificacaoSatfProjeto from './pages/CertificacaoSatfProjeto';
 import ProjetoDesejosIaDashboard from './pages/ProjetoDesejosIaDashboard';
 import Avaliacoes from './pages/Avaliacoes';
 import AvaliacaoForm from './pages/AvaliacaoForm';
@@ -34,8 +35,14 @@ import DashboardProduto from './pages/DashboardProduto';
 import ValidacaoRegulatoriaProduto from './pages/ValidacaoRegulatoriaProduto';
 import PlanoMitigacaoRegulatoria from './pages/PlanoMitigacaoRegulatoria';
 import DashboardRegulatorioProjeto from './pages/DashboardRegulatorioProjeto';
+import EngenhariaValorProduto from './pages/EngenhariaValorProduto';
+import RoadmapProdutos from './pages/RoadmapProdutos';
+import RoadmapTimeline from './pages/RoadmapTimeline';
+import ExecutiveDashboard from './pages/ExecutiveDashboard';
 import DashboardProjetosRanking from './pages/DashboardProjetosRanking';
 import DashboardProjetoProdutos from './pages/DashboardProjetoProdutos';
+import ProdutosCommandCenter from './pages/ProdutosCommandCenter';
+import EscolherProjetoDestino from './pages/EscolherProjetoDestino';
 import DashboardProjetoFinanceiro from './pages/DashboardProjetoFinanceiro';
 import Usuarios from './pages/Usuarios';
 import ConviteAvaliacao from './pages/ConviteAvaliacao';
@@ -55,6 +62,7 @@ import Observabilidade from './pages/Observabilidade';
 import AcompanhamentoAvaliadores from './pages/AcompanhamentoAvaliadores';
 import AnaliseAvaliacoes from './pages/AnaliseAvaliacoes';
 import AdminEmailConviteAvaliacao from './pages/AdminEmailConviteAvaliacao';
+import Sobre from './pages/Sobre';
 import AvaliadorEntrada from './pages/AvaliadorEntrada';
 
 function App() {
@@ -79,12 +87,17 @@ function App() {
           <Route path="/dashboard/projeto/:id/plano-acao" element={<PrivateRoute><PlanoAcaoProjeto /></PrivateRoute>} />
           <Route path="/dashboard/projeto/:id/evolucao" element={<PrivateRoute><EvolucaoProjeto /></PrivateRoute>} />
           <Route path="/dashboard/projeto/:id/regulatorio" element={<PrivateRoute><DashboardRegulatorioProjeto /></PrivateRoute>} />
+          <Route path="/dashboard/projeto/:id/roadmap" element={<PrivateRoute><RoadmapTimeline /></PrivateRoute>} />
+          <Route path="/dashboard/projeto/:id/roadmap-produtos" element={<PrivateRoute><RoadmapProdutos /></PrivateRoute>} />
+          <Route path="/dashboard/projeto/:id/executive-dashboard" element={<PrivateRoute><ExecutiveDashboard /></PrivateRoute>} />
           <Route path="/dashboard/empresa/:id" element={<PrivateRoute><DashboardEmpresa /></PrivateRoute>} />
           <Route path="/dashboard/produto/:id" element={<PrivateRoute><DashboardProduto /></PrivateRoute>} />
           <Route path="/dashboard/produto/:id/regulatorio" element={<PrivateRoute><ValidacaoRegulatoriaProduto /></PrivateRoute>} />
           <Route path="/dashboard/produto/:id/regulatorio/mitigacao" element={<PrivateRoute><PlanoMitigacaoRegulatoria /></PrivateRoute>} />
+          <Route path="/dashboard/produto/:id/engenharia-valor" element={<PrivateRoute><EngenhariaValorProduto /></PrivateRoute>} />
           <Route path="/dashboard/projetos-ranking" element={<PrivateRoute><DashboardProjetosRanking /></PrivateRoute>} />
           <Route path="/dashboard/projeto-produtos/:id" element={<PrivateRoute><DashboardProjetoProdutos /></PrivateRoute>} />
+          <Route path="/dashboard/projeto/:id/produtos-command-center" element={<PrivateRoute><ProdutosCommandCenter /></PrivateRoute>} />
           <Route path="/dashboard/projeto-financeiro/:id" element={<PrivateRoute><DashboardProjetoFinanceiro /></PrivateRoute>} />
           <Route path="/avaliador/entrada" element={<PrivateRoute><AvaliadorEntrada /></PrivateRoute>} />
           
@@ -96,6 +109,7 @@ function App() {
             <Route path="projetos" element={<Projetos />} />
             <Route path="projetos/:id/desejos-ia" element={<ProjetoDesejosIaDashboard />} />
             <Route path="projetos/:id" element={<ProjetoDetalhe />} />
+            <Route path="projetos/:id/certificacao" element={<CertificacaoSatfProjeto />} />
             <Route path="avaliacoes" element={<Avaliacoes />} />
             <Route path="acompanhamento-avaliadores" element={<AcompanhamentoAvaliadores />} />
             <Route path="analise-avaliacoes" element={<AnaliseAvaliacoes />} />
@@ -109,6 +123,7 @@ function App() {
             <Route path="relatorios/:id/mit-ia" element={<RelatorioMITIA />} />
             <Route path="relatorios/:id/mit-ia-completo" element={<RelatorioMITIACompleto />} />
             <Route path="biblioteca-ia" element={<RelatoriosIABiblioteca />} />
+            <Route path="ir/:destino" element={<EscolherProjetoDestino />} />
             {/* Módulo de Produto IA-First */}
             <Route path="produtos" element={<Produtos />} />
             <Route path="produtos/novo" element={<ProdutoEscolhaModelo />} />
@@ -123,6 +138,7 @@ function App() {
             {/* Gestão de Usuários */}
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="observabilidade" element={<AdminRoute><Observabilidade /></AdminRoute>} />
+            <Route path="admin/sobre" element={<AdminRoute><Sobre /></AdminRoute>} />
             <Route path="admin/email-convite-avaliacao" element={<AdminRoute><AdminEmailConviteAvaliacao /></AdminRoute>} />
             <Route path="arquiteturas-referencia" element={<ArquiteturasReferenciaLista />} />
             <Route path="arquiteturas-referencia/nova" element={<ArquiteturaReferenciaForm />} />

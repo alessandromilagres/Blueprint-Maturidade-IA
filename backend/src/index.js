@@ -19,6 +19,12 @@ import relatoriosIARoutes, { salvarRelatorioIA } from './routes/relatorios-ia.js
 import relatoriosIAJobsRoutes from './routes/relatorios-ia-jobs.js';
 import empresaLogoRoutes from './routes/empresa-logo.js';
 import regulatorioRoutes from './routes/regulatorio.js';
+import iniciativasRoutes from './routes/iniciativas.js';
+import engenhariaValorRoutes from './routes/engenhariaValor.js';
+import projetoDimensoesRoutes from './routes/projetoDimensoes.js';
+import projetoCertificacaoRoutes from './routes/projetoCertificacao.js';
+import projetoContextoRoutes from './routes/projetoContexto.js';
+import { getReleaseInfo } from './constants/releaseInfo.js';
 import { authMiddleware, roleMiddleware, generateToken } from './middlewares/auth.js';
 import { validate, globalSanitizer } from './middlewares/validate.js';
 import { 
@@ -110,6 +116,51 @@ import {
   calcularScoresConsolidadoMaturidade,
   nivelNumericoDeScore
 } from './utils/scoresConsolidadoProjetoMaturidade.js';
+import {
+  ensureProjetoDimensaoConfigSchema,
+  pesosAtivosPorAreaDoProjeto,
+  areaIdsAtivosDoProjeto,
+  mapaApresentacaoDimensoes
+} from './utils/projetoDimensoesConfig.js';
+import {
+  ensureProjetoContextoSchema,
+  blocoContextoProjetoMarkdown,
+  projetoTemContextoCadastrado,
+  blocoInstrucoesSistemaSecao3ComContexto,
+  blocoInstrucoesPromptSecao3Dimensao,
+  blocoInstrucoesSistemaExecutivoComContexto
+} from './utils/projetoContexto.js';
+import { listarFrameworksParaApi, FRAMEWORK_BLUEPRINT_16 } from './constants/frameworkMaturidadePolicy.js';
+import {
+  ensureProjetoFrameworkSchema,
+  salvarFrameworkProjeto,
+  enriquecerProjetoComFramework,
+  enriquecerProjetosComFramework,
+  extrairCamposFrameworkDoBody,
+  removerCamposFrameworkDoBody,
+  travarFrameworkSeRespostasSalvas,
+  carregarFrameworkProjeto
+} from './utils/projetoFramework.js';
+import {
+  ensureAreaFrameworkSchema,
+  ensureSatfFrameworkSeed,
+  listarAreasDoProjeto,
+  listarAreasPorFramework
+} from './utils/areaFrameworkCatalog.js';
+import {
+  areaForaDaMediaGeral,
+  metodologiaScoreFramework
+} from './utils/frameworkScoringPolicy.js';
+import {
+  exigeEvidenciaSatf,
+  evidenciaPreenchida,
+  frameworkExigeEvidenciaSatf,
+  mensagemErroEvidenciasSatf,
+  validarEvidenciasSatfObrigatorias
+} from './utils/satfEvidenciaObrigatoria.js';
+import { enriquecerScoresDashboardSatf } from './utils/projetoDimensaoCertificacao.js';
+import { executarGeracaoBookSatf } from './utils/satfBookIA.js';
+import { FRAMEWORK_SATF_TI_V3 } from './constants/frameworkMaturidadePolicy.js';
 import { NOMES_NIVEL_BLUEPRINT, faixaNivelPorScore } from './utils/nivelMaturidadeRubrica.js';
 import { blocoGuiaProgressaoDimensao } from './utils/guiasProgressaoFramework.js';
 import {
@@ -130,6 +181,8 @@ import {
   resumoRegulatorioProjeto
 } from './utils/regulatorioCrosswalk.js';
 import { calculateRegulatorySnapshot, obterRegulatorySnapshotProduto } from './utils/regulatorioSnapshot.js';
+import { montarProdutosCommandCenter } from './utils/produtosCommandCenter.js';
+import { montarExecutiveDashboard } from './utils/executiveDashboard.js';
 import { listarCiclosProduto } from './utils/regulatorioCiclo.js';
 import {
   gerarSecao14RegulatorioBookMarkdown,
@@ -512,7 +565,8 @@ async function listarEventosAvaliacaoPorProjeto(projetoId) {
   }
 }
 
-function calcularAlertasQualidadeAvaliacao(avaliacao) {
+function calcularAlertasQualidadeAvaliacao(avaliacao, options = {}) {
+  const frameworkMaturidade = options.frameworkMaturidade;
   if (!avaliacao) {
     return { status: 'sem_dados', alertas: [], alertasRespostas: [] };
   }
@@ -564,6 +618,19 @@ function calcularAlertasQualidadeAvaliacao(avaliacao) {
         pergunta: pergunta?.texto || `Pergunta #${resposta.perguntaId}`,
         area: area?.nome || null,
         mensagem: `Nota ${resposta.pontuacao} sem observação/evidência.`
+      });
+    } else if (
+      frameworkExigeEvidenciaSatf(frameworkMaturidade) &&
+      exigeEvidenciaSatf(resposta) &&
+      !evidenciaPreenchida(observacoes)
+    ) {
+      alertasRespostas.push({
+        tipo: 'nota_alta_sem_evidencia_satf',
+        severidade: 'alta',
+        perguntaId: resposta.perguntaId,
+        pergunta: pergunta?.texto || `Pergunta #${resposta.perguntaId}`,
+        area: area?.nome || null,
+        mensagem: `Nota ${resposta.pontuacao} (≥ 4) sem evidência documentada nas observações.`
       });
     }
   }
@@ -864,6 +931,11 @@ app.use('/api/auth', authRoutes);
 // Rota de health check (pública)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Versão e release ID (pública — comparação dev/prod)
+app.get('/api/release-info', (req, res) => {
+  res.json(getReleaseInfo());
 });
 
 // Rota temporária para aplicar migrações pendentes via SQL raw
@@ -1338,7 +1410,7 @@ app.post('/api/setup-admin', async (req, res) => {
 
 // Middleware de autenticação para todas as rotas /api/* exceto rotas públicas
 app.use('/api', (req, res, next) => {
-  const publicPaths = ['/auth', '/health', '/setup-admin', '/migrate-schema', '/import-data', '/convite-avaliacao/validar', '/convite-avaliacao/acesso', '/diagnostico'];
+  const publicPaths = ['/auth', '/health', '/release-info', '/setup-admin', '/migrate-schema', '/import-data', '/convite-avaliacao/validar', '/convite-avaliacao/acesso', '/diagnostico'];
   if (publicPaths.some(path => req.path.startsWith(path)) || req.path === '/health' || req.path === '/setup-admin') {
     return next();
   }
@@ -1363,6 +1435,18 @@ app.use('/api/empresas', empresaLogoRoutes);
 
 // Módulo regulatório — crosswalk dimensões × ISO 42001 / PL 2338 / LGPD (Semana 1)
 app.use('/api/regulatorio', regulatorioRoutes);
+
+// Roadmap Visual Multi-Contexto — iniciativas (lente dimensão/produto/portfólio)
+app.use('/api/iniciativas', iniciativasRoutes);
+
+// Engenharia de valor — classificação de produto por drivers (dimensões do Blueprint)
+app.use('/api/engenharia-valor', engenhariaValorRoutes);
+
+// Configuração de dimensões avaliadas por projeto (checkbox + peso ponderado)
+app.use('/api/projetos', projetoDimensoesRoutes);
+app.use('/api/projetos', projetoCertificacaoRoutes);
+// Contexto do cliente para personalização de books/relatórios IA
+app.use('/api/projetos', projetoContextoRoutes);
 
 // Rotas de relatórios IA persistidos (versionamento + biblioteca)
 app.use('/api/relatorios-ia', relatoriosIARoutes);
@@ -1407,7 +1491,9 @@ app.get('/api/empresas/:id', async (req, res) => {
     if (!empresa) {
       return res.status(404).json({ error: 'Empresa não encontrada' });
     }
-    res.json(await enriquecerEmpresaComLogo(empresa));
+    const empresaComLogo = await enriquecerEmpresaComLogo(empresa);
+    empresaComLogo.projetos = await enriquecerProjetosComFramework(prisma, empresaComLogo.projetos || []);
+    res.json(empresaComLogo);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1752,9 +1838,18 @@ app.post('/api/convites/enviar', async (req, res) => {
       ? await obterVersaoAbertaProjetoOuErro(parseInt(projetoId, 10))
       : null;
     if (tipo === 'projeto') {
-      const areas = await prisma.area.findMany({ select: { id: true, nome: true } });
+      const areas = await listarAreasDoProjeto(prisma, parseInt(projetoId, 10), {
+        includePerguntas: false
+      });
       const areaIdsValidas = new Set(areas.map((a) => a.id));
       areaIdsArray = areaIdsArray.filter((id) => areaIdsValidas.has(id));
+      if (areaIdsArray.length === 0) {
+        // Default das áreas do convite = dimensões ATIVAS configuradas no projeto.
+        const ativosProjeto = await areaIdsAtivosDoProjeto(prisma, parseInt(projetoId, 10));
+        if (ativosProjeto && ativosProjeto.length > 0) {
+          areaIdsArray = ativosProjeto.filter((id) => areaIdsValidas.has(id));
+        }
+      }
       if (areaIdsArray.length === 0) {
         areaIdsArray = idsAreasSugeridasPorCargo(avaliador.cargo, areas);
       }
@@ -2449,7 +2544,7 @@ app.get('/api/projetos', async (req, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(projetos);
+    res.json(await enriquecerProjetosComFramework(prisma, projetos));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -2476,11 +2571,9 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
       return res.status(403).json({ error: 'Sem permissão para este projeto.' });
     }
 
-    const areas = await prisma.area.findMany({
-      include: { perguntas: { orderBy: { numero: 'asc' } } },
-      orderBy: { ordem: 'asc' }
-    });
+    const areas = await listarAreasDoProjeto(prisma, projetoId);
     const areaPorId = new Map(areas.map((area) => [area.id, area]));
+    const { frameworkMaturidade } = await carregarFrameworkProjeto(prisma, projetoId);
 
     const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
     const [avaliacoesRaw, convitesRaw, eventos] = await Promise.all([
@@ -2614,7 +2707,7 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
             ? Math.max(0, Math.round((fim - inicio) / 60000))
             : null;
         }
-        const qualidade = calcularAlertasQualidadeAvaliacao(avaliacao);
+        const qualidade = calcularAlertasQualidadeAvaliacao(avaliacao, { frameworkMaturidade });
         alertasQualidade = qualidade.alertas;
         alertasRespostas = qualidade.alertasRespostas || [];
         qualidadeDadoStatus = qualidade.status;
@@ -2732,10 +2825,14 @@ app.get('/api/projetos/:id/avaliadores-dimensoes', async (req, res) => {
 
     const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
     const [areas, avaliacoesRaw, convitesRaw] = await Promise.all([
-      prisma.area.findMany({
-        include: { perguntas: { select: { id: true }, orderBy: { numero: 'asc' } } },
-        orderBy: { ordem: 'asc' }
-      }),
+      listarAreasDoProjeto(prisma, projetoId, {
+        includePerguntas: true
+      }).then((lista) =>
+        lista.map((area) => ({
+          ...area,
+          perguntas: (area.perguntas || []).map((p) => ({ id: p.id }))
+        }))
+      ),
       prisma.avaliacao.findMany({
         where: { projetoId },
         include: {
@@ -3141,10 +3238,11 @@ app.get('/api/projetos/:id', async (req, res) => {
         return res.status(403).json({ error: 'Sem permissão para acessar este projeto.' });
       }
     }
-    res.json({
+    const enriquecido = await enriquecerProjetoComFramework(prisma, {
       ...projeto,
       avaliacoes: await anexarVersoesEmAvaliacoes(projeto.avaliacoes)
     });
+    res.json(enriquecido);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -3190,9 +3288,8 @@ app.get('/api/projetos/:id/versoes', async (req, res) => {
       ORDER BY v."numero" ASC
     `;
 
-    const areasResumoVersao = await prisma.area.findMany({
-      select: { id: true, nome: true },
-      orderBy: { ordem: 'asc' }
+    const areasResumoVersao = await listarAreasDoProjeto(prisma, projetoId, {
+      includePerguntas: false
     });
     const versoesBase = rows.map((row) => ({
       ...normalizarProjetoVersao(row),
@@ -3440,9 +3537,19 @@ app.post('/api/projetos/:id/versoes', async (req, res) => {
   }
 });
 
+app.get('/api/frameworks-maturidade', async (req, res) => {
+  try {
+    res.json(listarFrameworksParaApi());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/projetos', validate(projetoSchemas.criar), async (req, res) => {
   try {
     const { empresaId } = req.body;
+    const camposFramework = extrairCamposFrameworkDoBody(req.body);
+    const dataProjeto = removerCamposFrameworkDoBody(req.body);
     
     const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
     if (!empresa) {
@@ -3450,12 +3557,13 @@ app.post('/api/projetos', validate(projetoSchemas.criar), async (req, res) => {
     }
     
     const projeto = await prisma.projeto.create({
-      data: req.body,
+      data: dataProjeto,
       include: { empresa: true }
     });
-    res.status(201).json(projeto);
+    await salvarFrameworkProjeto(prisma, projeto.id, camposFramework);
+    res.status(201).json(await enriquecerProjetoComFramework(prisma, projeto));
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(error.status || 400).json({ error: error.message });
   }
 });
 
@@ -3472,18 +3580,24 @@ app.put('/api/projetos/:id', validate(projetoSchemas.atualizar), async (req, res
         return res.status(400).json({ error: 'Empresa não encontrada' });
       }
     }
+
+    const camposFramework = extrairCamposFrameworkDoBody(req.body);
+    const dataProjeto = removerCamposFrameworkDoBody(req.body);
+    if (Object.keys(camposFramework).length > 0) {
+      await salvarFrameworkProjeto(prisma, id, camposFramework);
+    }
     
     const projeto = await prisma.projeto.update({
       where: { id },
-      data: req.body,
+      data: dataProjeto,
       include: { empresa: true }
     });
-    res.json(projeto);
+    res.json(await enriquecerProjetoComFramework(prisma, projeto));
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Projeto não encontrado' });
     }
-    res.status(400).json({ error: error.message });
+    res.status(error.status || 400).json({ error: error.message });
   }
 });
 
@@ -3510,15 +3624,20 @@ app.delete('/api/projetos/:id', async (req, res) => {
 
 app.get('/api/areas', async (req, res) => {
   try {
-    const areas = await prisma.area.findMany({
-      include: {
-        perguntas: {
-          orderBy: { numero: 'asc' }
-        }
-      },
-      orderBy: { ordem: 'asc' }
-    });
-    res.json(areas);
+    const { projetoId, framework } = req.query;
+    let areas;
+    if (projetoId) {
+      const pid = parseInt(String(projetoId), 10);
+      if (!Number.isFinite(pid) || pid <= 0) {
+        return res.status(400).json({ error: 'projetoId inválido' });
+      }
+      areas = await listarAreasDoProjeto(prisma, pid);
+    } else if (framework) {
+      areas = await listarAreasPorFramework(prisma, framework);
+    } else {
+      areas = await listarAreasPorFramework(prisma, FRAMEWORK_BLUEPRINT_16);
+    }
+    res.json(ordenarAreasPorFramework(areas, areas[0]?.frameworkMaturidade));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -3609,23 +3728,32 @@ app.post('/api/avaliacoes', async (req, res) => {
       return res.status(403).json({ error: 'Você só pode criar avaliações para o seu próprio usuário' });
     }
     const projetoVersao = await obterVersaoAbertaProjetoOuErro(projetoIdInt);
+    const { frameworkMaturidade } = await carregarFrameworkProjeto(prisma, projetoIdInt);
+    const areasFramework = await listarAreasPorFramework(prisma, frameworkMaturidade, {
+      includePerguntas: false
+    });
+    const idsAreasFramework = new Set(areasFramework.map((a) => a.id));
     
     let perguntas;
     const areaIdsArray = Array.isArray(areaIds) ? areaIds.map(id => parseInt(id)) : [];
+    const areaIdsValidos = areaIdsArray.filter((id) => idsAreasFramework.has(id));
     
     if (areaIdsArray.length > 0) {
       perguntas = await prisma.pergunta.findMany({
-        where: { areaId: { in: areaIdsArray } }
+        where: { areaId: { in: areaIdsValidos.length > 0 ? areaIdsValidos : [...idsAreasFramework] } }
       });
     } else {
-      perguntas = await prisma.pergunta.findMany();
+      perguntas = await prisma.pergunta.findMany({
+        where: { areaId: { in: [...idsAreasFramework] } }
+      });
     }
     
     const avaliacao = await prisma.avaliacao.create({
       data: {
         projetoId: projetoIdInt,
         usuarioId: usuarioIdInt,
-        areasSelecionadas: areaIdsArray.length > 0 ? JSON.stringify(areaIdsArray) : null,
+        areasSelecionadas:
+          areaIdsValidos.length > 0 ? JSON.stringify(areaIdsValidos) : null,
         respostas: {
           create: perguntas.map(p => ({
             perguntaId: p.id
@@ -3655,7 +3783,7 @@ app.put('/api/avaliacoes/:id/respostas', async (req, res) => {
     const avaliacaoId = parseInt(req.params.id);
     const avaliacao = await prisma.avaliacao.findUnique({
       where: { id: avaliacaoId },
-      select: { id: true, usuarioId: true, areasSelecionadas: true }
+      select: { id: true, usuarioId: true, projetoId: true, areasSelecionadas: true }
     });
 
     if (!avaliacao) {
@@ -3666,7 +3794,7 @@ app.put('/api/avaliacoes/:id/respostas', async (req, res) => {
       return res.status(403).json({ error: 'Acesso negado a esta avaliação' });
     }
 
-    const areas = await prisma.area.findMany({ select: { id: true } });
+    const areas = await listarAreasDoProjeto(prisma, avaliacao.projetoId, { includePerguntas: false });
     const todasAreaIds = areas.map((a) => a.id);
     const areasPermitidas = parseAreasSelecionadas(avaliacao, todasAreaIds);
 
@@ -3749,6 +3877,10 @@ app.put('/api/avaliacoes/:id/respostas', async (req, res) => {
       });
     }
 
+    if (avaliacao.projetoId) {
+      await travarFrameworkSeRespostasSalvas(prisma, avaliacao.projetoId, listaRespostas);
+    }
+
     if (areasRecusadas.length > 0) {
       await prisma.resposta.updateMany({
         where: {
@@ -3813,6 +3945,40 @@ app.put('/api/avaliacoes/:id/finalizar', async (req, res) => {
 
     if (!usuarioPodeAcessarAvaliacao(req, avaliacaoExistente)) {
       return res.status(403).json({ error: 'Acesso negado a esta avaliação' });
+    }
+
+    const avaliacaoPre = await prisma.avaliacao.findUnique({
+      where: { id: avaliacaoId },
+      include: {
+        respostas: {
+          include: { pergunta: { include: { area: true } } }
+        }
+      }
+    });
+    const { frameworkMaturidade } = await carregarFrameworkProjeto(prisma, avaliacaoPre.projetoId);
+    if (frameworkExigeEvidenciaSatf(frameworkMaturidade)) {
+      const areasSatf = await listarAreasDoProjeto(prisma, avaliacaoPre.projetoId);
+      const evidenciaPorPerguntaId = new Map();
+      for (const area of areasSatf) {
+        for (const p of area.perguntas || []) {
+          if (p.evidenciaEsperada) evidenciaPorPerguntaId.set(p.id, p.evidenciaEsperada);
+        }
+      }
+      const respostasParaValidar = (avaliacaoPre.respostas || []).map((r) => ({
+        ...r,
+        pergunta: {
+          ...r.pergunta,
+          evidenciaEsperada: evidenciaPorPerguntaId.get(r.perguntaId) ?? null
+        }
+      }));
+      const { ok, pendentes } = validarEvidenciasSatfObrigatorias(respostasParaValidar);
+      if (!ok) {
+        return res.status(400).json({
+          error: mensagemErroEvidenciasSatf(pendentes),
+          codigo: 'SATF_EVIDENCIA_OBRIGATORIA',
+          pendentes
+        });
+      }
     }
 
     await calcularScore(avaliacaoId);
@@ -3927,7 +4093,7 @@ app.get('/api/relatorios/avaliacao/:id', async (req, res) => {
       return res.status(403).json({ error: 'Acesso negado a esta avaliação' });
     }
     
-    const areas = await prisma.area.findMany({ orderBy: { ordem: 'asc' } });
+    const areas = await listarAreasDoProjeto(prisma, avaliacao.projetoId, { includePerguntas: false });
     
     const areasSelecionadas = avaliacao.areasSelecionadas 
       ? JSON.parse(avaliacao.areasSelecionadas) 
@@ -3963,6 +4129,7 @@ app.get('/api/relatorios/avaliacao/:id', async (req, res) => {
         : 0;
     
     const logoMeta = await resolverLogoEmpresa(avaliacao.projeto.empresa);
+    const { frameworkMaturidade } = await carregarFrameworkProjeto(prisma, avaliacao.projetoId);
     const relatorio = {
       avaliacao: {
         id: avaliacao.id,
@@ -3981,6 +4148,7 @@ app.get('/api/relatorios/avaliacao/:id', async (req, res) => {
       scoresPorArea: enriquecerScoresPorAreaComRegulatorio(scoresPorArea),
       resumoRegulatorio: resumoRegulatorioProjeto(scoresPorArea),
       respostas: avaliacao.respostas,
+      frameworkMaturidade,
       ...logoMeta
     };
     
@@ -4016,12 +4184,7 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
       return res.status(404).json({ error: 'Projeto não encontrado' });
     }
     
-    const areas = ordenarAreasPorFramework(
-      await prisma.area.findMany({
-        include: { perguntas: { orderBy: { numero: 'asc' } } },
-        orderBy: { ordem: 'asc' }
-      })
-    );
+    const areas = ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projeto.id));
     const todasAreaIds = areas.map((a) => a.id);
     const projetoVersao = await obterVersaoSelecionadaProjeto(req, projeto.id);
     const idsAvaliacaoVersao = await idsAvaliacoesDaVersao(projeto.id, projetoVersao.id);
@@ -4051,12 +4214,17 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
           mensagem: 'É necessário ter ao menos duas avaliações finalizadas no projeto.'
         },
         scoresPorArea: [],
+        dimensoesForaEscopo: [],
+        dimensoesEspecializadas: [],
         scoresPorEtapa: [],
         avaliadores: []
       });
     }
     
-    const scoresPorArea = areas.map(area => {
+    const { porAreaId: dimensoesConfigProjeto, frameworkMaturidade, setorRegulado } =
+      await mapaApresentacaoDimensoes(prisma, projeto.id);
+    const metodologiaScore = metodologiaScoreFramework(frameworkMaturidade, { setorRegulado });
+    let scoresPorAreaTodas = areas.map(area => {
       let somaScores = 0;
       let countAvaliacoes = 0;
       
@@ -4077,16 +4245,45 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
       });
       
       const mediaArea = countAvaliacoes > 0 ? somaScores / countAvaliacoes : 0;
-      
+      const cfg = dimensoesConfigProjeto.get(area.id);
+      const foraDaMediaGeral = cfg?.foraDaMediaGeral ?? areaForaDaMediaGeral(area);
+
       return {
         areaId: area.id,
         area: area.nome,
         score: parseFloat(mediaArea.toFixed(2)),
         nivel: getNivelMaturidade(mediaArea),
         avaliadoresCobriram: countAvaliacoes,
-        totalAvaliadores
+        totalAvaliadores,
+        peso: cfg ? cfg.peso : null,
+        foraDeEscopo: cfg ? cfg.foraDeEscopo === true : false,
+        foraDaMediaGeral
       };
     });
+
+    let scoreGeralDeclarado = null;
+    let certificacaoSatf = null;
+    let scoreGeralOficialSatf = null;
+    if (frameworkMaturidade === FRAMEWORK_SATF_TI_V3) {
+      const satfEnriquecido = await enriquecerScoresDashboardSatf(
+        prisma,
+        projeto.id,
+        avaliacoesFinalizadas,
+        scoresPorAreaTodas,
+        dimensoesConfigProjeto
+      );
+      if (satfEnriquecido) {
+        scoresPorAreaTodas = satfEnriquecido.scoresPorArea;
+        certificacaoSatf = satfEnriquecido.certificacaoResumo;
+        scoreGeralOficialSatf = satfEnriquecido.scoreGeralOficial;
+      }
+    }
+
+    const scoresPorArea = scoresPorAreaTodas.filter((a) => !a.foraDeEscopo && !a.foraDaMediaGeral);
+    const dimensoesForaEscopo = scoresPorAreaTodas.filter((a) => a.foraDeEscopo);
+    const dimensoesEspecializadas = scoresPorAreaTodas.filter(
+      (a) => a.foraDaMediaGeral && !a.foraDeEscopo
+    );
     
     const scoresPorEtapa = [];
     areas.forEach(area => {
@@ -4118,18 +4315,35 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
     });
     
     const areasComScore = scoresPorArea.filter(a => a.score > 0);
-    const scoreGeral = areasComScore.length > 0
-      ? areasComScore.reduce((acc, a) => acc + a.score, 0) / areasComScore.length
-      : 0;
+    // Score consolidado = média PONDERADA pelos pesos das dimensões ativas do projeto
+    // (sem config salva → pesos default do framework via mapaApresentacaoDimensoes).
+    let pesosPorAreaProjeto = await pesosAtivosPorAreaDoProjeto(prisma, projeto.id);
+    if (pesosPorAreaProjeto.size === 0) {
+      pesosPorAreaProjeto = new Map();
+      for (const [areaId, cfg] of dimensoesConfigProjeto.entries()) {
+        if (cfg && !cfg.foraDeEscopo && !cfg.foraDaMediaGeral && Number(cfg.peso) > 0) {
+          pesosPorAreaProjeto.set(areaId, Number(cfg.peso));
+        }
+      }
+    }
+    const scoreGeralDeclaradoCalc = scoreGeralPonderadoOuSimples(areasComScore, pesosPorAreaProjeto);
+    const scoreGeral =
+      frameworkMaturidade === FRAMEWORK_SATF_TI_V3 && scoreGeralOficialSatf != null
+        ? scoreGeralOficialSatf
+        : scoreGeralDeclaradoCalc;
+    if (frameworkMaturidade === FRAMEWORK_SATF_TI_V3) {
+      scoreGeralDeclarado = scoreGeralDeclaradoCalc;
+    }
     
     const totalPerguntas = areas.reduce((acc, a) => acc + a.perguntas.length, 0);
     const perguntasRespondidas = scoresPorEtapa.filter(e => e.score > 0).length;
     const progresso = Math.round((perguntasRespondidas / totalPerguntas) * 100);
     
-    // Calcular métricas MIT CISR
-    const estagioMIT = getEstagioMitDeScore(scoreGeral);
-    const eficaciaMIT = calcularEficaciaMIT(scoresPorArea);
-    const maturidadeTiposIA = calcularMaturidadePorTipoIA(scoresPorArea);
+    const estagioMIT = metodologiaScore.exibeMitCisr ? getEstagioMitDeScore(scoreGeral) : null;
+    const eficaciaMIT = metodologiaScore.exibeMitCisr ? calcularEficaciaMIT(scoresPorArea) : null;
+    const maturidadeTiposIA = metodologiaScore.exibeMitCisr
+      ? calcularMaturidadePorTipoIA(scoresPorArea)
+      : null;
     
     const logoMetaProjeto = await resolverLogoEmpresa(projeto.empresa);
     const dashboard = {
@@ -4137,29 +4351,39 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
         id: projeto.id,
         nome: projeto.nome,
         descricao: projeto.descricao,
-        vertical: projeto.vertical
+        vertical: projeto.vertical,
+        frameworkMaturidade
       },
+      frameworkMaturidade,
+      setorRegulado,
+      metodologiaScore,
       projetoVersao,
       empresa: projeto.empresa,
       filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
       totalAvaliadores,
       scoreGeral: parseFloat(scoreGeral.toFixed(2)),
+      scoreGeralDeclarado:
+        scoreGeralDeclarado != null ? parseFloat(Number(scoreGeralDeclarado).toFixed(2)) : null,
+      certificacaoSatf,
       nivelGeral: getNivelMaturidade(scoreGeral),
       classificacao: getClassificacao(scoreGeral),
       
-      // Métricas MIT CISR
-      mitCISR: {
-        estagio: estagioMIT,
-        eficacia: eficaciaMIT,
-        maturidadeTiposIA,
-        referencia: mitCisrReferenciaDashboard()
-      },
+      mitCISR: metodologiaScore.exibeMitCisr
+        ? {
+            estagio: estagioMIT,
+            eficacia: eficaciaMIT,
+            maturidadeTiposIA,
+            referencia: mitCisrReferenciaDashboard()
+          }
+        : null,
       
       progresso,
       prazoAvaliacao: extrairPrazoAvaliacaoProjeto(projeto),
       etapasAvaliadas: areasComScore.length,
-      totalEtapas: areas.length,
+      totalEtapas: scoresPorArea.length + dimensoesEspecializadas.filter((d) => d.score > 0).length,
       scoresPorArea: enriquecerScoresPorAreaComRegulatorio(scoresPorArea),
+      dimensoesForaEscopo,
+      dimensoesEspecializadas,
       scoresPorEtapa,
       planoAcao: gerarPlanoAcaoPorDimensao(scoresPorArea),
       resumoRegulatorio: resumoRegulatorioProjeto(scoresPorArea),
@@ -4192,6 +4416,25 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
   }
 });
 
+// ==================== EXECUTIVE DASHBOARD (Single Pane of Glass) ====================
+// Consolida score, radar, top gaps, status regulatório, ROI e próximos passos numa única resposta.
+app.get('/api/projetos/:id/executive-dashboard', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(projetoId) || projetoId <= 0) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+
+    const data = await montarExecutiveDashboard(prisma, projetoId, {
+      projetoVersaoId: req.query?.projetoVersaoId ?? req.query?.versaoId,
+      filtroNivelMax: parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req)
+    });
+    res.json(data);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
 // Dashboard consolidado por empresa
 app.get('/api/dashboard/empresa/:id', async (req, res) => {
   try {
@@ -4221,12 +4464,7 @@ app.get('/api/dashboard/empresa/:id', async (req, res) => {
       return res.status(404).json({ error: 'Empresa não encontrada' });
     }
     
-    const areas = ordenarAreasPorFramework(
-      await prisma.area.findMany({
-        include: { perguntas: { orderBy: { numero: 'asc' } } },
-        orderBy: { ordem: 'asc' }
-      })
-    );
+    const areas = ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projeto.id));
     const todasAreaIdsEmpresa = areas.map((a) => a.id);
 
     const todasAvaliacoes = empresa.projetos
@@ -5802,18 +6040,18 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
       });
     }
 
-    const areas = ordenarAreasPorFramework(
-      await prisma.area.findMany({
-        include: { perguntas: { orderBy: { numero: 'asc' } } },
-        orderBy: { ordem: 'asc' }
-      })
-    );
+    const areas = ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projeto.id));
 
+    const { porAreaId: dimensoesConfigExec, configurado: dimensoesConfiguradoExec } =
+      await mapaApresentacaoDimensoes(prisma, projetoId);
     const {
       scoresPorArea: areasComScore,
+      dimensoesForaEscopo: dimensoesForaEscopoExec,
       todasDimensoes,
       scoreGeral
-    } = calcularScoresConsolidadoMaturidade(avaliacoesFiltradas, areas);
+    } = calcularScoresConsolidadoMaturidade(avaliacoesFiltradas, areas, {
+      dimensoesConfig: dimensoesConfigExec
+    });
     const dimensoesRelatorio = todasDimensoes;
     const scoresPorArea = areasComScore.map((a) => ({ area: a.area, score: a.score }));
     const blocoAvaliadoresExec = blocoAvaliadoresConsolidadoMarkdown(
@@ -5838,7 +6076,15 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
       usuarioIncluidoNoFiltro: usuarioIncluidoNoFiltroNivelMapeamentoMaturidade
     });
     const blocoEvolucaoVersoes = blocoEvolucaoVersoesMarkdown(comparativoVersoes);
-    const blocoLogicaMaturidade = blocoLogicaMaturidadeMarkdown({ scoreGeral, nomesNivel, nivel });
+    const blocoLogicaMaturidade = blocoLogicaMaturidadeMarkdown({
+      scoreGeral,
+      nomesNivel,
+      nivel,
+      ponderacao: {
+        ponderado: dimensoesConfiguradoExec === true,
+        dimensoesForaEscopo: dimensoesForaEscopoExec || []
+      }
+    });
 
     // Top 3 e Bottom 3
     const ordenados = [...scoresPorArea].sort((a, b) => b.score - a.score);
@@ -5855,13 +6101,16 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
       'industria': 2.4, 'manufatura': 2.4
     }[setor.toLowerCase()] || 2.8;
 
+    const blocoContextoCliente = await blocoContextoProjetoMarkdown(prisma, projetoId);
+    const temContextoProjetoExec = projetoTemContextoCadastrado(blocoContextoCliente);
+
     // System prompt e prompt do usuário
     const systemPrompt = `${SYSTEM_PROMPT_PERSONA_EXECUTIVO}
 
 DIRETRIZES DE REDAÇÃO (CRÍTICO):
 1. Tom de Voz: Executivo, direto, bottom-line first. Sem jargões técnicos desnecessários. Use frases curtas e parágrafos concisos.
 2. Foco no Valor: Sempre conecte um gap técnico a um risco de negócio, e uma solução técnica a um ROI projetado.
-3. Contextualização Setorial: Use o setor da empresa para dar exemplos reais. Se for Fintech, fale de credit scoring, fraude, etc. Se for Varejo, fale de supply chain, personalização.
+3. Contextualização Setorial: ${temContextoProjetoExec ? 'Priorize o bloco "Contexto do cliente" nos dados; use o setor apenas como complemento.' : 'Use o setor da empresa para dar exemplos reais. Se for Fintech, fale de credit scoring, fraude, etc. Se for Varejo, fale de supply chain, personalização.'}
 4. Playbook Atlas: Para cada gap estrutural identificado, você DEVE recomendar a busca por aceleradores (motores, agentes, APIs) no "Playbook Atlas" (plataforma com +1200 componentes prontos) para acelerar o roadmap.
 5. Formatação: Use Markdown. Utilize tabelas para comparações e listas apenas quando estritamente necessário.
 6. **ROI MIT**: benchmarks por nível são **ROI líquido típico sobre investimento em IA** (ganho após abater custo), não margem sobre faturamento. Nas projeções em R$, separe **benefício bruto**, **investimento**, **ganho líquido** e **ROI líquido %**. Use o bloco "Parâmetros financeiros" e "Trajetória de valor MIT CISR" dos dados.
@@ -5889,7 +6138,7 @@ ESTRUTURA OBRIGATÓRIA DO RELATÓRIO:
 - Indique explicitamente em quais fases o "Playbook Atlas" deve ser utilizado para buscar aceleradores e reduzir o time-to-market.
 
 # Seção 5: Os 3 Pedidos para o C-Level
-- Liste 3 decisões imediatas que a diretoria precisa tomar hoje para destravar o roadmap (ex: aprovação de budget, nomeação de comitê).`;
+- Liste 3 decisões imediatas que a diretoria precisa tomar hoje para destravar o roadmap (ex: aprovação de budget, nomeação de comitê).${temContextoProjetoExec ? blocoInstrucoesSistemaExecutivoComContexto() : ''}`;
 
     const pctRefExec = percentualReferenciaRoi(projeto.faturamentoAnualProjeto);
     const fatStrExec =
@@ -5924,10 +6173,17 @@ ${blocoOrdemDimensoesFrameworkMarkdown()}
 
 **Todas as 16 Dimensões (ordem obrigatória do framework):**
 ${dimensoesRelatorio.map(a =>
-  `- ${a.area}: ${a.score.toFixed(2)}${a.score === 0 ? ' — *score 0 — não analisada*' : ''}`
+  `- ${a.area}: ${a.score.toFixed(2)}${a.peso != null ? ` — peso ${a.peso}%` : ''}${a.foraDeEscopo ? ' — *fora do escopo deste projeto*' : (a.score === 0 ? ' — *score 0 — não analisada*' : '')}`
 ).join('\n')}
+${(dimensoesForaEscopoExec || []).length > 0 ? `
+**Dimensões fora do escopo deste projeto (não entram no score ponderado nem nos gaps):**
+${dimensoesForaEscopoExec.map(a => `- ${a.area}${a.score > 0 ? ` (nota histórica ${a.score.toFixed(2)})` : ''}`).join('\n')}
+
+> O score consolidado é uma **média ponderada** pelos pesos das dimensões dentro do escopo. As dimensões acima foram desativadas na configuração deste projeto e devem ser tratadas como fora de escopo — não as descreva como gargalos.` : ''}
 
 ${blocoAvaliadoresExec}
+
+${blocoContextoCliente ? `\n---\n\n${blocoContextoCliente}\n` : ''}
 
 ---
 
@@ -6045,6 +6301,15 @@ Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a
 app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) => {
   try {
     const projetoId = parseInt(req.params.id);
+    const { frameworkMaturidade: fwBook } = await carregarFrameworkProjeto(prisma, projetoId);
+    if (fwBook === FRAMEWORK_SATF_TI_V3) {
+      return executarGeracaoBookSatf(req, res, {
+        atualizarProgressoJobBook,
+        obterVersaoSelecionadaProjeto,
+        idsAvaliacoesDaVersao
+      });
+    }
+
     const reuse = req.query.reuse !== 'false'; // default: true
     const modoRapido = req.query.mode === 'rapido' || req.query.modo === 'rapido';
     const tipoRelatorio = modoRapido ? 'completo_rapido' : 'completo';
@@ -6176,17 +6441,14 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
       }
     }
 
-    const areas = ordenarAreasPorFramework(
-      await prisma.area.findMany({
-        include: { perguntas: { orderBy: { numero: 'asc' } } },
-        orderBy: { ordem: 'asc' }
-      })
-    );
+    const areas = ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projeto.id));
 
-    const { scoresPorArea, todasDimensoes, scoreGeral } = calcularScoresConsolidadoMaturidade(
-      avaliacoesFiltradas,
-      areas
-    );
+    const { porAreaId: dimensoesConfigBook, configurado: dimensoesConfiguradoBook } =
+      await mapaApresentacaoDimensoes(prisma, projetoId);
+    const { scoresPorArea, dimensoesForaEscopo: dimensoesForaEscopoBook, todasDimensoes, scoreGeral } =
+      calcularScoresConsolidadoMaturidade(avaliacoesFiltradas, areas, {
+        dimensoesConfig: dimensoesConfigBook
+      });
     const dimensoesDiagnostico = todasDimensoes;
     if (dimensoesDiagnostico.length !== 16) {
       console.warn(
@@ -6205,7 +6467,15 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
       usuarioIncluidoNoFiltro: usuarioIncluidoNoFiltroNivelMapeamentoMaturidade
     });
     const blocoEvolucaoVersoes = blocoEvolucaoVersoesMarkdown(comparativoVersoes);
-    const blocoLogicaMaturidade = blocoLogicaMaturidadeMarkdown({ scoreGeral, nomesNivel, nivel });
+    const blocoLogicaMaturidade = blocoLogicaMaturidadeMarkdown({
+      scoreGeral,
+      nomesNivel,
+      nivel,
+      ponderacao: {
+        ponderado: dimensoesConfiguradoBook === true,
+        dimensoesForaEscopo: dimensoesForaEscopoBook || []
+      }
+    });
 
     const ordenados = [...scoresPorArea].sort((a, b) => b.score - a.score);
     const top5 = ordenados.slice(0, 5);
@@ -6221,6 +6491,12 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
       'industria': 2.4, 'manufatura': 2.4
     }[setor.toLowerCase()] || 2.8;
 
+    const blocoContextoClienteBook = await blocoContextoProjetoMarkdown(prisma, projetoId);
+    const temContextoProjeto = projetoTemContextoCadastrado(blocoContextoClienteBook);
+    const sufixoSistemaContextoSecao3 = temContextoProjeto
+      ? blocoInstrucoesSistemaSecao3ComContexto()
+      : '';
+
     // ============= SYSTEM PROMPT BASE (compartilhado entre chunks) =============
     const systemPromptBase = `${SYSTEM_PROMPT_PERSONA_BOOK}
 
@@ -6228,12 +6504,12 @@ MODELO MIT CISR (referência pública): use o framework oficial de **quatro est�
 
 DIRETRIZES DE REDAÇÃO (CRÍTICO):
 1. **Profundidade Técnica + Linguagem Estratégica**: rigor técnico com narrativa executiva.
-2. **Contextualização Setorial**: use exemplos reais do setor. Fintech → credit scoring, fraude, AML. Saúde → diagnóstico, prontuário, ANVISA. Varejo → supply chain, recomendação, dynamic pricing. Tech → developer productivity, code generation, observability. Indústria → predictive maintenance, computer vision, digital twin.
+2. **Contextualização Setorial**: ${temContextoProjeto ? 'priorize o bloco "Contexto do cliente" nos DADOS; exemplos de setor só como complemento.' : 'use exemplos reais do setor. Fintech → credit scoring, fraude, AML. Saúde → diagnóstico, prontuário, ANVISA. Varejo → supply chain, recomendação, dynamic pricing. Tech → developer productivity, code generation, observability. Indústria → predictive maintenance, computer vision, digital twin.'}
 3. **Playbook Atlas**: em recomendações técnicas, referencie aceleradores no Playbook Atlas (+1200 componentes: motores, agentes, APIs, blueprints).
 4. **Frameworks**: cite MIT CISR, DORA Metrics, MLOps, FinOps, NIST AI RMF onde fizer sentido.
 5. **KPIs Mensuráveis**: cada recomendação com KPI (baseline, meta 6m, meta 12m).
 6. **Markdown Estruturado**: use tabelas para comparações/roadmaps/RACI/KPIs e hierarquia clara (#, ##, ###).
-7. **Sem Genericidade**: tudo contextualizado ao setor + porte + nível.
+7. **Sem Genericidade**: ${temContextoProjeto ? 'quando o bloco "Contexto do cliente" estiver nos DADOS, ele tem **prioridade** sobre exemplos genéricos de setor — especialmente na Seção 3.' : 'tudo contextualizado ao setor + porte + nível.'}
 8. **Sem Repetição entre Dimensões**: na Seção 3, cada dimensão deve soar única. Varie vocabulário, abertura dos parágrafos e ângulo do risco (regulatório vs operacional vs receita vs marca etc.). Não reaproveite frases inteiras nem "templates" idênticos de diagnóstico ou risco entre dimensões — personalize sempre pelo nome da dimensão, pelos scores e pelas perguntas listadas no prompt.
 8b. **Hierarquia Seção 3**: o sistema insere # 3. e ## 3.N Dimensão — nome; gere somente ### 3.N.1, ### 3.N.2, … (não duplique títulos de dimensão).
 8c. **Hierarquia Seções 8–13**: use # para seção principal, ## para subseção numerada (ex.: ## 8.1, ## 9.2) e ### para itens (ex.: ### 13.1.1). Não use negrito no lugar de cabeçalho Markdown.
@@ -6242,7 +6518,7 @@ DIRETRIZES DE REDAÇÃO (CRÍTICO):
 11. **Trajetória MIT (ROI × maturidade)**: benchmarks MIT/McKinsey/BCG por nível são **ROI líquido típico sobre investimento em IA**—não margem sobre faturamento. O ganho de longo prazo vem de **subir de nível**. Use o bloco "Trajetória de valor MIT CISR" dos dados;
 12. **Projeção temporal**: nas Seções 2, 8 e 13, inclua visão **12–36 meses** de acumulação de valor ao aproximar-se do próximo nível (roadmap de investimento em IA alinhado ao MIT).
 13. **Evolução entre versões**: quando o bloco "Evolução entre versões da pesquisa" estiver disponível, a Seção 2 deve incluir subseção **Evolução entre rodadas** interpretando score, nível e deltas por dimensão; referencie também nas Seções 8 e 13 quando pertinente.
-14. **Prioridade dos avaliadores**: a capa com filtro e lista de avaliadores é inserida **automaticamente no início** do book — **não** gere de novo "## Nível dos avaliadores no consolidado". Comece direto pela Seção 1 (Metodologia).`;
+14. **Prioridade dos avaliadores**: a capa com filtro e lista de avaliadores é inserida **automaticamente no início** do book — **não** gere de novo "## Nível dos avaliadores no consolidado". Comece direto pela Seção 1 (Metodologia).${sufixoSistemaContextoSecao3}`;
 
     // Modo rápido: menos tokens por resposta, prioridade em estrutura e tabelas compactas
     const systemPromptBaseRapido = `${SYSTEM_PROMPT_PERSONA_BOOK_RAPIDO}
@@ -6256,7 +6532,7 @@ REGRAS DO MODO RÁPIDO:
 - **Evolução entre versões:** quando o bloco estiver disponível nos DADOS, inclua subseção **Evolução entre rodadas** na Seção 2.
 - **Prioridade dos avaliadores:** a capa com níveis já vem no início do arquivo — não duplique; comece na Seção 1.
 - Gere SOMENTE o que cada chamada pedir; não antecipe outras seções.
-- **Seção 3:** títulos de dimensão são inseridos pelo sistema (## 3.N Dimensão — nome); gere apenas subseções ### 3.N.1, ### 3.N.2, … (nunca repita # 3. nem ## 3.N).`;
+- **Seção 3:** títulos de dimensão são inseridos pelo sistema (## 3.N Dimensão — nome); gere apenas subseções ### 3.N.1, ### 3.N.2, … (nunca repita # 3. nem ## 3.N).${sufixoSistemaContextoSecao3}`;
 
     // Dados de contexto compartilhados (resumo enxuto para incluir em todos os prompts)
     const detalhePerguntasTxt = dimensoesDiagnostico.map(a =>
@@ -6299,7 +6575,7 @@ REGRAS DO MODO RÁPIDO:
 
 ${blocoAvaliadoresBook}
 
-${blocoLogicaMaturidade}
+${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${blocoLogicaMaturidade}
 
 ${blocoEvolucaoVersoes}
 
@@ -6320,9 +6596,13 @@ ${blocoOrdemDimensoesFrameworkMarkdown()}
 
 ## Scores por Dimensão (${dimensoesDiagnostico.length} dimensões do framework)
 ${dimensoesDiagnostico.map(a =>
-  `- **${a.area}**${dimensaoComScoreZero(a) ? ' — *score 0 — não analisada no diagnóstico*' : ` (Nível ${a.nivel}): ${a.score.toFixed(2)}`}${a.descricao ? ` — ${a.descricao}` : ''}`
+  `- **${a.area}**${a.foraDeEscopo ? ' — *fora do escopo deste projeto (desativada; não é gargalo)*' : (dimensaoComScoreZero(a) ? ' — *score 0 — não analisada no diagnóstico*' : ` (Nível ${a.nivel}): ${a.score.toFixed(2)}`)}${a.peso != null ? ` — peso ${a.peso}%` : ''}${a.descricao ? ` — ${a.descricao}` : ''}`
 ).join('\n')}
-
+${(dimensoesForaEscopoBook || []).length > 0 ? `
+## Dimensões fora do escopo deste projeto
+Estas dimensões foram **desativadas** na configuração do projeto. **Não** entram no score consolidado (que é uma **média ponderada** pelos pesos das dimensões dentro do escopo), **não** devem ser tratadas como gargalos, gaps críticos ou prioridades, e **não** geram recomendações na Seção 3:
+${dimensoesForaEscopoBook.map(a => `- **${a.area}**${a.score > 0 ? ` (nota histórica ${a.score.toFixed(2)}, ignorar)` : ''}`).join('\n')}
+` : ''}
 ## Top 5 Pontos Fortes
 ${top5.map((a, i) => `${i + 1}. **${a.area}**: ${a.score.toFixed(2)}`).join('\n')}
 
@@ -6395,23 +6675,26 @@ Comece com "# 1. METODOLOGIA APLICADA".`,
           label: `Diagnóstico — ${dim.area} (modo rápido)`,
           prompt: `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.7 em Markdown.
 
-### ${numSecao}.1 Diagnóstico (1 parágrafo, específico da dimensão **${dim.area}** e do setor)
+### ${numSecao}.1 Diagnóstico (1 parágrafo, específico da dimensão **${dim.area}**${temContextoProjeto ? ' e do contexto do cliente' : ' e do setor'})
 ### ${numSecao}.2 Tabela de scores por pergunta
 Reproduza **integralmente** a tabela pronta abaixo (incluindo a **última linha** "Score geral da dimensão").
 ### ${numSecao}.3 Evidências (até 4 bullets com [Qn], referenciando a tabela)
 ### ${numSecao}.4 Risco (1 parágrafo — mecanismo de risco desta dimensão, não genérico)
 ### ${numSecao}.5 Benchmark (1 parágrafo curto vs setor)
-### ${numSecao}.6 Recomendações (3 bullets acionáveis; cite Playbook Atlas quando couber)
+### ${numSecao}.6 Recomendações (3 bullets acionáveis${temContextoProjeto ? ', cada um ligado ao contexto do projeto' : ''}; cite Playbook Atlas quando couber)
 ### ${numSecao}.7 KPIs (tabela 3 linhas: KPI | Baseline | Meta 12m)
 
 OBRIGATÓRIO:
 - Use o rótulo **Dimensão — ${dim.area}** apenas se precisar referenciar no texto; **não** crie título ## repetido.
 - Numere **exatamente** ${numSecao}.1 … ${numSecao}.7 com ### (três #).
 - Não pule subseções.
+${temContextoProjeto ? '- **Com contexto cadastrado:** proibido texto genérico de mercado; cite fatos do bloco "Contexto do cliente".' : ''}
 
 CONTEXTO GERAL: ${projeto.empresa.nome} · ${setor} · porte ${porte} · score geral ${scoreGeral.toFixed(2)} (Nível ${nivel})
 
 ${blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score)}
+
+${blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBook)}
 
 DADOS CONSOLIDADOS:
 ${dadosBlockRapido}
@@ -6554,18 +6837,26 @@ OBRIGATÓRIO — EVITE REPETIÇÃO (Análise Diagnóstica e Risco de Negócio):
 - A **Análise Diagnóstica** deve abordar o tema **${dim.area}** de forma explícita: referencie em texto as perguntas com [Qn] e o padrão de respostas (não use parágrafo genérico de "maturidade de IA" que valeria para qualquer dimensão).
 - O **Risco de Negócio** deve ser **específico desta dimensão**. **Proibido** repetir a mesma frase genérica entre dimensões.
 - Numere **exatamente** ${numSecao}.1 … ${numSecao}.6 com ### (três #). **Não** gere "## ${numSecao}" nem "# 3. DIAGNÓSTICO".
+${temContextoProjeto ? '- **Contexto cadastrado:** em Análise, Risco, Recomendações e KPIs cite ≥2 elementos concretos do bloco "Contexto do cliente" (iniciativas, sistemas, pilotos, métricas, público). **Proibido** "empresa de tecnologia de médio porte" como narrativa principal.' : ''}
 
 CONTEXTO:
 - Empresa: ${projeto.empresa.nome} (${setor}, porte ${porte})
 - Score geral da empresa: ${scoreGeral.toFixed(2)} (Nível ${nivel})
 - Média do setor: ${mediaSetor.toFixed(1)}
+- Score desta dimensão (**${dim.area}**): ${dim.score.toFixed(2)} (Nível ${dim.nivel || nivelNumericoDeScore(dim.score)})
 
 DETALHE DESTA DIMENSÃO:
 ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
 
 ${blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score)}
 
-Seja profundo, contextualizado e use exemplos REAIS do setor ${setor}.`,
+${blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBook)}
+
+${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${
+  temContextoProjeto
+    ? 'Personalize com o **contexto do cliente** acima — cenário real deste projeto. Não use narrativa genérica de mercado.'
+    : `Seja profundo, contextualizado e use exemplos REAIS do setor ${setor}.`
+}`,
         maxTokens: 6000
       });
     });
@@ -7376,6 +7667,22 @@ app.get('/api/dashboard/projeto-produtos/:id', async (req, res) => {
   } catch (error) {
     console.error('Erro no dashboard de projeto-produtos:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Command Center de Produtos IA-First (portfólio + drill-down consolidado)
+app.get('/api/projetos/:id/produtos-command-center', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(projetoId) || projetoId <= 0) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+    const data = await montarProdutosCommandCenter(prisma, projetoId);
+    const logoMeta = await resolverLogoEmpresa(data.empresa);
+    res.json({ ...data, ...logoMeta });
+  } catch (error) {
+    console.error('Erro no command center de produtos:', error);
+    res.status(error.status || 500).json({ error: error.message });
   }
 });
 
@@ -8227,6 +8534,29 @@ function getNivelMaturidade(score) {
   return faixaNivelPorScore(score).nome;
 }
 
+/**
+ * Score geral a partir das áreas com nota: média PONDERADA quando há pesos das dimensões
+ * ativas do projeto (Map<areaId, peso>); senão, média simples (comportamento anterior).
+ */
+function scoreGeralPonderadoOuSimples(areasComScore, pesosPorArea) {
+  if (!Array.isArray(areasComScore) || areasComScore.length === 0) return 0;
+  const mediaSimples =
+    areasComScore.reduce((acc, a) => acc + a.score, 0) / areasComScore.length;
+  if (pesosPorArea instanceof Map && pesosPorArea.size > 0) {
+    let somaPonderada = 0;
+    let somaPesos = 0;
+    for (const a of areasComScore) {
+      const peso = Number(pesosPorArea.get(a.areaId)) || 0;
+      if (peso > 0) {
+        somaPonderada += a.score * peso;
+        somaPesos += peso;
+      }
+    }
+    if (somaPesos > 0) return somaPonderada / somaPesos;
+  }
+  return mediaSimples;
+}
+
 function getNivelRelevancia(score) {
   const n = faixaNivelPorScore(score).nivel;
   return ['Baixa Relevância', 'Relevância Moderada', 'Boa Relevância', 'Alta Relevância', 'Muito Alta Relevância'][n - 1];
@@ -8336,7 +8666,7 @@ async function calcularScore(avaliacaoId) {
     }
   });
   
-  const areas = await prisma.area.findMany();
+  const areas = await listarAreasDoProjeto(prisma, avaliacao.projetoId, { includePerguntas: false });
   const areasSelecionadas = avaliacao.areasSelecionadas 
     ? JSON.parse(avaliacao.areasSelecionadas) 
     : areas.map(a => a.id);
@@ -8348,6 +8678,7 @@ async function calcularScore(avaliacaoId) {
   for (const area of areas) {
     if (!areasSelecionadas.includes(area.id)) continue;
     if (areasRecusadasIds.includes(area.id)) continue;
+    if (areaForaDaMediaGeral(area)) continue;
     // Score usa apenas Resposta × Pergunta das áreas; desejosIA (JSON) não entra aqui.
     
     const respostasArea = avaliacao.respostas.filter(
@@ -8794,6 +9125,46 @@ async function ensureSchemaEmpresaLogoPath() {
   }
 }
 
+async function ensureIniciativaSchema() {
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Iniciativa" (
+        "id" SERIAL PRIMARY KEY,
+        "projetoId" INTEGER NOT NULL,
+        "projetoVersaoId" INTEGER,
+        "contextoTipo" TEXT NOT NULL DEFAULT 'dimensao',
+        "contextoId" TEXT NOT NULL,
+        "contextoRotulo" TEXT,
+        "titulo" TEXT NOT NULL,
+        "descricao" TEXT,
+        "responsavel" TEXT,
+        "dataInicio" TIMESTAMP(3),
+        "dataFimPrevista" TIMESTAMP(3),
+        "dataFimReal" TIMESTAMP(3),
+        "status" TEXT NOT NULL DEFAULT 'backlog',
+        "prioridade" TEXT NOT NULL DEFAULT 'media',
+        "progresso" INTEGER NOT NULL DEFAULT 0,
+        "gapVinculado" DOUBLE PRECISION,
+        "scoreAlvo" DOUBLE PRECISION,
+        "roiEstimado" DOUBLE PRECISION,
+        "origemRelatorioId" INTEGER,
+        "criadoPorId" INTEGER,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await prisma.$executeRawUnsafe(
+      'CREATE INDEX IF NOT EXISTS "Iniciativa_projetoId_contextoTipo_idx" ON "Iniciativa" ("projetoId", "contextoTipo")'
+    );
+    await prisma.$executeRawUnsafe(
+      'CREATE INDEX IF NOT EXISTS "Iniciativa_projetoVersaoId_idx" ON "Iniciativa" ("projetoVersaoId")'
+    );
+    console.log('[schema] Iniciativa verificada.');
+  } catch (e) {
+    console.warn('[schema] Iniciativa:', e?.message || e);
+  }
+}
+
 initPrismaUsuarioColumnProbe()
   .then(() => ensureSchemaUsuarioNivelPrioridadeMaturidade())
   .then(() => ensureSchemaRespostaSemInformacao())
@@ -8801,6 +9172,23 @@ initPrismaUsuarioColumnProbe()
   .then(() => ensureSchemaEmpresaLogoPath())
   .then(() => probeEmpresaLogoPathColumn(prisma))
   .then(() => ensureProjetoVersaoSchema())
+  .then(() => ensureIniciativaSchema())
+  .then(() => ensureProjetoDimensaoConfigSchema(prisma))
+  .then(() => ensureProjetoContextoSchema(prisma))
+  .then(() => ensureProjetoFrameworkSchema(prisma))
+  .then(async () => {
+    try {
+      await ensureAreaFrameworkSchema(prisma);
+      const seed = await ensureSatfFrameworkSeed(prisma);
+      if (seed?.seeded) {
+        console.log(
+          `[schema] SATF seed: ${seed.areasCriadas} dimensões, ${seed.perguntasCriadas} perguntas.`
+        );
+      }
+    } catch (e) {
+      console.warn('[schema] Area.frameworkMaturidade/SATF seed:', e?.message || e);
+    }
+  })
   .then(() => refreshUsuarioNivelPrioridadeColumnFlag())
   .finally(() => {
     app.listen(PORT, () => {

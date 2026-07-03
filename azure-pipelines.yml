@@ -112,8 +112,12 @@ stages:
                       echo \">>> Parando containers\"
                       docker compose -f docker-compose.prod.yml down --remove-orphans || true
 
+                      export RELEASE_ID=\$(git rev-parse --short HEAD)
+                      export APP_VERSION=\$(node -p \"require('./backend/package.json').version\")
+                      echo \">>> Build release: \$APP_VERSION (\$RELEASE_ID)\"
+
                       echo \">>> Subindo containers\"
-                      docker compose -f docker-compose.prod.yml up -d --build
+                      RELEASE_ID=\$RELEASE_ID APP_VERSION=\$APP_VERSION docker compose -f docker-compose.prod.yml up -d --build
 
                       echo \">>> Aguardando inicializacao\"
                       sleep 15

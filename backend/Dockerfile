@@ -34,6 +34,11 @@ FROM base AS production
 
 ENV NODE_ENV=production
 
+ARG APP_VERSION=1.0.0
+ARG RELEASE_ID=unknown
+ENV APP_VERSION=$APP_VERSION
+ENV RELEASE_ID=$RELEASE_ID
+
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 appuser

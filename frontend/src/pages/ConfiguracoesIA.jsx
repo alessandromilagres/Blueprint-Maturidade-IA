@@ -129,7 +129,9 @@ export default function ConfiguracoesIA() {
       setTestResult({ 
         providerId, 
         success: true, 
-        message: `Conexão OK! Resposta em ${result.responseTime}ms`,
+        message: result.usedFallback
+          ? `Conexão OK via fallback (${result.provider}) em ${result.responseTime}ms`
+          : `Conexão OK! Resposta em ${result.responseTime}ms`,
         details: result
       });
     } catch (error) {
@@ -347,6 +349,24 @@ export default function ConfiguracoesIA() {
                       : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                   }`}>
                     {testResult.success ? '✓' : '✗'} {testResult.message}
+                    {testResult.success && testResult.details?.usedFallback && testResult.details?.providerAttempts?.length ? (
+                      <ul className="mt-1.5 list-disc pl-4 text-xs opacity-90">
+                        {testResult.details.providerAttempts.map((f, i) => (
+                          <li key={i}>
+                            <strong>{f.name}</strong> falhou: {String(f.error || '').slice(0, 120)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {!testResult.success && testResult.details?.providerAttempts?.length ? (
+                      <ul className="mt-1.5 list-disc pl-4 text-xs opacity-90">
+                        {testResult.details.providerAttempts.map((f, i) => (
+                          <li key={i}>
+                            <strong>{f.name}</strong>: {String(f.error || '').slice(0, 120)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </div>
                 )}
               </div>

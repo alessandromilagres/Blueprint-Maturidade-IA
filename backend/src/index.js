@@ -55,6 +55,15 @@ import {
 } from './services/emailConviteTemplate.js';
 import { callAI, callAIWithContinuation, getProvider, loadPersistedAIConfig } from './services/ai-provider.js';
 import {
+  buildFallbackSuccessAviso,
+  buildChunkFailureAviso,
+  formatProviderAttemptsLogLine,
+  formatSecaoErroGenerico,
+  formatEtapaFallbackSucesso,
+  formatEtapaFalhaTotalChunk,
+  metadataFalhasProvedorChunk
+} from './utils/aiProviderAttempts.js';
+import {
   usuarioPodeIniciarCadastroProduto,
   usuarioMesmaEmpresaProjeto
 } from './constants/produtoWorkflow.js';
@@ -7111,6 +7120,7 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
     let totalTokensSaida = 0;
     let providerUsado = null;
     let modelUsado = null;
+    const avisosProvedor = [];
 
     const registrarConteudoChunk = (chunk, conteudo) => {
       const texto = String(conteudo || '').trim();
@@ -7217,28 +7227,57 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
         if (!providerUsado) providerUsado = resultado.provider;
         if (!modelUsado) modelUsado = resultado.model;
 
+        const avisoFallback = buildFallbackSuccessAviso(resultado, chunk);
+        const etapaBloco = `Bloco ${i + 1}/${chunks.length}: ${chunk.label}`;
+        if (avisoFallback) {
+          avisosProvedor.push(avisoFallback);
+          console.warn(
+            `[Book IA] Fallback no bloco ${chunk.id}: ${avisoFallback.configuredProviderName} → ${avisoFallback.providerUsadoName}`
+          );
+        }
+
         const pct = 6 + Math.round(((i + 1) / chunks.length) * 88);
         await atualizarProgressoJobBook(relatorioJobId, {
           progresso: Math.min(94, pct),
-          etapa: `Bloco ${i + 1}/${chunks.length}: ${chunk.label}`,
+          etapa: avisoFallback
+            ? formatEtapaFallbackSucesso(avisoFallback, chunk.label) || etapaBloco
+            : etapaBloco,
           metadata: JSON.stringify({
             fase: 'geracao_ia',
             chunkAtual: i + 1,
             totalChunks: chunks.length,
             chunkLabel: chunk.label,
-            chunkId: chunk.id
+            chunkId: chunk.id,
+            ...(avisoFallback
+              ? {
+                  ultimoFallback: avisoFallback,
+                  avisosProvedor: avisosProvedor.slice(-5)
+                }
+              : {})
           })
         });
       } catch (chunkError) {
+        const logFalhas = formatProviderAttemptsLogLine(chunkError.providerAttempts, {
+          configuredProvider: chunkError.configuredProvider
+        });
+        if (logFalhas) console.error(`[Book IA] ${logFalhas}`);
         console.error(`[Book IA] Erro no chunk ${chunk.id}:`, chunkError.message);
+
+        const avisoFalha = buildChunkFailureAviso(chunkError, chunk);
+        avisosProvedor.push(avisoFalha);
+
         await atualizarProgressoJobBook(relatorioJobId, {
-          etapa: `Erro no bloco ${i + 1}/${chunks.length}: ${chunk.label} (continuando…)`,
+          etapa:
+            formatEtapaFalhaTotalChunk(avisoFalha, chunk.label) ||
+            `Erro no bloco ${i + 1}/${chunks.length}: ${chunk.label} (continuando…)`,
           metadata: JSON.stringify({
             fase: 'erro_chunk',
             chunkAtual: i + 1,
             totalChunks: chunks.length,
             chunkLabel: chunk.label,
-            erroResumo: String(chunkError.message || '').slice(0, 200)
+            erroResumo: String(chunkError.message || '').slice(0, 200),
+            avisosProvedor: avisosProvedor.slice(-5),
+            ...metadataFalhasProvedorChunk(chunkError, chunk)
           })
         });
         const mSec3Err = String(chunk.id || '').match(/^sec_3_(\d+)$/);
@@ -7265,7 +7304,7 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
         } else {
           registrarConteudoChunk(
             chunk,
-            `> ⚠️ **Nota:** Esta seção (${chunk.label}) não pôde ser gerada devido a um erro temporário. Por favor, regenere o relatório.`
+            formatSecaoErroGenerico(chunk, chunkError)
           );
         }
       }
@@ -7363,7 +7402,8 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
         ? avaliacoesFiltradas.filter((av) =>
             desejosIaTemRespostasGuardadas(av.desejosIADados?.payload ?? av.desejosIA)
           ).length
-        : 0
+        : 0,
+      avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined
     };
 
     // Persistir versão gerada
@@ -7404,6 +7444,7 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
       relatorio: relatorioFinal,
       provider: providerUsado,
       model: modelUsado,
+      avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined,
       tokens: {
         entrada: totalTokensEntrada,
         saida: totalTokensSaida

@@ -40,8 +40,31 @@ import {
   isTipoBookCompleto,
   relatorioFrameworkMeta
 } from '../constants/frameworkMaturidade';
+import {
+  coletarAvisosProvedor,
+  coletarAvisosProvedorJob,
+  formatarListaAvisosProvedor
+} from '../utils/aiProviderAttempts';
 
-function formatDurationMs(ms) {
+function BannerAvisosProvedor({ avisos, className = '' }) {
+  const linhas = formatarListaAvisosProvedor(avisos);
+  if (!linhas.length) return null;
+  return (
+    <div
+      className={`rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs text-violet-950 ${className}`}
+    >
+      <p className="font-semibold text-violet-900">Fallback de provedor de IA</p>
+      <ul className="mt-1 list-disc space-y-1 pl-4 text-violet-900/95">
+        {linhas.map((linha, i) => (
+          <li key={i}>{linha}</li>
+        ))}
+      </ul>
+      <p className="mt-1.5 text-[11px] text-violet-800">
+        O provedor selecionado em Configurações → IA falhou; o sistema tentou alternativas automaticamente.
+      </p>
+    </div>
+  );
+}
   if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
   const s = Math.round(ms / 1000);
   if (s < 60) return `${s} s`;
@@ -670,6 +693,7 @@ export default function RelatorioMITIACompleto() {
             <p className="text-xs text-cyan-800">
               Você pode fechar esta aba e voltar depois — o job continua no servidor. Ao reabrir esta URL, o progresso reaparece aqui.
             </p>
+            <BannerAvisosProvedor avisos={coletarAvisosProvedorJob(jobBg)} />
           </div>
         </div>
       </div>
@@ -705,6 +729,8 @@ export default function RelatorioMITIACompleto() {
     data?.dadosUsados?.modoGeracao === 'rapido';
 
   const indice = extrairEntradasIndiceMarkdown(data?.relatorio || '');
+  const avisosProvedorExibicao = coletarAvisosProvedor(data);
+  const avisosProvedorJob = coletarAvisosProvedorJob(jobBg);
   const statusSecao3 = data?.relatorio
     ? relatorioBookSecao3Completo(data.relatorio, totalDimsBook)
     : null;
@@ -1048,6 +1074,15 @@ export default function RelatorioMITIACompleto() {
                 </button>
               </div>
             )}
+            <BannerAvisosProvedor avisos={avisosProvedorJob} className="mt-1" />
+          </div>
+        </div>
+      )}
+
+      {avisosProvedorExibicao.length > 0 && (
+        <div className="border-b border-violet-200 bg-violet-50/80 print:hidden">
+          <div className="mx-auto max-w-7xl px-6 py-3">
+            <BannerAvisosProvedor avisos={avisosProvedorExibicao} />
           </div>
         </div>
       )}

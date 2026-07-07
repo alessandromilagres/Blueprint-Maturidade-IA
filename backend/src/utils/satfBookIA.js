@@ -5,6 +5,16 @@
 import { prisma } from '../lib/prisma.js';
 import { salvarRelatorioIA } from '../routes/relatorios-ia.js';
 import { callAIWithContinuation, getProvider, loadPersistedAIConfig } from '../services/ai-provider.js';
+import {
+  buildFallbackSuccessAviso,
+  buildChunkFailureAviso,
+  formatProviderAttemptsLogLine,
+  formatProviderFailureForMarkdown,
+  formatSecaoErroGenerico,
+  formatEtapaFallbackSucesso,
+  formatEtapaFalhaTotalChunk,
+  metadataFalhasProvedorChunk
+} from './aiProviderAttempts.js';
 import { SYSTEM_PROMPT_PERSONA_BOOK_SATF } from '../constants/consultorRelatorioIA.js';
 import { FRAMEWORK_SATF_TI_V3 } from '../constants/frameworkMaturidadePolicy.js';
 import { carregarFrameworkProjeto } from './projetoFramework.js';
@@ -565,6 +575,7 @@ async function executarChunksLoop({
   let totalTokensSaida = 0;
   let providerUsado = null;
   let modelUsado = null;
+  const avisosProvedor = [];
 
   const systemPrompt = `${SYSTEM_PROMPT_PERSONA_BOOK_SATF}
 ${blocoRegrasTaxonomiaSatfPrompt()}
@@ -640,11 +651,56 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
       if (!providerUsado) providerUsado = resultado.provider;
       if (!modelUsado) modelUsado = resultado.model;
 
+      const avisoFallback = buildFallbackSuccessAviso(resultado, chunk);
+      const etapaBloco = `SATF ${i + 1}/${chunks.length}: ${chunk.label}`;
+      if (avisoFallback) {
+        avisosProvedor.push(avisoFallback);
+        console.warn(
+          `[Book SATF] Fallback no bloco ${chunk.id}: ${avisoFallback.configuredProviderName} → ${avisoFallback.providerUsadoName}`
+        );
+      }
+
       await atualizarProgressoJobBook?.(relatorioJobId, {
         progresso: 6 + Math.round(((i + 1) / chunks.length) * 88),
-        etapa: `SATF ${i + 1}/${chunks.length}: ${chunk.label}`
+        etapa: avisoFallback
+          ? formatEtapaFallbackSucesso(avisoFallback, chunk.label) || etapaBloco
+          : etapaBloco,
+        metadata: JSON.stringify({
+          fase: 'geracao_ia',
+          chunkAtual: i + 1,
+          totalChunks: chunks.length,
+          chunkLabel: chunk.label,
+          chunkId: chunk.id,
+          ...(avisoFallback
+            ? { ultimoFallback: avisoFallback, avisosProvedor: avisosProvedor.slice(-5) }
+            : {})
+        })
       });
     } catch (err) {
+      const logFalhas = formatProviderAttemptsLogLine(err.providerAttempts, {
+        configuredProvider: err.configuredProvider
+      });
+      if (logFalhas) console.error(`[Book SATF] ${logFalhas}`);
+      console.error(`[Book SATF] Erro no chunk ${chunk.id}:`, err.message);
+
+      const avisoFalha = buildChunkFailureAviso(err, chunk);
+      avisosProvedor.push(avisoFalha);
+
+      await atualizarProgressoJobBook?.(relatorioJobId, {
+        etapa:
+          formatEtapaFalhaTotalChunk(avisoFalha, chunk.label) ||
+          `Erro SATF ${i + 1}/${chunks.length}: ${chunk.label} (continuando…)`,
+        metadata: JSON.stringify({
+          fase: 'erro_chunk',
+          chunkAtual: i + 1,
+          totalChunks: chunks.length,
+          chunkLabel: chunk.label,
+          avisosProvedor: avisosProvedor.slice(-5),
+          ...metadataFalhasProvedorChunk(err, chunk)
+        })
+      });
+
+      const msgErro = formatProviderFailureForMarkdown(err);
       const m = String(chunk.id || '').match(/^sec_3_(\d+)$/);
       if (m) {
         const dimIdx = parseInt(m[1], 10) - 1;
@@ -662,7 +718,7 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
             : montarBlocoSecao3DimensaoSatf({
                 numSecao,
                 dim,
-                conteudoIa: `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ **Esta seção não pôde ser gerada pela IA** (${String(err.message || 'erro temporário').slice(0, 300)}).\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
+                conteudoIa: `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ **Esta seção não pôde ser gerada pela IA** (${msgErro.slice(0, 500)}).\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
                 isFirst: dimIdx === 0,
                 totalDimensoes: dimensoesDiagnostico.length,
                 ordemNomes,
@@ -671,7 +727,7 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
               })
         );
       } else {
-        registrar(chunk, `> ⚠️ Seção ${chunk.label} não gerada: ${err.message}`);
+        registrar(chunk, formatSecaoErroGenerico(chunk, err));
       }
     }
   }
@@ -705,7 +761,8 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
     totalTokensEntrada,
     totalTokensSaida,
     providerUsado,
-    modelUsado
+    modelUsado,
+    avisosProvedor
   };
 }
 
@@ -937,7 +994,7 @@ export async function executarGeracaoBookSatf(req, res, deps) {
   );
 
   const startTime = Date.now();
-  const { markdown, totalTokensEntrada, totalTokensSaida, providerUsado, modelUsado } =
+  const { markdown, totalTokensEntrada, totalTokensSaida, providerUsado, modelUsado, avisosProvedor } =
     await executarChunksLoop({
       chunks,
       dimensoesDiagnostico,
@@ -1015,7 +1072,8 @@ export async function executarGeracaoBookSatf(req, res, deps) {
       ? avaliacoesFiltradas.filter((av) =>
           desejosIaTemRespostasGuardadas(av.desejosIADados?.payload ?? av.desejosIA)
         ).length
-      : 0
+      : 0,
+    avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined
   };
 
   let salvo = null;
@@ -1045,6 +1103,7 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     relatorio: relatorioFinal,
     provider: providerUsado,
     model: modelUsado,
+    avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined,
     tokens: { entrada: totalTokensEntrada, saida: totalTokensSaida },
     tempoResposta: tempoTotal,
     chunksGerados: chunks.length,

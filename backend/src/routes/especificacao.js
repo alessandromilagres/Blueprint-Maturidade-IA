@@ -180,12 +180,17 @@ router.post('/ai/test', async (req, res) => {
       model: result.model,
       response: result.content,
       tokensUsed: result.tokensEntrada + result.tokensSaida,
-      responseTime: Date.now() - startTime
+      responseTime: Date.now() - startTime,
+      configuredProvider: result.configuredProvider,
+      usedFallback: result.usedFallback || false,
+      providerAttempts: result.providerAttempts || []
     });
   } catch (error) {
     res.status(500).json({ 
       success: false,
       error: error.message,
+      providerAttempts: error.providerAttempts || [],
+      configuredProvider: error.configuredProvider || null,
       hint: 'Verifique se a API key está correta e se você tem créditos disponíveis'
     });
   }

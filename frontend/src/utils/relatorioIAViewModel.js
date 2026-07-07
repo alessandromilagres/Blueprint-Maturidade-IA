@@ -33,5 +33,6 @@ export function mapRelatorioIASalvoToViewShape(row) {
           ? 'completo'
           : null),
     frameworkMaturidade: row.dadosUsados?.frameworkMaturidade ?? null,
+    avisosProvedor: row.dadosUsados?.avisosProvedor ?? undefined,
   };
 }

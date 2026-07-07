@@ -430,6 +430,7 @@ async function callAI(prompt, systemPrompt, options = {}) {
   }
   
   let lastError = null;
+  const providerAttempts = [];
   
   for (const providerId of providersToTry) {
     try {
@@ -452,11 +453,28 @@ async function callAI(prompt, systemPrompt, options = {}) {
       }
       
       result.tempoResposta = Date.now() - startTime;
-      console.log(`[AI] Sucesso com ${PROVIDERS[providerId].name} em ${result.tempoResposta}ms`);
+      result.provider = providerId;
+      result.configuredProvider = configuredProvider;
+      result.providerAttempts = [...providerAttempts];
+      result.usedFallback = providerAttempts.length > 0;
+
+      if (result.usedFallback) {
+        const falhas = providerAttempts.map((a) => `${a.name}: ${a.error}`).join(' → ');
+        console.warn(
+          `[AI] Fallback: ${PROVIDERS[configuredProvider]?.name || configuredProvider} falhou (${falhas}); sucesso com ${PROVIDERS[providerId].name} em ${result.tempoResposta}ms`
+        );
+      } else {
+        console.log(`[AI] Sucesso com ${PROVIDERS[providerId].name} em ${result.tempoResposta}ms`);
+      }
       
       return result;
       
     } catch (error) {
+      providerAttempts.push({
+        providerId,
+        name: PROVIDERS[providerId].name,
+        error: error.message
+      });
       console.error(`[AI] Erro com ${PROVIDERS[providerId].name}:`, error.message);
       if (error.cause) {
         console.error(`[AI] Causa do erro:`, error.cause);
@@ -465,14 +483,22 @@ async function callAI(prompt, systemPrompt, options = {}) {
       
       // Se não há mais provedores para tentar, lança o erro
       if (providersToTry.indexOf(providerId) === providersToTry.length - 1) {
-        throw lastError;
+        const finalError = new Error(
+          lastError?.message || 'Falha em todos os provedores de IA'
+        );
+        finalError.providerAttempts = [...providerAttempts];
+        finalError.configuredProvider = configuredProvider;
+        throw finalError;
       }
       
-      console.log(`[AI] Tentando próximo provedor...`);
+      console.log(`[AI] Tentando próximo provedor (${PROVIDERS[providerId].name} falhou)...`);
     }
   }
   
-  throw lastError || new Error('Falha em todos os provedores de IA');
+  const finalError = new Error(lastError?.message || 'Falha em todos os provedores de IA');
+  finalError.providerAttempts = [...providerAttempts];
+  finalError.configuredProvider = configuredProvider;
+  throw finalError;
 }
 
 /**
@@ -533,6 +559,9 @@ CONTINUE A PARTIR DAQUI:`;
     tokensEntrada,
     tokensSaida,
     provider: first.provider,
+    configuredProvider: first.configuredProvider,
+    providerAttempts: first.providerAttempts || [],
+    usedFallback: first.usedFallback || false,
     tempoResposta: lastResult.tempoResposta,
     stopReason: lastResult.stopReason,
     stopReasonRaw: lastResult.stopReasonRaw,

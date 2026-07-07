@@ -4,6 +4,7 @@ import {
   blocoTrajetoriaMitMarkdown
 } from './mitTrajetoriaFinanceira.js';
 import { ORDEM_DIMENSOES_FRAMEWORK } from './ordemDimensoesFramework.js';
+import { formatProviderFailureForMarkdown } from './aiProviderAttempts.js';
 
 function resumirPergunta(texto, max = 90) {
   const t = String(texto || '').trim();
@@ -241,10 +242,10 @@ export function garantirBlocosSecao3Book(blocosPorIndice, dimensoesDiagnostico, 
 export function blocoFallbackErroSecao3Dimensao(
   numSecao,
   dim,
-  erroMsg,
+  erroOuMsg,
   { isFirst = false, totalDimensoes = 16, modoRapido = false } = {}
 ) {
-  const msg = String(erroMsg || 'erro temporário').slice(0, 300);
+  const msg = formatProviderFailureForMarkdown(erroOuMsg).slice(0, 500);
   return montarBlocoSecao3Dimensao({
     numSecao,
     dim,

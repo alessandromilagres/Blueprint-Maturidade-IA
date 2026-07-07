@@ -1,6 +1,6 @@
 # Como o Sistema Blueprint IA Funciona
 
-**Versão:** Junho/2026
+**Versão:** Julho/2026 (relatórios IA SATF isolados)
 **Produto:** Blueprint IA / Blueprint Agêntico
 **Objetivo:** explicar o funcionamento operacional da plataforma, da configuração inicial à geração de relatórios, acompanhamento de avaliadores e especificações.
 
@@ -167,13 +167,30 @@ O comparativo por empresa pode ser exportado em CSV ou impresso como PDF pelo na
 
 ### 7.1 Tipos de Relatório
 
-A plataforma gera:
+A plataforma gera artefatos distintos conforme o **framework do projeto** (Blueprint 16 ou SATF TI v3):
 
-- Relatório estratégico C-Level
-- Book completo de maturidade em IA
-- Book em modo rápido
-- Relatórios executivos e exportações tradicionais
-- Documentos técnicos de especificação
+| Artefato | Blueprint 16 | SATF TI v3 |
+|----------|--------------|------------|
+| Executivo IA | Estratégico C-Level (MIT ROI) | Executivo TI / Engenharia (CTO, plataforma) |
+| Book completo | 16 dimensões, seções 1–13 | 11 dimensões SATF, seções 1–8 |
+| Book rápido | Versão condensada Blueprint | Versão condensada SATF |
+| Export Word | Rodapé Blueprint / MIT referência | Rodapé SATF TI v3 + marca **Confidencial** |
+
+Tipos adicionais (ambos frameworks):
+
+- Relatórios executivos e exportações tradicionais (assessment técnico, não-IA)
+- Documentos técnicos de especificação automática
+
+### 7.1.1 Isolamento taxonômico SATF (Jul/2026)
+
+Em projetos **SATF**, books e relatórios executivos gerados por IA:
+
+- Usam **apenas** as 11 dimensões SATF (D1–D11) — nunca as 16 dimensões Blueprint nem rótulos MIT CISR como metodologia principal.
+- Passam por **validação automática** após a geração; versões contaminadas não são reutilizadas do cache.
+- Exibem **alerta na interface** se o sistema detectar referências a outra taxonomia (regenerar com “Gerar novo” / `reuse=false`).
+- Integram **Desejos IA** dos avaliadores nas recomendações da Seção 3 do book, quando cadastrados.
+
+Consultores devem **regenerar** books SATF gerados antes de Jul/2026 se houver mistura de dimensões no índice ou no corpo do documento.
 
 ### 7.2 Geração em Background
 
@@ -214,7 +231,7 @@ Books e relatórios financeiros seguem uma metodologia explícita que separa:
 - **ROI líquido %** — métrica padrão para CFO/conselho: (ganho líquido ÷ investimento) × 100
 - **Benchmark MIT por nível** — faixa de ROI líquido típico sobre investimento em IA (referência MIT CISR / McKinsey / BCG), **não** margem sobre faturamento total
 
-Os cenários Conservador / Base / Agressivo usam o **faturamento anual do projeto** (quando cadastrado) para calibrar benefício bruto e investimento. A Seção 8 dos books e os relatórios executivos exibem tabela com as cinco colunas acima.
+Os cenários Conservador / Base / Agressivo usam o **faturamento anual do projeto** (quando cadastrado) para calibrar benefício bruto e investimento. A Seção 8 dos books **Blueprint** e os relatórios executivos **Blueprint** exibem tabela com as cinco colunas acima. **Projetos SATF** não usam bloco de trajetória MIT nos books; o executivo SATF foca capacidades de engenharia e plataforma.
 
 Documentação completa com fórmulas, tabelas MIT e referência de código: [`docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`](Atual/METODOLOGIA_ROI_FINANCEIRO.md).
 
@@ -270,6 +287,8 @@ O sistema exporta conteúdos em:
 - PDF/impressão
 
 Exportações de avaliação usam o score da avaliação correta do respondente e recalculam resultados quando necessário a partir das respostas.
+
+**Projetos SATF:** relatórios técnicos MD/ZIP usam cabeçalho e sumário executivo **SATF TI v3** (sem classificação MIT CISR na tabela principal). Pacotes ZIP de versão incluem books `completo_satf` quando existirem na biblioteca IA.
 
 ---
 

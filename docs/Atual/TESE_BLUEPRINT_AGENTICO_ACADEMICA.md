@@ -46,7 +46,7 @@ A Inteligência Artificial representa uma das maiores oportunidades de transform
 
 O **Blueprint Agêntico** é um framework metodológico que propõe uma abordagem sistêmica e integrada para este desafio. Fundamentado em modelos acadêmicos consolidados — MIT CISR, McKinsey, SFIA, NIST AI RMF e ADKAR/Prosci — o framework introduz três inovações principais:
 
-1. **Avaliação Multidimensional de Maturidade**: Um modelo com 16 dimensões e 108 perguntas que avaliam aspectos técnicos, organizacionais, culturais, financeiros, de plataforma, receita, tipos de IA e eficácia MIT CISR.
+1. **Avaliação Multidimensional de Maturidade**: Dois instrumentos por projeto — **Blueprint 16** (16 dimensões, 108 perguntas, visão enterprise/MIT CISR) e **SATF TI v3** (11 dimensões, 70 perguntas, visão TI/engenharia com evidência obrigatória, certificação consultiva e dimensão D10 Fábrica Agêntica fora da média geral).
 
 2. **Conceito de Transformação Agêntica**: Uma nova perspectiva que avalia a capacidade de organizações e produtos de operar no paradigma emergente de Multi-Agent Systems — agentes de IA autônomos que colaboram para executar tarefas complexas.
 
@@ -109,7 +109,7 @@ Nossa pesquisa e experiência de campo identificaram **sete causas-raiz** recorr
 
 Muitas organizações iniciam projetos de IA de forma oportunista — "porque todos estão fazendo" ou "porque a tecnologia existe". Sem uma estratégia clara que conecte IA aos objetivos de negócio, projetos são priorizados por entusiasmo tecnológico, não por potencial de valor.
 
-> "Não existe vento favorável para quem não sabe para onde vai."
+> "Não existe vento favorável para quem não sabe para onde vai."  
 > — Sêneca
 
 ### Causa 2: Dados como Afterthought
@@ -221,7 +221,7 @@ O MIT Center for Information Systems Research é referência mundial em pesquisa
 | 4 | **Gerenciado** | IA integrada aos processos core, métricas de valor consistentes | 11% |
 | 5 | **Otimizado** | IA como diferencial competitivo, cultura de experimentação, inovação contínua | 4% |
 
-**Contribuição para o Blueprint Agêntico:**
+**Contribuição para o Blueprint Agêntico:**  
 O modelo MIT CISR fornece a estrutura base de progressão de maturidade e as dimensões técnicas (dados, tecnologia, operações).
 
 ## 4.2 McKinsey Value Creation Framework
@@ -233,10 +233,10 @@ A McKinsey & Company desenvolveu uma metodologia para quantificação do valor g
 - **Custo**: Automação, eficiência operacional, redução de erros, otimização
 - **Capital**: Gestão de inventário, manutenção preditiva, alocação de recursos
 
-**Mapeamento por Função:**
+**Mapeamento por Função:**  
 A McKinsey enfatiza que o valor da IA não é uniforme — diferentes unidades de negócio têm potenciais distintos. É essencial mapear casos de uso por área funcional.
 
-**Contribuição para o Blueprint Agêntico:**
+**Contribuição para o Blueprint Agêntico:**  
 As dimensões "Valor de Negócio e ROI" e "Valor por Unidade de Negócio" incorporam diretamente a metodologia McKinsey.
 
 ## 4.3 SFIA Framework (Skills Framework for the Information Age)
@@ -248,7 +248,7 @@ O SFIA é o padrão internacional para mapeamento de competências em tecnologia
 - 97 habilidades agrupadas em 6 categorias
 - Descritores comportamentais para cada nível
 
-**Contribuição para o Blueprint Agêntico:**
+**Contribuição para o Blueprint Agêntico:**  
 A dimensão "Talentos e Capacidades" utiliza conceitos SFIA para avaliar gaps de habilidades, planos de carreira e estratégias de build/buy/borrow para talentos.
 
 ## 4.4 NIST AI Risk Management Framework (AI RMF)
@@ -261,7 +261,7 @@ O National Institute of Standards and Technology dos EUA publicou em 2023 o AI R
 3. **MEASURE**: Avaliar riscos com métricas apropriadas
 4. **MANAGE**: Priorizar e tratar riscos identificados
 
-**Contribuição para o Blueprint Agêntico:**
+**Contribuição para o Blueprint Agêntico:**  
 As dimensões "Governança e Risco" e "Conformidade Regulatória" são diretamente derivadas do NIST AI RMF.
 
 ## 4.5 ADKAR/Prosci Change Management Model
@@ -275,7 +275,7 @@ O modelo ADKAR, desenvolvido pela Prosci, é o framework mais utilizado globalme
 - **A**bility (Habilidade): Implementar as novas competências
 - **R**einforcement (Reforço): Sustentar a mudança no longo prazo
 
-**Contribuição para o Blueprint Agêntico:**
+**Contribuição para o Blueprint Agêntico:**  
 A dimensão "Prontidão para Mudança" operacionaliza o modelo ADKAR no contexto de transformação com IA.
 
 ## 4.6 Síntese: A Necessidade de Integração
@@ -302,7 +302,7 @@ O Blueprint Agêntico é um framework metodológico para avaliação de maturida
 
 ### Característica 1: Integração Multidimensional
 
-Enquanto frameworks tradicionais focam em aspectos isolados (tecnologia OU governança OU talentos), o Blueprint Agêntico avalia **16 dimensões simultaneamente**, reconhecendo que a maturidade em IA é um fenômeno sistêmico que exige evolução coordenada em múltiplas frentes.
+Enquanto frameworks tradicionais focam em aspectos isolados (tecnologia OU governança OU talentos), o Blueprint Agêntico avalia **múltiplas dimensões simultaneamente** — **16 no instrumento enterprise (Blueprint 16)** ou **11 no instrumento TI (SATF TI v3)** — reconhecendo que a maturidade em IA é um fenômeno sistêmico que exige evolução coordenada em múltiplas frentes.
 
 ### Característica 2: Preparação para o Futuro Agêntico
 
@@ -349,7 +349,7 @@ O Blueprint Agêntico organiza-se em três módulos complementares:
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Módulo 1 — Maturidade Empresarial**: Responde à pergunta "Qual é nosso nível atual de prontidão para IA?" através de avaliação estruturada em 16 dimensões e 108 perguntas.
+**Módulo 1 — Maturidade Empresarial**: Responde à pergunta "Qual é nosso nível atual de prontidão para IA?" através de avaliação estruturada em **Blueprint 16** (16 dimensões, 108 perguntas) ou **SATF TI v3** (11 dimensões, 70 perguntas, foco TI/engenharia).
 
 **Módulo 2 — Produtos IA-First**: Responde à pergunta "Este produto específico está preparado para o futuro agêntico?" através do conceito de Transformação Agêntica.
 
@@ -440,28 +440,28 @@ O Blueprint Agêntico suporta exportação de todos os artefatos em múltiplos f
 
 O Blueprint Agêntico é guiado por oito princípios:
 
-**1. Objetividade sobre Subjetividade**
+**1. Objetividade sobre Subjetividade**  
 Cada pergunta possui critérios observáveis e comportamentais para cada nível de resposta. Avaliações são baseadas em evidências, não em percepções.
 
-**2. Visão Sistêmica**
+**2. Visão Sistêmica**  
 A maturidade em IA é um fenômeno que emerge da interação entre múltiplas dimensões. Excelência isolada não garante sucesso; é necessário evolução coordenada.
 
-**3. Múltiplas Perspectivas**
+**3. Múltiplas Perspectivas**  
 A visão de um único avaliador é necessariamente parcial. O framework suporta múltiplos avaliadores por projeto, consolidando perspectivas diversas.
 
-**4. Benchmarking Contínuo**
+**4. Benchmarking Contínuo**  
 Maturidade é relativa. O framework permite comparação com médias setoriais e melhores práticas, contextualizando resultados.
 
-**5. Orientação para Ação**
+**5. Orientação para Ação**  
 Diagnósticos sem prescrições têm valor limitado. Cada nível de maturidade vem acompanhado de recomendações específicas para evolução.
 
-**6. Preparação para o Futuro**
+**6. Preparação para o Futuro**  
 O paradigma de Multi-Agent Systems não é ficção — é a direção clara da indústria. Organizações precisam se preparar hoje para o futuro agêntico.
 
-**7. Resiliência e Independência Tecnológica**
+**7. Resiliência e Independência Tecnológica**  
 Sistemas críticos não devem depender de um único provedor de IA. A arquitetura multi-provedor com fallback automático garante disponibilidade contínua e evita lock-in tecnológico.
 
-**8. Interoperabilidade e Integração**
+**8. Interoperabilidade e Integração**  
 Frameworks de avaliação devem integrar-se aos fluxos de trabalho existentes. Suporte a múltiplos formatos de exportação e interfaces administrativas amigáveis aceleram adoção e reduzem barreiras de entrada.
 
 ---
@@ -503,7 +503,7 @@ Esta dimensão avalia se a organização possui uma visão estratégica clara pa
 - Roadmap de médio/longo prazo
 - Métricas de sucesso definidas
 
-**Por que importa:**
+**Por que importa:**  
 Sem direção estratégica clara e patrocínio executivo, iniciativas de IA permanecem fragmentadas, subfinanciadas e incapazes de escalar.
 
 ### Dimensão 2: Dados e Tecnologia (10%)
@@ -518,7 +518,7 @@ Esta dimensão avalia a infraestrutura técnica que sustenta iniciativas de IA.
 - APIs padronizadas
 - Infraestrutura de computação (GPU/TPU)
 
-**Por que importa:**
+**Por que importa:**  
 "Garbage in, garbage out" — modelos de IA são tão bons quanto os dados que os alimentam. Sem infraestrutura adequada, projetos esbarram em limitações técnicas insuperáveis.
 
 ### Dimensão 3: Governança e Risco (10%)
@@ -533,7 +533,7 @@ Esta dimensão avalia políticas, processos e controles para uso responsável de
 - Gestão de riscos específica para IA
 - Auditoria de modelos em produção
 
-**Por que importa:**
+**Por que importa:**  
 IA mal governada gera riscos regulatórios, reputacionais e operacionais. Organizações precisam equilibrar velocidade de inovação com controles adequados.
 
 ### Dimensão 4: Pessoas e Cultura (8%)
@@ -548,7 +548,7 @@ Esta dimensão avalia o capital humano e a cultura organizacional.
 - Colaboração entre áreas
 - Capacidade de atração e retenção
 
-**Por que importa:**
+**Por que importa:**  
 Tecnologia é habilitadora; pessoas são transformadoras. Uma cultura que pune o erro ou resiste à mudança inviabiliza qualquer iniciativa de IA.
 
 ### Dimensão 5: Operações e Processos (8%)
@@ -563,7 +563,7 @@ Esta dimensão avalia a integração de IA nos processos operacionais.
 - Deploy contínuo para modelos
 - Monitoramento de performance
 
-**Por que importa:**
+**Por que importa:**  
 IA que não chega à produção não gera valor. A capacidade de operacionalizar modelos de forma confiável é diferencial competitivo.
 
 ### Dimensão 6: Inovação e Experimentação (8%)
@@ -578,7 +578,7 @@ Esta dimensão avalia a capacidade de experimentar e inovar com IA.
 - Capacidade de escalar experimentos
 - Contribuição para comunidade de IA
 
-**Por que importa:**
+**Por que importa:**  
 IA evolui exponencialmente. Organizações que não experimentam continuamente ficam para trás rapidamente.
 
 ### Dimensão 7: Valor de Negócio e ROI (10%)
@@ -593,7 +593,7 @@ Esta dimensão avalia a capacidade de gerar e medir valor com IA.
 - Priorização baseada em valor
 - Comunicação de valor para stakeholders
 
-**Por que importa:**
+**Por que importa:**  
 Se você não pode medir, não pode gerenciar. Incapacidade de demonstrar valor leva a cortes de investimento e abandono de programas.
 
 ### Dimensão 8: Ecossistema e Parcerias (8%)
@@ -608,7 +608,7 @@ Esta dimensão avalia integrações externas e parcerias estratégicas.
 - Velocidade de integração
 - Processo de seleção de parceiros
 
-**Por que importa:**
+**Por que importa:**  
 Ninguém faz IA sozinho. Ecossistemas saudáveis de parceiros aceleram a inovação e reduzem riscos.
 
 ### Dimensão 9: Valor por Unidade de Negócio (7%)
@@ -623,7 +623,7 @@ Esta dimensão mapeia onde IA gera valor em cada área da organização.
 - Compartilhamento de soluções
 - Identificação de áreas líderes
 
-**Por que importa:**
+**Por que importa:**  
 O valor da IA não é uniforme. Algumas áreas têm potencial 10x maior que outras. Priorização inteligente maximiza retorno.
 
 ### Dimensão 10: Talentos e Capacidades (7%)
@@ -638,7 +638,7 @@ Esta dimensão faz análise detalhada de gaps de habilidades.
 - Senioridade da equipe
 - Papéis especializados (MLOps, AI Ethics, etc.)
 
-**Por que importa:**
+**Por que importa:**  
 Talentos de IA são escassos globalmente. Organizações precisam de estratégias deliberadas para construir capacidades.
 
 ### Dimensão 11: Conformidade Regulatória (7%)
@@ -653,7 +653,7 @@ Esta dimensão avalia alinhamento com regulações de IA e dados.
 - Documentação de explicabilidade
 - Processos de auditoria de conformidade
 
-**Por que importa:**
+**Por que importa:**  
 O ambiente regulatório de IA está evoluindo rapidamente. Organizações não preparadas enfrentarão riscos significativos.
 
 ### Dimensão 12: Prontidão para Mudança (7%)
@@ -668,7 +668,7 @@ Esta dimensão avalia a capacidade de absorver transformações.
 - Capacidade de absorção
 - Mecanismos de sustentação
 
-**Por que importa:**
+**Por que importa:**  
 Transformação com IA é fundamentalmente uma jornada de mudança organizacional. Tecnologia é 20%; pessoas e processos são 80%.
 
 ## 6.3 Os Cinco Níveis de Maturidade
@@ -684,7 +684,7 @@ Com base nas respostas às 108 perguntas, organizações são classificadas em u
 - ROI não mensurado
 - Dados e infraestrutura fragmentados
 
-**Recomendação principal:**
+**Recomendação principal:**  
 Definir sponsor executivo e identificar 2-3 casos de uso com ROI mensurável.
 
 ### Nível 2 — Oportunista (Score: 1.50 - 2.49)
@@ -696,7 +696,7 @@ Definir sponsor executivo e identificar 2-3 casos de uso com ROI mensurável.
 - Talentos concentrados em poucos indivíduos
 - ROI medido de forma inconsistente
 
-**Recomendação principal:**
+**Recomendação principal:**  
 Documentar estratégia, estabelecer governança básica e criar centro de excelência.
 
 ### Nível 3 — Estruturado (Score: 2.50 - 3.49)
@@ -708,7 +708,7 @@ Documentar estratégia, estabelecer governança básica e criar centro de excel�
 - Métricas de sucesso padronizadas
 - Talentos distribuídos em múltiplas equipes
 
-**Recomendação principal:**
+**Recomendação principal:**  
 Integrar IA aos processos core e escalar soluções bem-sucedidas.
 
 ### Nível 4 — Gerenciado (Score: 3.50 - 4.49)
@@ -720,7 +720,7 @@ Integrar IA aos processos core e escalar soluções bem-sucedidas.
 - Cultura de dados disseminada
 - Parcerias estratégicas estabelecidas
 
-**Recomendação principal:**
+**Recomendação principal:**  
 Experimentar com tecnologias emergentes (Multi-Agent Systems) e criar produtos IA-First.
 
 ### Nível 5 — Otimizado (Score: 4.50 - 5.00)
@@ -732,8 +732,106 @@ Experimentar com tecnologias emergentes (Multi-Agent Systems) e criar produtos I
 - Liderança reconhecida no setor
 - Contribuição para comunidade e ecossistema
 
-**Recomendação principal:**
+**Recomendação principal:**  
 Manter liderança através de inovação radical e preparação para paradigmas emergentes.
+
+---
+
+# 6B. Instrumento SATF — IA Maturidade TI (v3)
+
+## 6B.1 Contexto e Posicionamento
+
+Além do modelo **Blueprint 16** (visão enterprise e MIT CISR), a plataforma oferece o instrumento **SATF TI v3** (*SysMap Assessment Framework for TI*), publicado em Jun/2026. O SATF responde à pergunta: *"A área de TI e engenharia está preparada para adotar, escalar e operar IA com segurança — incluindo código gerado por IA, agentes em produção e modernização de legado?"*
+
+A escolha do instrumento é feita **por projeto**, de forma **mutuamente exclusiva**, e **travada** após a primeira resposta de avaliação.
+
+| ID | Nome | Dimensões | Perguntas |
+|----|------|-----------|-----------|
+| `BLUEPRINT_16` | Blueprint IA — Maturidade Organizacional | 16 | 108 |
+| `SATF_TI_V3` | SATF — IA Maturidade TI | 11 | 70 |
+
+## 6B.2 As 11 Dimensões SATF
+
+| Cód. | Dimensão | Perg. | Na média? | Descrição resumida |
+|------|----------|-------|-----------|-------------------|
+| D1 | Estratégia & Postura de IA | 6 | Sim | Green/Red Zone, sponsor, OKRs |
+| D2 | Governança, Risco & Conformidade | 6 | Sim (2× regulado) | Política interna + IA em produto |
+| D3 | Pessoas, Cultura & Capacitação | 6 | Sim | Citizen devs, letramento crítico |
+| D4 | Engenharia & Padrões de Desenvolvimento | 6 | Sim | DORA, revisão sob volume IA |
+| D5 | Plataforma, Arquitetura & Escala | 6 | Sim | Golden paths, PoC → produção |
+| D6 | Dados, Contexto & Conhecimento | 6 | Sim | RAG, catálogos, PII |
+| D7 | Segurança & Qualidade Integrada (QA) | 7 | Sim (2× regulado) | SAST/SCA, least agency |
+| D8 | Modernização & Sustentação de Legado | 6 | Sim | Spec-first, AIOps |
+| D9 | FinOps, Valor & Apoio ao Negócio | 6 | Sim | Unit economics, FinOps gate |
+| D10 | Fábrica Agêntica de Software | 8 | **Não** | SDLC agêntico; score próprio |
+| D11 | Conformidade Regulatória de IA | 7 | Sim (2× regulado; obrig. se regulado) | ISO 42001, PL 2.338, LGPD, NIST RMF |
+
+## 6B.3 Evidência Obrigatória e Teto de Nota
+
+No SATF, afirmações de maturidade elevada exigem sustentação:
+
+- Pontuação **≥ 4** exige **observações com mínimo 20 caracteres**
+- Sem evidência válida, a **nota efetiva** é limitada a **3** (teto N3)
+- A finalização é **bloqueada** enquanto houver pendências (`SATF_EVIDENCIA_OBRIGATORIA`)
+- Cada pergunta exibe **evidência esperada** (ex.: "Dashboard DORA; série histórica")
+
+## 6B.4 Certificação Consultiva (Camada 3)
+
+Após consolidação das avaliações, consultores autorizados executam certificação por dimensão:
+
+| Camada | Significado |
+|--------|-------------|
+| Declarado | Média das notas dos avaliadores |
+| Com teto | Média após teto 3 onde faltou evidência |
+| Oficial | Nota certificada ou rebaixada pelo consultor |
+
+Status por dimensão: `pendente`, `certificado`, `rebaixado`. O score oficial do projeto prioriza: certificado → com teto → declarado.
+
+## 6B.5 Setor Regulado e Score Geral
+
+Com **setor regulado** ativo (finanças, saúde, telecom, energia):
+
+- **D2, D7 e D11** recebem peso **2×** antes da normalização
+- **D11** torna-se **obrigatória**
+
+O score geral SATF é média ponderada de **D1–D9 e D11** (10 dimensões). **D10** possui score separado e **não entra** na média geral.
+
+## 6B.6 Escala N1–N5 (SysMap)
+
+| Faixa | Nível |
+|-------|-------|
+| 1,0 – 1,8 | N1 Inicial |
+| 1,8 – 2,6 | N2 Oportunista |
+| 2,6 – 3,4 | N3 Estruturado |
+| 3,4 – 4,2 | N4 Gerenciado |
+| 4,2 – 5,0 | N5 Otimizado |
+
+## 6B.7 Artefatos e Documentação SATF
+
+### Biblioteca IA (tipos)
+
+| Artefato | Tipo | Pipeline |
+|----------|------|----------|
+| Executivo TI / Engenharia | `executivo` | `satfRelatorioExecutivoIA.js` |
+| Book completo | `completo_satf` | `satfBookIA.js` |
+| Book modo rápido | `completo_satf_rapido` | `satfBookIA.js` (modo rápido) |
+
+### Isolamento taxonômico (Jul/2026)
+
+Artefatos SATF **não compartilham** prompts, blocos MIT CISR nem taxonomia Blueprint 16:
+
+- **Taxonomia fechada** D1–D11 (`satfBookTaxonomia.js`)
+- **Validação pós-geração** (`validarTaxonomiaBookSatf`); cache só reutiliza versão válida
+- **Desejos IA** na Seção 3 do book (`blocoDesejosIaBook.js`)
+- **Exportação** MD/ZIP/Word com metadados SATF (`exportRelatorioFrameworkMeta.js`); capa **Confidencial**
+- **UI**: alerta quando contaminação é detectada; regenerar com `reuse=false`
+
+### Referências documentais
+
+- Fundamentação: `docs/Atual/Fundamentacao_SATF_IA_Maturidade_TI_SATF.docx`
+- Guias de progressão: `docs/Atual/Dimensoes_Evolucao_SAT/` (D01–D11)
+- Seed e critérios: `backend/src/data/satfFrameworkSeed.js`, `satfPerguntaCriterios.js`
+- Módulos IA: `satfBookIA.js`, `satfRelatorioExecutivoIA.js`, `satfBookTaxonomia.js`
 
 ---
 
@@ -806,16 +904,16 @@ A Transformação Agêntica avalia:
 
 Por que organizações devem se preocupar com isso **agora**?
 
-**Evidência 1: Velocidade de Evolução**
+**Evidência 1: Velocidade de Evolução**  
 O ChatGPT alcançou 100 milhões de usuários em 2 meses — a tecnologia de crescimento mais rápido da história. Agentes autônomos estão no mesmo caminho.
 
-**Evidência 2: Investimentos Massivos**
+**Evidência 2: Investimentos Massivos**  
 As maiores empresas de tecnologia do mundo estão investindo bilhões em agentes: OpenAI (Operator), Google (Gemini Agents), Microsoft (Copilot), Anthropic (Claude with Tools).
 
-**Evidência 3: Casos de Uso em Produção**
+**Evidência 3: Casos de Uso em Produção**  
 Empresas como Klarna, Salesforce e ServiceNow já operam agentes em produção, substituindo milhares de posições de atendimento e operações.
 
-**Evidência 4: Vantagem de First-Mover**
+**Evidência 4: Vantagem de First-Mover**  
 Organizações que implementarem agentes primeiro terão vantagens estruturais de custo e eficiência que serão difíceis de superar.
 
 Organizações que ignorarem a Transformação Agêntica não perderão apenas eficiência — perderão **relevância competitiva**.
@@ -828,10 +926,10 @@ Organizações que ignorarem a Transformação Agêntica não perderão apenas e
 
 O Módulo 2 do Blueprint Agêntico avalia produtos específicos de IA quanto à sua prontidão para o paradigma agêntico. A avaliação é composta por dois blocos:
 
-**Bloco 1: Perguntas Universais de Transformação Agêntica (60% do score)**
+**Bloco 1: Perguntas Universais de Transformação Agêntica (60% do score)**  
 8 perguntas aplicadas a **todos** os produtos, independente da vertical.
 
-**Bloco 2: Perguntas por Vertical Setorial (40% do score)**
+**Bloco 2: Perguntas por Vertical Setorial (40% do score)**  
 6 perguntas específicas para cada uma das 12 verticais disponíveis.
 
 ## 8.2 As 8 Perguntas Universais
@@ -842,56 +940,56 @@ Estas perguntas avaliam os fundamentos da Transformação Agêntica:
 
 > O projeto envolve a criação de agentes de IA autônomos que podem executar tarefas complexas sem intervenção humana contínua, operando 24/7 e melhorando iterativamente?
 
-**O que avalia:**
+**O que avalia:**  
 A capacidade do produto de operar de forma genuinamente autônoma, não apenas como automação tradicional ou chatbot reativo.
 
 ### Pergunta 2: Impacto no ROI e Receita (20%)
 
 > O projeto gera receita incremental ou ROI >100% no primeiro ano através de agentes que aumentam throughput, qualidade, ou permitem novos modelos de negócio?
 
-**O que avalia:**
+**O que avalia:**  
 O potencial de geração de valor financeiro significativo, não apenas economias marginais.
 
 ### Pergunta 3: Redução de Custos Operacionais (15%)
 
 > O projeto pode reduzir custos operacionais em pelo menos 30% através da automação agêntica?
 
-**O que avalia:**
+**O que avalia:**  
 O potencial de transformação operacional através de substituição ou augmentação de trabalho humano.
 
 ### Pergunta 4: Integração com APIs e Ecossistema (15%)
 
 > O projeto integra-se com APIs, sistemas legados e ferramentas externas através de um ecossistema de agentes que se comunicam?
 
-**O que avalia:**
+**O que avalia:**  
 A capacidade de orquestrar múltiplas ferramentas e sistemas, característica essencial de agentes sofisticados.
 
 ### Pergunta 5: Escalabilidade e Elasticidade (10%)
 
 > Os agentes podem escalar elasticamente sem degradação de performance, suportando crescimento de 10x em volume?
 
-**O que avalia:**
+**O que avalia:**  
 A arquitetura do produto para suportar crescimento exponencial típico de soluções de IA bem-sucedidas.
 
 ### Pergunta 6: Governança e Conformidade (10%)
 
 > O projeto implementa governança, auditoria e controle de qualidade robustos, incluindo logging, explicabilidade e detecção de alucinação?
 
-**O que avalia:**
+**O que avalia:**  
 A maturidade dos controles para operar agentes de forma responsável e em conformidade.
 
 ### Pergunta 7: Aprendizado e Evolução (5%)
 
 > Os agentes podem aprender com feedback, melhorar iterativamente e evoluir sem retreinamento completo?
 
-**O que avalia:**
+**O que avalia:**  
 A capacidade de melhoria contínua, característica de sistemas de IA avançados.
 
 ### Pergunta 8: Experiência do Usuário (5%)
 
 > O projeto melhora significativamente a experiência do usuário através de agentes, aumentando NPS/CSAT em >20%?
 
-**O que avalia:**
+**O que avalia:**  
 O impacto positivo na experiência do usuário final, não apenas em métricas internas.
 
 ## 8.3 As 12 Verticais Setoriais
@@ -963,7 +1061,7 @@ A partir das informações do produto e dos resultados das avaliações, o siste
 - Métricas de sucesso e KPIs
 - Análise de riscos e mitigações
 
-**Valor:**
+**Valor:**  
 Transforma uma ideia de produto em especificação de negócio estruturada.
 
 ### Documento 2: Requisitos Funcionais
@@ -974,7 +1072,7 @@ Transforma uma ideia de produto em especificação de negócio estruturada.
 - Critérios de aceite verificáveis
 - Mapeamento de dependências
 
-**Valor:**
+**Valor:**  
 Define exatamente o que o sistema deve fazer, em linguagem clara para desenvolvedores.
 
 ### Documento 3: Requisitos Não Funcionais
@@ -986,7 +1084,7 @@ Define exatamente o que o sistema deve fazer, em linguagem clara para desenvolve
 - Segurança e conformidade
 - Confiabilidade de IA (tratamento de alucinações)
 
-**Valor:**
+**Valor:**  
 Define como o sistema deve se comportar além das funcionalidades.
 
 ### Documento 4: Arquitetura Técnica
@@ -999,7 +1097,7 @@ Define como o sistema deve se comportar além das funcionalidades.
 - Estratégia de observabilidade
 - Estimativa de custos de infraestrutura
 
-**Valor:**
+**Valor:**  
 Fornece blueprint técnico para a equipe de desenvolvimento.
 
 ### Documento 5: Cronograma e Estimativas
@@ -1012,7 +1110,7 @@ Fornece blueprint técnico para a equipe de desenvolvimento.
 - Equipe recomendada
 - Premissas e riscos
 
-**Valor:**
+**Valor:**  
 Permite planejamento financeiro e alocação de recursos.
 
 ### Documento 6: Blueprint de Construção
@@ -1024,7 +1122,7 @@ Permite planejamento financeiro e alocação de recursos.
 - Checklist de qualidade
 - Critérios de "Done"
 
-**Valor:**
+**Valor:**  
 Documento único e completo para iniciar o desenvolvimento.
 
 ## 9.3 O Ciclo Completo
@@ -1079,14 +1177,21 @@ Onde:
 - $R_i$ = Resposta à pergunta $i$ (escala 1-5)
 - $n$ = Número de perguntas na dimensão
 
-### Score Geral de Maturidade
+**SATF TI v3:** para notas ≥ 4, $R_i^{efetiva} = R_i$ apenas se houver evidência nas observações (≥ 20 caracteres); caso contrário $R_i^{efetiva} = \min(R_i, 3)$.
+
+### Score Geral de Maturidade (Blueprint 16)
 
 O score geral é a média ponderada das dimensões:
 
-$$S_{maturidade} = \frac{\sum_{j=1}^{12} (S_{dimensão_j} \times P_j)}{\sum_{j=1}^{12} P_j}$$
+$$S_{maturidade} = \frac{\sum_{j=1}^{16} (S_{dimensão_j} \times P_j)}{\sum_{j=1}^{16} P_j}$$
 
-Onde:
-- $P_j$ = Peso da dimensão $j$ (conforme tabela de pesos)
+### Score Geral SATF TI v3
+
+$$S_{maturidade}^{SATF} = \frac{\sum_{j \in \{D1..D9, D11\}} (S_j \times P_j)}{\sum_{j \in \{D1..D9, D11\}} P_j}$$
+
+D10 (Fábrica Agêntica) calcula score próprio e **não entra** no numerador. Com `setorRegulado`, $P_{D2} = P_{D7} = P_{D11} = 2$ antes da normalização.
+
+**Score oficial SATF** (após certificação): $S_{oficial} = S_{certificado} \;||\; S_{com\_teto} \;||\; S_{declarado}$.
 
 ### Consolidação de Múltiplos Avaliadores
 
@@ -1139,6 +1244,8 @@ $$S_{valor}^{norm} = \frac{S_{valor}}{\sum_{d=1}^{n} (w_d \times 5)} \times 100$
 
 ## 10.3 Classificação
 
+**Blueprint 16 (MIT):**
+
 | Score | Nível de Maturidade |
 |-------|---------------------|
 | 1.00 - 1.49 | Inicial |
@@ -1146,6 +1253,16 @@ $$S_{valor}^{norm} = \frac{S_{valor}}{\sum_{d=1}^{n} (w_d \times 5)} \times 100$
 | 2.50 - 3.49 | Estruturado |
 | 3.50 - 4.49 | Gerenciado |
 | 4.50 - 5.00 | Otimizado |
+
+**SATF TI v3 (SysMap N1–N5):**
+
+| Score | Nível |
+|-------|-------|
+| 1,0 – 1,8 | N1 Inicial |
+| 1,8 – 2,6 | N2 Oportunista |
+| 2,6 – 3,4 | N3 Estruturado |
+| 3,4 – 4,2 | N4 Gerenciado |
+| 4,2 – 5,0 | N5 Otimizado |
 
 ---
 
@@ -1194,7 +1311,7 @@ Gerado
            (onde a maioria das empresas está presa)
 ```
 
-**Insight crítico:**
+**Insight crítico:**  
 A maior parte do valor não está em "fazer IA" — está em **escalar IA**. Organizações nos níveis 1-2 podem investir anos sem retorno significativo. A aceleração acontece nos níveis 3-5.
 
 ## 11.4 O Custo da Imaturidade
@@ -1226,8 +1343,8 @@ O Blueprint Agêntico foi desenvolvido e validado através de:
 
 ### Caso 1: Empresa de Serviços Financeiros
 
-**Contexto**: Grande banco brasileiro, iniciando jornada de IA
-**Avaliação inicial**: Nível 2 (Oportunista), score 2.1
+**Contexto**: Grande banco brasileiro, iniciando jornada de IA  
+**Avaliação inicial**: Nível 2 (Oportunista), score 2.1  
 **Principais gaps identificados**:
 - Governança inexistente
 - Dados fragmentados em silos
@@ -1238,13 +1355,13 @@ O Blueprint Agêntico foi desenvolvido e validado através de:
 - Implementação de data lake unificado
 - Definição de modelo de medição de valor
 
-**Resultado após 12 meses**: Nível 3 (Estruturado), score 3.2
+**Resultado após 12 meses**: Nível 3 (Estruturado), score 3.2  
 **ROI de projetos de IA**: Aumento de 60% para 180%
 
 ### Caso 2: Startup de Tecnologia
 
-**Contexto**: Startup EdTech desenvolvendo tutor autônomo
-**Avaliação de produto**: Score de Relevância 4.2/5 (Alta Relevância)
+**Contexto**: Startup EdTech desenvolvendo tutor autônomo  
+**Avaliação de produto**: Score de Relevância 4.2/5 (Alta Relevância)  
 **Pontos fortes identificados**:
 - Autonomia genuína do agente
 - Integração robusta com LMS
@@ -1259,8 +1376,8 @@ O Blueprint Agêntico foi desenvolvido e validado através de:
 
 ### Caso 3: Indústria Manufatureira
 
-**Contexto**: Fábrica de autopeças, manutenção preditiva
-**Avaliação inicial**: Nível 1 (Inicial), score 1.4
+**Contexto**: Fábrica de autopeças, manutenção preditiva  
+**Avaliação inicial**: Nível 1 (Inicial), score 1.4  
 **Desafios específicos**:
 - Infraestrutura OT desconectada
 - Resistência cultural forte
@@ -1271,23 +1388,23 @@ O Blueprint Agêntico foi desenvolvido e validado através de:
 - Projeto piloto em uma linha de produção
 - Champions de mudança em cada turno
 
-**Resultado após 18 meses**: Nível 2.8 (caminho para Estruturado)
+**Resultado após 18 meses**: Nível 2.8 (caminho para Estruturado)  
 **Redução de downtime**: 28%
 
 ## 12.3 Padrões Observados
 
 Da aplicação do Blueprint Agêntico em múltiplas organizações, emergem padrões:
 
-**Padrão 1: A Armadilha do Nível 2**
+**Padrão 1: A Armadilha do Nível 2**  
 A transição de Nível 2 para Nível 3 é a mais difícil. Requer mudanças estruturais (governança, processos) que enfrentam resistência organizacional.
 
-**Padrão 2: Cultura como Gargalo**
+**Padrão 2: Cultura como Gargalo**  
 Em 70% dos casos, dimensões culturais (Pessoas e Cultura, Prontidão para Mudança) são os maiores gargalos, não dimensões técnicas.
 
-**Padrão 3: O Poder do Benchmarking**
+**Padrão 3: O Poder do Benchmarking**  
 Organizações que veem sua posição relativa ao setor (benchmarking) aceleram investimentos significativamente.
 
-**Padrão 4: Especificação como Catalisador**
+**Padrão 4: Especificação como Catalisador**  
 A geração automática de especificações reduz drasticamente o tempo de "análise paralisia" — equipes iniciam execução mais rapidamente.
 
 ---
@@ -1378,22 +1495,22 @@ O Blueprint Agêntico representa uma evolução significativa em como organizaç
 
 Esta pesquisa sustenta as seguintes teses:
 
-**Tese 1: Maturidade é Multidimensional**
+**Tese 1: Maturidade é Multidimensional**  
 O sucesso com IA não depende apenas de dados ou tecnologia. Requer evolução coordenada em 16 dimensões que abrangem estratégia, pessoas, processos, governança, plataforma, receita, tipos de IA e eficácia.
 
-**Tese 2: O Futuro é Agêntico**
+**Tese 2: O Futuro é Agêntico**  
 O paradigma de Multi-Agent Systems não é especulação — é a direção clara da indústria. Organizações que não se prepararem perderão relevância competitiva.
 
-**Tese 3: Diagnóstico Sem Ação é Desperdício**
+**Tese 3: Diagnóstico Sem Ação é Desperdício**  
 Avaliações que terminam em relatórios genéricos têm valor limitado. A verdadeira contribuição está em transformar insights em especificações acionáveis.
 
-**Tese 4: Maturidade Acelera Valor**
+**Tese 4: Maturidade Acelera Valor**  
 Existe correlação direta entre nível de maturidade e ROI de iniciativas de IA. Investir em maturidade não é custo — é multiplicador de retorno.
 
-**Tese 5: Resiliência Tecnológica é Imperativa**
+**Tese 5: Resiliência Tecnológica é Imperativa**  
 Sistemas enterprise que dependem de IA Generativa devem ser arquitetados com suporte a múltiplos provedores. A dependência de um único fornecedor cria riscos de disponibilidade, custos e lock-in tecnológico. O modelo multi-provedor com fallback automático é o padrão emergente para aplicações críticas.
 
-**Tese 6: Interoperabilidade Acelera Adoção**
+**Tese 6: Interoperabilidade Acelera Adoção**  
 Frameworks que suportam múltiplos formatos de exportação e integram-se facilmente com ferramentas existentes (Git, wikis corporativas, sistemas de documentação) têm adoção significativamente maior que soluções monolíticas.
 
 ## 14.3 Limitações e Trabalhos Futuros
@@ -1471,14 +1588,14 @@ A **SysMap Solutions** é uma consultoria de tecnologia especializada em transfo
 
 O Blueprint Agêntico é resultado de anos de experiência prática em projetos de IA para organizações de diversos portes e setores.
 
-**Contato:**
+**Contato:**  
 contato@sysmap.com.br
 
 ---
 
 *Blueprint Agêntico — Transformando empresas com Inteligência Artificial*
 
-*Documento versão 2.1 — Abril de 2026*
+*Documento versão 2.2 — Julho de 2026*
 
 ---
 
@@ -1489,6 +1606,8 @@ contato@sysmap.com.br
 | 1.0 | Janeiro 2026 | Versão inicial do framework |
 | 2.0 | Março 2026 | Adição do Módulo 3 (Especificação Automática) |
 | 2.1 | Abril 2026 | Arquitetura Multi-Provedor de IA (Anthropic, OpenAI, Groq), Exportação Multi-Formato (MD, Word, PDF), Interface Administrativa de Configuração |
+| 2.2 | Julho 2026 | Instrumento **SATF TI v3**: seleção por projeto, 11 dimensões, evidência obrigatória, certificação consultiva, setor regulado, D10 fora da média (Cap. 6B) |
+| 2.3 | Julho 2026 | **Isolamento taxonômico SATF** em relatórios IA: pipeline dedicado, validação D1–D11, executivo TI/engenharia, export Word/MD SATF (§6B.7) |
 
 ---
 

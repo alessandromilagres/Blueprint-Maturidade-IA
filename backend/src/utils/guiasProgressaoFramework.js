@@ -62,10 +62,41 @@ const SATF_PARA_GUIA_BLUEPRINT = {
   'Conformidade Regulatória de IA': 'Conformidade Regulatória'
 };
 
+function limparTextoGuiaParaPromptSatf(texto) {
+  if (!texto) return '';
+  return String(texto)
+    .replace(/^Framework:\s*MIT CISR[^\n]*/gim, '')
+    .replace(/\bMIT CISR\b/gi, 'benchmark de mercado')
+    .replace(/Dimensão\s+\d+:\s*[^\n]+/gi, '')
+    .replace(/\b16 dimens(?:õ|o)es\b/gi, '11 dimensões SATF')
+    .trim();
+}
+
 export function blocoGuiaProgressaoDimensaoSatf(nomeDimensaoSatf, scoreOuNivel) {
-  const nomeBlueprint = SATF_PARA_GUIA_BLUEPRINT[String(nomeDimensaoSatf || '').trim()];
+  const nomeSatf = String(nomeDimensaoSatf || '').trim();
+  const nomeBlueprint = SATF_PARA_GUIA_BLUEPRINT[nomeSatf];
   if (!nomeBlueprint) return '';
-  return blocoGuiaProgressaoDimensao(nomeBlueprint, scoreOuNivel);
+
+  const idx = ORDEM_DIMENSOES_FRAMEWORK.indexOf(nomeBlueprint);
+  if (idx < 0) return '';
+
+  const nivel =
+    Number(scoreOuNivel) >= 1 && Number(scoreOuNivel) <= 5
+      ? Number(scoreOuNivel)
+      : nivelNumericoDeScore(scoreOuNivel);
+
+  const texto = carregarTextoGuia(idx);
+  const secao = extrairSecaoGuiaProgressao(texto, nivel);
+  if (!secao) return '';
+
+  const secaoLimpa = limparTextoGuiaParaPromptSatf(secao);
+  if (!secaoLimpa) return '';
+
+  return `### Referência interna de calibração — ${nomeSatf} (SATF TI v3, Nível ${nivel})
+
+**INSTRUÇÃO CRÍTICA (não reproduzir no book):** calibração interna apenas. No documento final use **exclusivamente** o nome SATF **"${nomeSatf}"** e códigos D1–D11. **Não** cite dimensões Blueprint ("${nomeBlueprint}" ou outras das 16), nem MIT CISR como metodologia.
+
+${secaoLimpa}`;
 }
 
 export function blocoGuiaProgressaoDimensao(nomeDimensao, scoreOuNivel) {

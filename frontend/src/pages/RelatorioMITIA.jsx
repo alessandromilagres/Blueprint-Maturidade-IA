@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Brain, Sparkles, Download, Printer, FileText, Loader2, AlertCircle, CheckCircle2, Cpu, Zap, File, RefreshCw, History, Library } from 'lucide-react';
-import { dashboardApi, relatoriosIAApi } from '../services/api';
+import { ArrowLeft, Brain, Sparkles, Download, Printer, FileText, Loader2, AlertCircle, CheckCircle2, Cpu, Zap, File, RefreshCw, History, Library, AlertTriangle } from 'lucide-react';
+import { dashboardApi, relatoriosIAApi, projetosApi } from '../services/api';
 import { mapRelatorioIASalvoToViewShape } from '../utils/relatorioIAViewModel';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { downloadMarkdownAsDoc } from '../utils/markdownToDoc';
@@ -17,10 +17,15 @@ import {
   AUTOR_RELATORIO_IA,
   LABEL_CONSULTOR_CABECALHO,
   LABEL_VALIDADO_METODOLOGIA,
+  LABEL_VALIDADO_METODOLOGIA_SATF,
   RODAPE_GERADO_IA,
   DISCLAIMER_RELATORIO_EXECUTIVO,
+  DISCLAIMER_RELATORIO_EXECUTIVO_SATF,
   EMPRESA_CONSULTORIA,
-  METODOLOGIA_BLUEPRINT_RESUMO
+  METODOLOGIA_BLUEPRINT_RESUMO,
+  METODOLOGIA_SATF_RESUMO,
+  FOOTER_DOC_METODOLOGIA,
+  FOOTER_DOC_METODOLOGIA_SATF
 } from '../constants/consultorRelatorioIA';
 import EmpresaLogoRelatorio from '../components/EmpresaLogoRelatorio';
 import { fetchEmpresaLogoDataUrl } from '../hooks/useEmpresaLogo';
@@ -50,6 +55,23 @@ export default function RelatorioMITIA() {
   const backgroundRunningRef = useRef(false);
   const skipVersaoEffectRef = useRef(false);
   const geracaoIniciadaRef = useRef(false);
+  const [frameworkProjeto, setFrameworkProjeto] = useState(null);
+
+  const fwAtual =
+    data?.frameworkMaturidade ||
+    data?.dadosUsados?.frameworkMaturidade ||
+    frameworkProjeto;
+  const isSatfRelatorio = fwAtual === 'SATF_TI_V3';
+  const metodologiaResumo = isSatfRelatorio ? METODOLOGIA_SATF_RESUMO : METODOLOGIA_BLUEPRINT_RESUMO;
+  const labelValidado = isSatfRelatorio ? LABEL_VALIDADO_METODOLOGIA_SATF : LABEL_VALIDADO_METODOLOGIA;
+  const disclaimerRelatorio = isSatfRelatorio ? DISCLAIMER_RELATORIO_EXECUTIVO_SATF : DISCLAIMER_RELATORIO_EXECUTIVO;
+
+  useEffect(() => {
+    projetosApi
+      .buscar(id)
+      .then((p) => setFrameworkProjeto(p?.frameworkMaturidade || null))
+      .catch(() => setFrameworkProjeto(null));
+  }, [id]);
 
   async function obterJobAtivo() {
     try {
@@ -287,16 +309,19 @@ export default function RelatorioMITIA() {
       : null;
     downloadMarkdownAsDoc(
       data.relatorio,
-      `Relatorio_Estrategico_MIT_IA_${projectName}`,
+      `${isSatfRelatorio ? 'Relatorio_Executivo_SATF' : 'Relatorio_Estrategico_MIT_IA'}_${projectName}`,
       {
-        titulo: 'Relatório Estratégico C-Level',
-        subtitulo: 'Análise Executiva de Maturidade em IA',
+        titulo: isSatfRelatorio ? 'Relatório Executivo SATF TI v3' : 'Relatório Estratégico C-Level',
+        subtitulo: isSatfRelatorio
+          ? 'Análise Executiva de Maturidade IA em TI & Engenharia'
+          : 'Análise Executiva de Maturidade em IA',
         empresa: data.dadosUsados.empresa,
         projeto: data.dadosUsados.projeto,
         autor: AUTOR_RELATORIO_IA,
-        headerColor: '#6b21a8',
-        accentColor: '#a855f7',
-        logoDataUrl
+        headerColor: isSatfRelatorio ? '#0e7490' : '#6b21a8',
+        accentColor: isSatfRelatorio ? '#06b6d4' : '#a855f7',
+        logoDataUrl,
+        footerMetodologia: isSatfRelatorio ? FOOTER_DOC_METODOLOGIA_SATF : FOOTER_DOC_METODOLOGIA
       }
     );
   }
@@ -554,12 +579,14 @@ export default function RelatorioMITIA() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-purple-200 font-semibold">Relatório Estratégico</p>
-                  <p className="text-sm text-white/90">{LABEL_VALIDADO_METODOLOGIA}</p>
+                  <p className="text-sm text-white/90">{labelValidado}</p>
                 </div>
               </div>
               
               <h1 className="text-4xl font-bold mb-2">
-                Análise Executiva de Maturidade em IA
+                {isSatfRelatorio
+                  ? 'Análise Executiva SATF TI v3'
+                  : 'Análise Executiva de Maturidade em IA'}
               </h1>
               <p className="text-purple-100 text-lg mb-6">
                 {data?.dadosUsados?.empresa} · {data?.dadosUsados?.projeto}
@@ -596,7 +623,7 @@ export default function RelatorioMITIA() {
                     Relatório produzido pela consultoria {EMPRESA_CONSULTORIA} com apoio de IA
                   </p>
                   <p className="text-[11px] text-purple-700">
-                    {METODOLOGIA_BLUEPRINT_RESUMO} · Provider: {data?.provider} · Modelo: {data?.model}
+                    {metodologiaResumo} · Provider: {data?.provider} · Modelo: {data?.model}
                   </p>
                 </div>
               </div>
@@ -608,6 +635,15 @@ export default function RelatorioMITIA() {
 
           {/* Conteúdo do relatório */}
           <div className="px-10 py-10 print:px-8 print:py-6">
+            {data?.avisoTaxonomia && (
+              <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 print:hidden">
+                <p className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  Possível contaminação de taxonomia
+                </p>
+                <p className="mt-1 text-xs text-amber-800">{data.avisoTaxonomia}</p>
+              </div>
+            )}
             {data?.dadosUsados?.comparativoVersoes?.disponivel && (
               <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/60 p-4 print:hidden">
                 <p className="text-sm font-semibold text-blue-900">Evolução entre versões da pesquisa</p>
@@ -633,11 +669,11 @@ export default function RelatorioMITIA() {
             <div className="flex items-center justify-center gap-2 mb-2">
               <Brain className="w-4 h-4 text-purple-600" />
               <p className="text-xs font-semibold text-slate-700">
-                {RODAPE_GERADO_IA} · {LABEL_VALIDADO_METODOLOGIA}
+                {RODAPE_GERADO_IA} · {labelValidado}
               </p>
             </div>
             <p className="text-[10px] text-slate-500 max-w-2xl mx-auto leading-relaxed">
-              {DISCLAIMER_RELATORIO_EXECUTIVO}
+              {disclaimerRelatorio}
             </p>
             <p className="text-[10px] text-slate-400 mt-2">
               Gerado em {new Date().toLocaleString('pt-BR')} · BluePrint IA

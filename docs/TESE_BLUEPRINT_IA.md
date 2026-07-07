@@ -8,7 +8,7 @@
 
 Este documento apresenta o **Blueprint IA** (também referido como **Blueprint Agêntico** na documentação metodológica completa), um framework e uma plataforma para avaliação sistemática da maturidade em Inteligência Artificial (IA) em organizações empresariais e para especificação técnica de produtos de IA. O sistema fundamenta-se no modelo MIT CISR Enterprise AI Maturity (Weill, Woerner & Sebastian, 2024) e incorpora conceitos de frameworks reconhecidos como McKinsey Value Creation, SFIA, NIST AI RMF e ADKAR/Prosci.
 
-A proposta organiza-se em **três módulos integrados**: (1) **Avaliação de Maturidade Empresarial**, com **16 dimensões** e **108 perguntas** estruturadas — incluindo dimensões de plataforma e industrialização, IA como gerador de receita, maturidade por tipo de IA (analítica, generativa, agêntica, robótica) e eficácia de IA nas três lentes do MIT CISR (operações, experiência do cliente, ecossistema); (2) **Avaliação de Produtos IA-First**, com 8 perguntas universais de Transformação Agêntica e **12 verticais setoriais** com 6 perguntas cada (72 perguntas verticais), totalizando **80 perguntas** por avaliação de produto; e (3) **Especificação Automática**, que gera documentação de produto e engenharia (por exemplo PRD, requisitos, arquitetura e blueprint de construção) com apoio de IA generativa e **arquitetura multi-provedor** (Anthropic, OpenAI, Groq), com **exportação** de relatórios em Markdown, Word e PDF.
+A proposta organiza-se em **três módulos integrados**: (1) **Avaliação de Maturidade Empresarial**, com escolha de **framework por projeto** — **Blueprint 16** (16 dimensões, 108 perguntas, visão enterprise/C-Level alinhada ao MIT CISR) ou **SATF TI v3** (11 dimensões, 70 perguntas, visão de engenharia, plataforma, legado e Fábrica Agêntica para TI/CTO); (2) **Avaliação de Produtos IA-First**, com 8 perguntas universais de Transformação Agêntica e **12 verticais setoriais** com 6 perguntas cada (72 perguntas verticais), totalizando **80 perguntas** por avaliação de produto; e (3) **Especificação Automática**, que gera documentação de produto e engenharia (por exemplo PRD, requisitos, arquitetura e blueprint de construção) com apoio de IA generativa e **arquitetura multi-provedor** (Anthropic, OpenAI, Groq), com **exportação** de relatórios em Markdown, Word e PDF.
 
 O framework oferece métricas quantitativas, projeções financeiras de ROI, benchmarking setorial e continuidade entre diagnóstico e entrega técnica, permitindo identificar gaps, priorizar investimentos e acelerar a jornada de transformação digital com IA.
 
@@ -33,7 +33,7 @@ Como as organizações podem avaliar sistematicamente seu nível de prontidão e
 **Objetivo Geral**: Desenvolver um framework abrangente para avaliação de maturidade em IA que permita às organizações diagnosticar seu estado atual, identificar oportunidades e criar roadmaps de evolução.
 
 **Objetivos Específicos**:
-1. Estruturar um modelo de avaliação multidimensional baseado em frameworks acadêmicos consolidados, com **16 dimensões** alinhadas ao estágio de maturidade MIT CISR e extensões de plataforma, receita, tipos de IA e eficácia
+1. Estruturar modelos de avaliação multidimensionais baseados em frameworks acadêmicos consolidados: **Blueprint 16** (enterprise/MIT CISR) e **SATF TI v3** (engenharia e operações de software)
 2. Definir métricas quantitativas e fórmulas de cálculo para níveis de maturidade e para relevância de produtos IA-First
 3. Criar um módulo específico para avaliação de produtos IA-First e Multi-Agent Systems (verticais setoriais e pesos agênticos)
 4. Estabelecer projeções financeiras correlacionadas aos níveis de maturidade
@@ -92,15 +92,11 @@ O Blueprint IA organiza-se em **três módulos** que cobrem maturidade organizac
 ┌─────────────────────────────────────────────────────────────────┐
 │                      BLUEPRINT IA FRAMEWORK                      │
 ├─────────────────────────────────────────────────────────────────┤
-│  MÓDULO 1: MATURIDADE EMPRESARIAL                                │
+│  MÓDULO 1: MATURIDADE EMPRESARIAL (framework por projeto)        │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │  16 Dimensões (108 perguntas)                                ││
-│  │  Bloco fundacional (1–12): estratégia, dados, governança,    ││
-│  │  pessoas, operações, inovação, valor/ROI, ecossistema,       ││
-│  │  valor por BU, talentos, conformidade, mudança               ││
-│  │  Extensões MIT / plataforma (13–16): plataforma e            ││
-│  │  industrialização, IA como receita, tipos de IA, eficácia    ││
-│  │  (operações, cliente, ecossistema)                           ││
+│  │  Blueprint 16 — 16 dimensões, 108 perguntas (C-Level/MIT)    ││
+│  │  SATF TI v3 — 11 dimensões, 70 perguntas (TI/engenharia)     ││
+│  │  Escolha exclusiva por projeto; travada após 1ª resposta     ││
 │  └─────────────────────────────────────────────────────────────┘│
 ├─────────────────────────────────────────────────────────────────┤
 │  MÓDULO 2: PRODUTOS IA-FIRST                                     │
@@ -146,6 +142,134 @@ Cada dimensão possui um peso no cálculo do score geral. Os pesos seguem a vers
 
 **Total**: 100%
 
+### 3.3 Seleção de Framework por Projeto
+
+Cada **projeto de maturidade** utiliza **um único framework**, escolhido na criação ou edição do projeto:
+
+| ID | Nome | Público-alvo | Dimensões | Perguntas |
+|----|------|--------------|-----------|-----------|
+| `BLUEPRINT_16` | Blueprint IA — Maturidade Organizacional | C-Level, board, transformação enterprise | 16 | 108 |
+| `SATF_TI_V3` | SATF — IA Maturidade TI (Instrumento v3) | TI, engenharia, plataforma, CTO | 11 | 70 |
+
+**Regras operacionais:**
+
+- A escolha é **mutuamente exclusiva** — não é possível misturar dimensões dos dois instrumentos no mesmo projeto.
+- O framework fica **travado** após a primeira resposta de avaliação (nota, "sem informação" ou observação), impedindo troca que invalidaria o histórico.
+- Projetos **SATF** podem marcar **setor regulado** (finanças, saúde, telecom, energia), o que altera a ponderação (ver §3.4.4).
+- Dimensões **ativas** por projeto são configuráveis em ambos os frameworks (exceto obrigatoriedades SATF em setor regulado para D11).
+- A API `GET /api/frameworks-maturidade` expõe metadados dos instrumentos para a interface.
+
+### 3.4 Instrumento SATF TI v3 (IA Maturidade TI)
+
+O **SATF** (*SysMap Assessment Framework for TI*) é o segundo instrumento de maturidade da plataforma, publicado como **Instrumento v3 (Jun/2026)**. Enquanto o Blueprint 16 cobre a transformação enterprise com lentes MIT CISR, o SATF avalia a **capacidade de TI e engenharia** para adotar, escalar e operar IA com segurança — incluindo código gerado por IA, agentes em produção, legado e Fábrica Agêntica de Software.
+
+#### 3.4.1 As 11 Dimensões SATF
+
+| Cód. | Dimensão | Perguntas | Na média geral? | Foco principal |
+|------|----------|-----------|-----------------|----------------|
+| D1 | Estratégia & Postura de IA | 6 | Sim | Green/Red Zone, sponsor, OKRs, redesenho de workflow |
+| D2 | Governança, Risco & Conformidade | 6 | Sim (2× se regulado) | Política interna + IA em produto; gates de pipeline |
+| D3 | Pessoas, Cultura & Capacitação | 6 | Sim | Citizen developers, orquestração, letramento crítico |
+| D4 | Engenharia & Padrões de Desenvolvimento | 6 | Sim | DORA, revisão sob volume de código IA, CFR/MTTR |
+| D5 | Plataforma, Arquitetura & Escala | 6 | Sim | Platform engineering, golden paths, PoC → produção |
+| D6 | Dados, Contexto & Conhecimento | 6 | Sim | RAG, catálogos, governança de PII para agentes |
+| D7 | Segurança & Qualidade Integrada (QA) | 7 | Sim (2× se regulado) | SAST/SCA codificado, least agency, testes não-determinísticos |
+| D8 | Modernização & Sustentação de Legado | 6 | Sim | Mapa de bloqueios, spec-first, AIOps, observabilidade de agentes |
+| D9 | FinOps, Valor & Apoio ao Negócio | 6 | Sim | Unit economics, FinOps gate no CI/CD, impacto ao usuário |
+| D10 | Fábrica Agêntica de Software | 8 | **Não** — score próprio | SDLC agêntico ponta a ponta; fora da média das 9 núcleo |
+| D11 | Conformidade Regulatória de IA | 7 | Sim (2× se regulado; **obrigatória** se regulado) | ISO 42001, PL 2.338/2023, LGPD, NIST AI RMF |
+
+**Total**: 70 perguntas Likert (1–5), cada uma com **critérios observáveis** por nível e campo **evidência esperada** orientando o avaliador.
+
+#### 3.4.2 Evidência Obrigatória (SATF)
+
+Diferentemente do Blueprint 16, o SATF exige **evidência documentada** para notas altas:
+
+- Respostas com pontuação **≥ 4** (Gerenciado/Otimizado no instrumento SATF) exigem **observações com no mínimo 20 caracteres** descrevendo a evidência.
+- Sem evidência válida, a **nota efetiva** usada no cálculo é **limitada a 3** (teto N3), mesmo que o avaliador tenha declarado 4 ou 5.
+- A finalização da avaliação é **bloqueada** se houver perguntas ≥ 4 sem evidência (`SATF_EVIDENCIA_OBRIGATORIA`).
+- A interface exibe, por pergunta, o bloco **"Evidência esperada"** (ex.: "Dashboard DORA/DX; série histórica").
+
+Isso alinha o instrumento à prática de auditoria técnica: afirmações de maturidade elevada devem ser sustentadas por artefatos observáveis.
+
+#### 3.4.3 Certificação Consultiva (Camada 3 — SATF)
+
+Após a consolidação das avaliações, perfis autorizados (`admin`, `gestor`, `sysmap`, `negocios`, `ti`, `executivo`) podem executar a **certificação por dimensão** na tela *Certificação SATF* do projeto:
+
+| Camada | Descrição |
+|--------|-----------|
+| **Declarado** | Média das notas informadas pelos avaliadores |
+| **Com teto** | Média após aplicar teto 3 onde faltou evidência em notas ≥ 4 |
+| **Oficial (certificado)** | Nota validada ou rebaixada pelo consultor, com status `certificado` ou `rebaixado` |
+
+O **score oficial do projeto** prioriza: nota certificada → nota com teto → nota declarada. Cada dimensão registra confiança (`alta`/`média`/`baixa`), resumo de evidências e observação do consultor.
+
+#### 3.4.4 Setor Regulado e Ponderação
+
+Quando o projeto SATF marca **setor regulado**, as dimensões **D2**, **D7** e **D11** recebem **peso 2×** antes da normalização para 100%. A **D11** torna-se **obrigatória** no projeto. Isso reflete maior exigência de governança, segurança/QA e conformidade em setores como finanças, saúde, telecom e energia.
+
+O **score geral SATF** é a média ponderada de **D1–D9 e D11** (10 dimensões). A **D10 (Fábrica Agêntica)** possui score e relatório próprios, mas **não entra** no denominador da média geral — permitindo diagnosticar maturidade agêntica de software sem distorcer o índice de prontidão de TI.
+
+#### 3.4.5 Escala de Maturidade SATF (N1–N5)
+
+O SATF utiliza faixas SysMap distintas do Blueprint/MIT:
+
+| Faixa | Nível | Classificação |
+|-------|-------|---------------|
+| 1,0 – 1,8 | N1 | Inicial |
+| 1,8 – 2,6 | N2 | Oportunista |
+| 2,6 – 3,4 | N3 | Estruturado |
+| 3,4 – 4,2 | N4 | Gerenciado |
+| 4,2 – 5,0 | N5 | Otimizado |
+
+#### 3.4.6 Relatórios e Books SATF — isolamento taxonômico (Jul/2026)
+
+Projetos SATF geram artefatos **dedicados**, com pipeline de IA **separado** do Blueprint 16. A plataforma não reutiliza prompts, blocos de dados MIT CISR nem taxonomia de 16 dimensões na geração SATF.
+
+| Artefato | Tipo biblioteca | Público | Seções |
+|----------|-----------------|---------|--------|
+| Relatório executivo IA | `executivo` | CTO, engenharia, plataforma | 5 (capacidades, gaps, roadmap técnico) |
+| Book completo | `completo_satf` | Consultoria TI | 1–8 (11 dimensões D1–D11) |
+| Book modo rápido | `completo_satf_rapido` | Entrega ágil | Versão condensada SATF |
+
+**Backend:** `satfBookIA.js`, `satfRelatorioExecutivoIA.js`, `satfBookTaxonomia.js`, `exportRelatorioFrameworkMeta.js`. Rotas `POST /relatorio-ia` e `/relatorio-ia-completo` desviam para fluxos SATF quando `ProjetoFramework.frameworkMaturidade = SATF_TI_V3`.
+
+**Regras anti-contaminação:**
+
+1. Taxonomia fechada D1–D11 (nomes oficiais do seed); proibidas 16 dimensões Blueprint, MIT CISR como metodologia principal e rótulos genéricos de outras taxonomias.
+2. Validação pós-geração (`validarTaxonomiaBookSatf`); cache (`reuse=true`) só reutiliza versão salva se validação OK.
+3. Modo rápido SATF não injeta trajetória MIT nem Apêndice C do book Blueprint.
+4. Guias de progressão SATF calibram o modelo internamente sem expor nomes Blueprint no documento final.
+5. **Desejos IA** dos avaliadores integrados na Seção 3 do book quando cadastrados (`blocoDesejosIaBook.js`).
+6. Resposta API inclui `avisoTaxonomia` quando contaminação é detectada — regenerar com `reuse=false`.
+
+**Frontend e exportação:** labels condicionais no dashboard; alerta amarelo na UI do book; export Word com rodapé SATF e marca **Confidencial**; exports MD/ZIP com cabeçalho SATF TI v3 (`exportRelatorioFrameworkMeta.js`).
+
+**Operação:** books SATF gerados antes de Jul/2026 com índice ou corpo misturando dimensões devem ser **regenerados** na plataforma.
+
+- Capa e rodapé: metodologia **SATF TI v3 — IA Maturidade TI (SysMap Solutions)**
+- Escala N1–N5 (sem bloco de ROI MIT CISR típico do Blueprint enterprise)
+- Guias de progressão: `docs/Atual/Dimensoes_Evolucao_SAT/` (11 documentos por dimensão)
+
+### 3.5 Comparativo Blueprint 16 × SATF TI v3
+
+| Aspecto | Blueprint 16 | SATF TI v3 |
+|---------|--------------|------------|
+| Foco | Enterprise, C-Level, board | TI, engenharia, plataforma, legado |
+| Dimensões | 16 | 11 |
+| Perguntas | 108 | 70 |
+| Benchmark | MIT CISR Enterprise AI Maturity | Instrumento SysMap SATF |
+| Dimensão especial | — | D10 Fábrica Agêntica (fora da média) |
+| Evidência em notas altas | Não obrigatória | Obrigatória (≥ 4, mín. 20 caracteres) |
+| Certificação consultiva | Não | Sim (camada 3 por dimensão) |
+| Setor regulado | Não | Peso 2× em D2/D7/D11; D11 obrigatória |
+| Faixas de maturidade | MIT (ex.: 1,0–1,5 … 4,5–5,0) | SysMap N1–N5 (1,0–1,8 … 4,2–5,0) |
+| Books / relatórios IA | `completo` / `completo_rapido`; executivo C-Level + ROI MIT | `completo_satf` / `completo_satf_rapido`; executivo TI/engenharia; pipeline isolado |
+| Validação taxonômica | — | `validarTaxonomiaBookSatf`; alerta UI + `avisoTaxonomia` |
+| Export Word/MD/ZIP | Rodapé Blueprint / MIT referência | Rodapé SATF + **Confidencial**; sumário técnico SATF |
+
+**Quando usar cada instrumento:** Blueprint 16 para diagnóstico estratégico enterprise e alinhamento a board; SATF para assessment de capacidade de TI, engenharia de software com IA, modernização de legado e operação de agentes em produção.
+
 ---
 
 ## 4. Metodologia de Avaliação
@@ -171,8 +295,20 @@ Cada pergunta do assessment utiliza uma escala Likert de 1 a 5, com critérios e
 O framework suporta múltiplos avaliadores por projeto, permitindo:
 
 - **Visão 360°**: Diferentes stakeholders avaliam as mesmas dimensões
-- **Seleção de Áreas**: Cada avaliador escolhe quais dimensões tem conhecimento para responder
+- **Seleção de Áreas**: Cada avaliador escolhe quais dimensões tem conhecimento para responder (respeitando dimensões ativas do projeto)
 - **Consolidação**: Sistema calcula médias ponderadas considerando todos os avaliadores
+- **Framework travado**: Após a primeira resposta, o instrumento (Blueprint ou SATF) não pode ser alterado
+
+### 4.3 Metodologia Específica SATF
+
+Além das regras gerais, projetos **SATF TI v3** aplicam:
+
+1. **Evidência por pergunta**: Cada pergunta inclui texto de *evidência esperada*; notas ≥ 4 exigem observações documentadas.
+2. **Teto automático**: Nota efetiva limitada a 3 sem evidência válida, mesmo com declaração 4–5.
+3. **Bloqueio na finalização**: Avaliador não conclui enquanto houver pendências de evidência.
+4. **Certificação pós-avaliação**: Consultor valida ou rebaixa scores por dimensão; score oficial do projeto usa a camada certificada.
+5. **Configuração de dimensões**: Gestor ativa/desativa dimensões do projeto; D11 obrigatória em setor regulado; D10 sempre com score separado.
+6. **Convites filtrados**: Convites e detalhe do projeto listam apenas **dimensões ativas** do framework escolhido.
 
 ---
 
@@ -200,7 +336,7 @@ Onde:
 - $S_{área_j}$ = Score da área $j$
 - $P_j$ = Peso da área $j$ (conforme tabela de pesos)
 
-### 5.3 Classificação dos Níveis de Maturidade
+### 5.3 Classificação dos Níveis de Maturidade (Blueprint 16)
 
 A partir do score geral, a organização é classificada em um dos cinco níveis:
 
@@ -211,6 +347,32 @@ A partir do score geral, a organização é classificada em um dos cinco níveis
 | 2.50 - 3.49 | Estruturado | Intermediário | Governança definida, processos em evolução |
 | 3.50 - 4.49 | Gerenciado | Avançado | IA integrada, métricas consistentes |
 | 4.50 - 5.00 | Otimizado | Expert | IA como core do negócio, inovação contínua |
+
+### 5.3.1 Score Geral SATF TI v3
+
+Para projetos SATF, o score geral considera apenas dimensões que **entram na média** (D1–D9 e D11):
+
+$$S_{geral}^{SATF} = \frac{\sum_{j \in \text{média}} (S_{área_j} \times P_j)}{\sum_{j \in \text{média}} P_j}$$
+
+Onde $P_j$ são pesos iguais por padrão, ou **2×** para D2, D7 e D11 quando `setorRegulado = true`. A dimensão **D10** calcula $S_{D10}$ separadamente e não entra no numerador.
+
+**Nota efetiva por resposta SATF** (para cálculo com teto):
+
+$$R_i^{efetiva} = \begin{cases} R_i & \text{se } R_i < 4 \text{ ou evidência válida} \\ \min(R_i, 3) & \text{se } R_i \geq 4 \text{ sem evidência} \end{cases}$$
+
+**Score oficial por dimensão** (após certificação):
+
+$$S_{oficial} = S_{certificado} \;||\; S_{com\_teto} \;||\; S_{declarado}$$
+
+### 5.3.2 Classificação SATF (N1–N5)
+
+| Faixa | Nível |
+|-------|-------|
+| 1,0 – 1,8 | N1 Inicial |
+| 1,8 – 2,6 | N2 Oportunista |
+| 2,6 – 3,4 | N3 Estruturado |
+| 3,4 – 4,2 | N4 Gerenciado |
+| 4,2 – 5,0 | N5 Otimizado |
 
 ### 5.4 Consolidação de Múltiplos Avaliadores
 
@@ -456,7 +618,7 @@ O Blueprint IA transforma a metodologia da tese em um fluxo operacional de diagn
 
 O funcionamento pode ser resumido em nove etapas:
 
-1. **Configuração inicial**: administradores cadastram empresas, usuários, projetos, produtos, custos de referência e provedores de IA.
+1. **Configuração inicial**: administradores cadastram empresas, usuários, projetos (com **escolha de framework**: Blueprint 16 ou SATF TI v3), produtos, custos de referência e provedores de IA.
 2. **Planejamento da avaliação**: o sistema sugere dimensões de avaliação a partir do cargo do avaliador, usando a matriz Cargo × Dimensão, mas permite ajuste manual.
 3. **Convite e resposta**: avaliadores recebem convite por e-mail/link/QR Code, podem acessar avaliações de maturidade por magic link sem senha e respondem perguntas com escala de 1 a 5, podendo marcar "sem informação" quando não têm evidência suficiente.
 4. **Acompanhamento operacional**: gestores acompanham link enviado, link aberto, avaliação iniciada, progresso salvo, finalização, lembretes e alertas de qualidade.
@@ -507,7 +669,9 @@ Em desenvolvimento, a URL é configurada por `EXPO_PUBLIC_API_URL`, permitindo a
 
 ### 10.4 Avaliação de Maturidade
 
-Cada projeto pode ter múltiplos avaliadores. O convite define o projeto, o avaliador e as dimensões esperadas. A seleção de áreas pode ser manual ou sugerida pela matriz Cargo × Dimensão. Por exemplo, cargos de tecnologia tendem a receber dimensões como Dados e Tecnologia, Plataforma, Governança de Sistemas e Ecossistema; perfis executivos recebem um conjunto mais amplo de dimensões estratégicas.
+Cada projeto pode ter múltiplos avaliadores e utiliza **um framework fixo** (Blueprint 16 ou SATF TI v3), selecionado na criação do projeto. O seletor de framework (`FrameworkMaturidadeSelector`) apresenta descrição, público-alvo e quantidade de dimensões/perguntas. Projetos SATF exibem opção **setor regulado** e badge `SATF TI` nos painéis.
+
+O convite define o projeto, o avaliador e as dimensões esperadas. A seleção de áreas pode ser manual ou sugerida pela matriz Cargo × Dimensão, **limitada às dimensões ativas** do framework do projeto. Por exemplo, cargos de tecnologia em projeto SATF recebem dimensões como Engenharia, Plataforma, Segurança & QA e Modernização de Legado; perfis executivos em projeto Blueprint recebem conjunto mais amplo de dimensões estratégicas.
 
 Convites de maturidade usam um fluxo de acesso simplificado: o link recebido por e-mail ou QR Code chama a API pública de validação do convite, cria ou reutiliza a avaliação do respondente, gera uma sessão JWT e redireciona diretamente para a tela de resposta. O fluxo mantém autorização no backend, impede uso por usuário inativo e registra eventos de abertura e início da avaliação.
 
@@ -515,9 +679,11 @@ Durante a resposta, cada pergunta exibe:
 
 - Critérios objetivos de pontuação de 1 a 5
 - Esclarecimento enriquecido sobre o que a pergunta avalia
-- Exemplos por vertical de negócio
-- Campo de observações
+- Exemplos por vertical de negócio (Blueprint) ou **evidência esperada** (SATF)
+- Campo de observações (obrigatório para SATF quando nota ≥ 4)
 - Opção "sem informação", que conta como pergunta tratada no progresso, mas não entra no score
+
+Projetos **SATF** após consolidação permitem **certificação consultiva** por dimensão (`/projetos/:id/certificacao`), onde o consultor valida evidências e define o score oficial.
 
 Antes de finalizar, o avaliador visualiza uma revisão com perguntas respondidas, pendentes, respostas sem informação e dimensões recusadas. Isso reduz respostas especulativas, melhora a consciência do avaliador sobre lacunas e aumenta a qualidade do diagnóstico.
 
@@ -549,6 +715,8 @@ Essas visões ajudam a transformar a avaliação em uma agenda executiva de prio
 Os relatórios gerados por IA podem ser longos e consumir muitos tokens. Por isso, a geração executa em background por meio de jobs persistidos. A interface inicia a geração, acompanha status, progresso e erros, e carrega a versão salva quando o job termina.
 
 Esse desenho evita timeout no navegador, permite continuidade mesmo em relatórios multi-chunk e mantém histórico de versões na biblioteca de relatórios IA.
+
+**Isolamento por framework (Jul/2026):** projetos SATF usam módulos dedicados (`satfBookIA.js`, `satfRelatorioExecutivoIA.js`) com validação taxonômica pós-geração; projetos Blueprint mantêm fluxo MIT CISR e 16 dimensões inalterados.
 
 ### 10.8 Arquitetura Técnica Resumida
 
@@ -590,7 +758,7 @@ O **Blueprint IA** apresenta um framework e uma plataforma robustos, cientificam
 
 ### 11.2 Contribuições
 
-1. **Modelo Multidimensional**: **16 dimensões** e **108 perguntas** cobrindo aspectos técnicos, organizacionais, culturais, de plataforma e de eficácia em IA
+1. **Modelo Multidimensional Dual**: **Blueprint 16** (108 perguntas, visão enterprise/MIT) e **SATF TI v3** (70 perguntas, visão TI/engenharia com evidência obrigatória e certificação)
 2. **Métricas Quantitativas**: Fórmulas objetivas para score de maturidade, consolidação multiavaliador e relevância de produto (bloco agêntico + verticais)
 3. **Transformação Agêntica**: Avaliação estruturada de prontidão para **Multi-Agent Systems** no nível de produto (8 universais + 12 verticais)
 4. **Projeções Financeiras**: Correlação entre maturidade e ROI baseada em evidências de mercado
@@ -644,9 +812,17 @@ O Blueprint IA permite às organizações:
 
 ## Anexos
 
-### Anexo A: Questionário Completo por Dimensão
+### Anexo A: Questionário Blueprint 16
 
 *[Manual completo: 108 perguntas em 16 dimensões — ver `docs/PERGUNTAS_BLUEPRINT_COMPLETO.md` e o seed da aplicação]*
+
+### Anexo A2: Questionário SATF TI v3
+
+*[70 perguntas em 11 dimensões — ver `backend/src/data/satfFrameworkSeed.js`, critérios em `satfPerguntaCriterios.js` e fundamentação em `docs/Atual/Fundamentacao_SATF_IA_Maturidade_TI_SATF.docx`]*
+
+**Dimensões e guias de progressão SATF** (11 documentos):
+
+- `docs/Atual/Dimensoes_Evolucao_SAT/Guia_Progressao_SATF_D01` … `D11`
 
 ### Anexo B: Questionário de Transformação Agêntica e Verticais
 
@@ -664,10 +840,29 @@ O Blueprint IA permite às organizações:
 
 ---
 
-*Documento atualizado em: Junho de 2026*
-*Versão: 2.4*
+*Documento atualizado em: Julho de 2026*
+*Versão: 2.6*
 
 ---
+
+### Nota de Atualização (v2.6)
+
+Esta versão documenta o **isolamento taxonômico SATF** em relatórios e books gerados por IA (Jul/2026):
+
+1. **Pipeline dedicado SATF**: `satfBookIA.js`, `satfRelatorioExecutivoIA.js`, `satfBookTaxonomia.js` — sem reutilização de prompts/blocos MIT CISR do Blueprint 16
+2. **Executivo SATF**: tipo `executivo` com 5 seções para CTO/engenharia (distinto do executivo C-Level Blueprint)
+3. **Validação pós-geração**: `validarTaxonomiaBookSatf`; cache condicional; campo `avisoTaxonomia` na API
+4. **UI e exportação**: labels SATF no dashboard, alerta de contaminação, Word/MD/ZIP com metadados SATF (`exportRelatorioFrameworkMeta.js`)
+5. **Desejos IA** integrados na Seção 3 dos books; regeneração obrigatória de artefatos SATF antigos contaminados
+
+### Nota de Atualização (v2.5)
+
+Esta versão documenta o **instrumento SATF TI v3** como segunda opção de avaliação de maturidade na plataforma:
+
+1. **Seleção por projeto**: Blueprint 16 ou SATF TI v3 (mutuamente exclusivos; travados após 1ª resposta)
+2. **SATF**: 11 dimensões, 70 perguntas, evidência obrigatória (≥ 4), teto N3, certificação consultiva, setor regulado
+3. **D10 Fábrica Agêntica**: score próprio, fora da média geral
+4. **Escala N1–N5** SysMap, books `completo_satf` e guias em `Dimensoes_Evolucao_SAT/`
 
 ### Nota de Atualização (v2.4)
 

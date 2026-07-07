@@ -22,10 +22,15 @@ import { relatorioBookSecao3Completo } from '../constants/ordemDimensoesFramewor
 import {
   AUTOR_RELATORIO_IA,
   LABEL_VALIDADO_METODOLOGIA,
+  LABEL_VALIDADO_METODOLOGIA_SATF,
   RODAPE_GERADO_IA,
   DISCLAIMER_BOOK_COMPLETO,
+  DISCLAIMER_BOOK_SATF,
   EMPRESA_CONSULTORIA,
-  METODOLOGIA_BLUEPRINT_RESUMO
+  METODOLOGIA_BLUEPRINT_RESUMO,
+  METODOLOGIA_SATF_RESUMO,
+  FOOTER_DOC_METODOLOGIA,
+  FOOTER_DOC_METODOLOGIA_SATF
 } from '../constants/consultorRelatorioIA';
 import EmpresaLogoRelatorio from '../components/EmpresaLogoRelatorio';
 import { fetchEmpresaLogoDataUrl } from '../hooks/useEmpresaLogo';
@@ -120,6 +125,10 @@ export default function RelatorioMITIACompleto() {
   const tipoBook = bookIaTipoProjeto(fwAtual, modoRapido);
   const totalDimsBook = totalDimensoesBookFramework(fwAtual);
   const fwMeta = relatorioFrameworkMeta(fwAtual);
+  const isSatfBook = fwAtual === 'SATF_TI_V3' || tipoBook.startsWith('completo_satf');
+  const metodologiaResumo = isSatfBook ? METODOLOGIA_SATF_RESUMO : METODOLOGIA_BLUEPRINT_RESUMO;
+  const labelValidadoMetodologia = isSatfBook ? LABEL_VALIDADO_METODOLOGIA_SATF : LABEL_VALIDADO_METODOLOGIA;
+  const disclaimerBook = isSatfBook ? DISCLAIMER_BOOK_SATF : DISCLAIMER_BOOK_COMPLETO;
 
   useEffect(() => {
     if (skipGeracaoEffectRef.current) {
@@ -463,20 +472,27 @@ export default function RelatorioMITIACompleto() {
       : null;
     downloadMarkdownAsDoc(
       data.relatorio,
-      `Book_Trabalho_Maturidade_IA_${projectName}`,
+      `${isSatfBook ? 'Book_SATF_TI' : 'Book_Trabalho_Maturidade_IA'}_${projectName}`,
       {
-        titulo: rapid
-          ? 'Book de Trabalho (modo rápido) — Maturidade em IA'
-          : 'Book de Trabalho — Maturidade em IA',
-        subtitulo: rapid
-          ? 'Versão condensada SysMap Blueprint IA · Roadmap · KPIs'
-          : 'Análise Aprofundada por Dimensão · Roadmap · KPIs · Governança',
+        titulo: isSatfBook
+          ? rapid
+            ? 'Book SATF TI v3 (modo rápido)'
+            : 'Book SATF TI v3 — IA Maturidade TI'
+          : rapid
+            ? 'Book de Trabalho (modo rápido) — Maturidade em IA'
+            : 'Book de Trabalho — Maturidade em IA',
+        subtitulo: isSatfBook
+          ? '11 dimensões · engenharia · plataforma · SDLC agêntico'
+          : rapid
+            ? 'Versão condensada SysMap Blueprint IA · Roadmap · KPIs'
+            : 'Análise Aprofundada por Dimensão · Roadmap · KPIs · Governança',
         empresa: data.dadosUsados?.empresa ?? '',
         projeto: data.dadosUsados?.projeto ?? '',
         autor: AUTOR_RELATORIO_IA,
-        headerColor: '#0f766e',
-        accentColor: '#14b8a6',
-        logoDataUrl
+        headerColor: isSatfBook ? '#0e7490' : '#0f766e',
+        accentColor: isSatfBook ? '#06b6d4' : '#14b8a6',
+        logoDataUrl,
+        footerMetodologia: isSatfBook ? FOOTER_DOC_METODOLOGIA_SATF : FOOTER_DOC_METODOLOGIA
       }
     );
   }
@@ -1103,7 +1119,7 @@ export default function RelatorioMITIACompleto() {
                         Documento de referência produzido pela consultoria {EMPRESA_CONSULTORIA} com apoio de IA
                       </p>
                       <p className="text-[11px] text-emerald-700">
-                        {METODOLOGIA_BLUEPRINT_RESUMO} · DORA · MLOps · FinOps · NIST AI RMF · Provider: {data?.provider} · Modelo: {data?.model}
+                        {metodologiaResumo} · DORA · MLOps · FinOps · NIST AI RMF · Provider: {data?.provider} · Modelo: {data?.model}
                       </p>
                     </div>
                   </div>
@@ -1118,6 +1134,15 @@ export default function RelatorioMITIACompleto() {
 
               {/* Conteúdo do book */}
               <div className="px-10 py-10 print:px-8 print:py-6">
+                {data?.avisoTaxonomia && (
+                  <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 print:hidden">
+                    <p className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      Possível contaminação de taxonomia
+                    </p>
+                    <p className="mt-1 text-xs text-amber-800">{data.avisoTaxonomia}</p>
+                  </div>
+                )}
                 {data?.dadosUsados?.comparativoVersoes?.disponivel && (
                   <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 print:hidden">
                     <p className="text-sm font-semibold text-emerald-900">Evolução entre versões da pesquisa</p>
@@ -1143,11 +1168,11 @@ export default function RelatorioMITIACompleto() {
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <BookOpen className="w-4 h-4 text-emerald-600" />
                   <p className="text-xs font-semibold text-slate-700">
-                    {RODAPE_GERADO_IA} · {LABEL_VALIDADO_METODOLOGIA}
+                    {RODAPE_GERADO_IA} · {labelValidadoMetodologia}
                   </p>
                 </div>
                 <p className="text-[10px] text-slate-500 max-w-2xl mx-auto leading-relaxed">
-                  {DISCLAIMER_BOOK_COMPLETO}
+                  {disclaimerBook}
                 </p>
                 <p className="text-[10px] text-slate-400 mt-2">
                   Gerado em {new Date().toLocaleString('pt-BR')} · BluePrint IA

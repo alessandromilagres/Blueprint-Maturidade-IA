@@ -32,8 +32,36 @@ import {
   RUBRICA_FAIXAS_NIVEL,
   RUBRICA_LIMITES_NIVEL
 } from '../utils/nivelMaturidadeRubrica.js';
+import { carregarFrameworkProjeto } from '../utils/projetoFramework.js';
+import { listarAreasDoProjeto } from '../utils/areaFrameworkCatalog.js';
+import { ordenarAreasPorFramework } from '../utils/ordemDimensoesFramework.js';
+import { FRAMEWORK_SATF_TI_V3 } from '../constants/frameworkMaturidadePolicy.js';
+import {
+  montarCabecalhoRelatorioMaturidadeMarkdown,
+  paragrafoSumarioExecutivoExport,
+  tabelaResultadoPrincipalExport,
+  blocoDescobertasSumarioExport,
+  tiposBookIaExportPorFramework,
+  nomeArquivoBookIaExport,
+  isSatfFrameworkExport
+} from '../utils/exportRelatorioFrameworkMeta.js';
 
 const router = express.Router();
+
+async function carregarFrameworkExportacao(prisma, projetoId) {
+  const { frameworkMaturidade } = await carregarFrameworkProjeto(prisma, projetoId);
+  return frameworkMaturidade;
+}
+
+async function listarAreasExportacao(prisma, projetoId, frameworkMaturidade) {
+  if (isSatfFrameworkExport(frameworkMaturidade)) {
+    return ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projetoId));
+  }
+  return prisma.area.findMany({
+    include: { perguntas: true },
+    orderBy: { ordem: 'asc' }
+  });
+}
 
 function normalizarProjetoVersaoExport(row) {
   if (!row) return null;
@@ -901,7 +929,8 @@ router.get('/versao/:projetoId/:versaoId/zip', async (req, res) => {
     }
 
     projeto.avaliacoes = await filtrarAvaliacoesPorVersaoExportacao(projeto.avaliacoes, projetoVersao);
-    const areas = await prisma.area.findMany({ include: { perguntas: true }, orderBy: { ordem: 'asc' } });
+    const frameworkMaturidade = await carregarFrameworkExportacao(prisma, projetoId);
+    const areas = await listarAreasExportacao(prisma, projetoId, frameworkMaturidade);
     const todasAreaIds = areas.map((area) => area.id);
     const scoresPorArea = areas.map((area) => {
       let totalScore = 0;
@@ -982,12 +1011,13 @@ router.get('/versao/:projetoId/:versaoId/zip', async (req, res) => {
     archive.append(markdownRegulatorio, { name: '05-conformidade-regulatoria.md' });
     archive.append(markdownExecutive, { name: '06-relatorio-executivo-versao.md' });
     if (relatoriosIA.get('executivo')?.conteudoMd) {
-      archive.append(relatoriosIA.get('executivo').conteudoMd, { name: '07-relatorio-ia-executivo.md' });
+      archive.append(relatoriosIA.get('executivo').conteudoMd, { name: nomeArquivoBookIaExport('executivo') });
     }
-    if (relatoriosIA.get('completo')?.conteudoMd) {
-      archive.append(relatoriosIA.get('completo').conteudoMd, { name: '08-relatorio-ia-completo.md' });
-    } else if (relatoriosIA.get('completo_rapido')?.conteudoMd) {
-      archive.append(relatoriosIA.get('completo_rapido').conteudoMd, { name: '08-relatorio-ia-completo-rapido.md' });
+    for (const tipoBook of tiposBookIaExportPorFramework(frameworkMaturidade)) {
+      const row = relatoriosIA.get(tipoBook);
+      if (row?.conteudoMd) {
+        archive.append(row.conteudoMd, { name: nomeArquivoBookIaExport(tipoBook) });
+      }
     }
     archive.append(JSON.stringify({
       projeto: { id: projeto.id, nome: projeto.nome },
@@ -1612,10 +1642,10 @@ router.get('/projeto/:projetoId/zip-relatorio-maturidade', async (req, res) => {
     const markdownCadastro = gerarMarkdownCadastroEmpresaProjeto(projeto);
 
     // ========== GERAR RELATÓRIO COMPLETO (MESMO DO DASHBOARD) ==========
-    const areas = await prisma.area.findMany({
-      include: { perguntas: true },
-      orderBy: { ordem: 'asc' }
-    });
+    const frameworkMaturidadeZip = await carregarFrameworkExportacao(prisma, parseInt(projetoId));
+    const projetoVersao = await obterVersaoExportacao(req, parseInt(projetoId));
+    projeto.avaliacoes = await filtrarAvaliacoesPorVersaoExportacao(projeto.avaliacoes, projetoVersao);
+    const areas = await listarAreasExportacao(prisma, parseInt(projetoId), frameworkMaturidadeZip);
     const todasAreaIdsExportZip = areas.map((a) => a.id);
 
     const scoresPorArea = areas.map(area => {
@@ -1780,27 +1810,7 @@ router.get('/projeto/:projetoId/zip-relatorio-maturidade', async (req, res) => {
     const areasFortes = scoresPorArea.filter(a => a.score >= 3.5).sort((a, b) => b.score - a.score);
 
     // ========== RELATÓRIO COMPLETO (MESMO FORMATO DO DASHBOARD) ==========
-    let md = `# RELATÓRIO DE MATURIDADE EM INTELIGÊNCIA ARTIFICIAL
-
-## Blueprint Agêntico — Assessment Completo
-
----
-
-<div align="center">
-
-**${projeto.empresa.nome}**
-
-${projeto.nome}
-
-Versão da pesquisa: ${versaoLabel}
-
-*${dataGeracao}*
-
-</div>
-
----
-
-# SUMÁRIO
+    const sumarioZip = `# SUMÁRIO
 
 1. [Sumário Executivo](#1-sumário-executivo)
 2. [Benchmarking Competitivo](#2-benchmarking-competitivo)
@@ -1817,36 +1827,37 @@ Versão da pesquisa: ${versaoLabel}
 13. [Análise de Cenários](#13-análise-de-cenários)
 14. [Próximos Passos Imediatos](#14-próximos-passos-imediatos)
 15. [Conclusão](#15-conclusão)
-16. [Produtos IA-First](#16-produtos-ia-first)
+16. [Produtos IA-First](#16-produtos-ia-first)`;
 
----
+    let md = montarCabecalhoRelatorioMaturidadeMarkdown({
+      frameworkMaturidade: frameworkMaturidadeZip,
+      empresaNome: projeto.empresa.nome,
+      projetoNome: projeto.nome,
+      versaoLabel,
+      dataGeracao,
+      sumarioMarkdown: sumarioZip
+    });
 
-# 1. SUMÁRIO EXECUTIVO
-
-Este relatório apresenta os resultados do **Assessment de Maturidade em Inteligência Artificial** realizado na **${projeto.empresa.nome}** para o projeto **${projeto.nome}**, utilizando a metodologia **SysMap Blueprint IA**, alinhada com o **MIT CISR Enterprise AI Maturity Model**.
-
-A avaliação analisou **${scoresPorArea.length} dimensões** críticas de maturidade em IA, com base nas respostas de **${projeto.avaliacoes.length} avaliador(es)**, resultando em um score geral de **${scoreGeral.toFixed(2)} pontos**, classificando a organização no nível **"${nivelGeral}"**.
+    md += `${paragrafoSumarioExecutivoExport({
+      frameworkMaturidade: frameworkMaturidadeZip,
+      empresa: projeto.empresa.nome,
+      projeto: projeto.nome,
+      numDimensoes: scoresPorArea.length,
+      numAvaliadores: projeto.avaliacoes.length,
+      scoreGeral,
+      nivelGeral
+    })}
 
 ## Resultado Principal
 
-| Métrica | Valor |
-|---------|:-----:|
-| **Score Geral** | **${scoreGeral.toFixed(2)} / 5.00** |
-| **Nível de Maturidade** | **${nivelGeral}** |
-| **Classificação MIT CISR** | **${levelInfo.name}** |
-| **Referência MIT** | ${levelInfo.nameEn} |
-| **Foco Principal** | ${levelInfo.focus} |
-| **% de Empresas neste Nível** | ${levelInfo.percentage} |
+${tabelaResultadoPrincipalExport({
+  frameworkMaturidade: frameworkMaturidadeZip,
+  scoreGeral,
+  nivelGeral,
+  levelInfo
+})}
 
-## Principais Descobertas
-
-### Pontos Fortes (Score ≥ 3.5)
-${areasFortes.length > 0 ? areasFortes.map(a => `- **${a.area}**: ${a.score.toFixed(2)} (${a.nivel})`).join('\n') : '- Nenhuma área com score ≥ 3.5'}
-
-### Áreas de Atenção (Score < 3.0)
-${areasParaMelhorar.length > 0 ? areasParaMelhorar.map(a => `- **${a.area}**: ${a.score.toFixed(2)} (${a.nivel})`).join('\n') : '- ✅ Todas as áreas com score ≥ 3.0'}
-
----
+${blocoDescobertasSumarioExport(areasFortes, areasParaMelhorar)}
 
 # 2. BENCHMARKING COMPETITIVO
 
@@ -3111,12 +3122,10 @@ router.get('/dashboard/:projetoId', async (req, res) => {
     }
     const projetoVersaoDashboard = await obterVersaoExportacao(req, parseInt(projetoId));
     projeto.avaliacoes = await filtrarAvaliacoesPorVersaoExportacao(projeto.avaliacoes, projetoVersaoDashboard);
+    const frameworkMaturidadeDashboard = await carregarFrameworkExportacao(prisma, parseInt(projetoId));
 
-    // Buscar áreas
-    const areas = await prisma.area.findMany({
-      include: { perguntas: true },
-      orderBy: { ordem: 'asc' }
-    });
+    // Buscar áreas do framework do projeto
+    const areas = await listarAreasExportacao(prisma, parseInt(projetoId), frameworkMaturidadeDashboard);
     const todasAreaIdsExportDash = areas.map((a) => a.id);
 
     // Calcular scores consolidados
@@ -3350,27 +3359,7 @@ router.get('/dashboard/:projetoId', async (req, res) => {
     // =============================================
     // RELATÓRIO COMPLETO EM MARKDOWN
     // =============================================
-    let md = `# RELATÓRIO DE MATURIDADE EM INTELIGÊNCIA ARTIFICIAL
-
-## Blueprint Agêntico — Assessment Completo
-
----
-
-<div align="center">
-
-**${projeto.empresa.nome}**
-
-${projeto.nome}
-
-Versão da pesquisa: ${versaoLabelDashboard}
-
-*${dataGeracao}*
-
-</div>
-
----
-
-# SUMÁRIO
+    const sumarioDashboard = `# SUMÁRIO
 
 1. [Sumário Executivo](#1-sumário-executivo)
 2. [Benchmarking Competitivo](#2-benchmarking-competitivo)
@@ -3389,36 +3378,37 @@ Versão da pesquisa: ${versaoLabelDashboard}
 15. [Próximos Passos Imediatos](#15-próximos-passos-imediatos)
 16. [Conclusão](#16-conclusão)
 17. [Dados do Projeto](#17-dados-do-projeto)
-18. [Produtos IA-First](#18-produtos-ia-first)
+18. [Produtos IA-First](#18-produtos-ia-first)`;
 
----
+    let md = montarCabecalhoRelatorioMaturidadeMarkdown({
+      frameworkMaturidade: frameworkMaturidadeDashboard,
+      empresaNome: projeto.empresa.nome,
+      projetoNome: projeto.nome,
+      versaoLabel: versaoLabelDashboard,
+      dataGeracao,
+      sumarioMarkdown: sumarioDashboard
+    });
 
-# 1. SUMÁRIO EXECUTIVO
-
-Este relatório apresenta os resultados do **Assessment de Maturidade em Inteligência Artificial** realizado na **${projeto.empresa.nome}** para o projeto **${projeto.nome}**, utilizando a metodologia **SysMap Blueprint IA**, alinhada com o **MIT CISR Enterprise AI Maturity Model**.
-
-A avaliação analisou **${scoresPorArea.length} dimensões** críticas de maturidade em IA, com base nas respostas de **${projeto.avaliacoes.length} avaliador(es)**, resultando em um score geral de **${scoreGeral.toFixed(2)} pontos**, classificando a organização no nível **"${nivelGeral}"**.
+    md += `${paragrafoSumarioExecutivoExport({
+      frameworkMaturidade: frameworkMaturidadeDashboard,
+      empresa: projeto.empresa.nome,
+      projeto: projeto.nome,
+      numDimensoes: scoresPorArea.length,
+      numAvaliadores: projeto.avaliacoes.length,
+      scoreGeral,
+      nivelGeral
+    })}
 
 ## Resultado Principal
 
-| Métrica | Valor |
-|---------|:-----:|
-| **Score Geral** | **${scoreGeral.toFixed(2)} / 5.00** |
-| **Nível de Maturidade** | **${nivelGeral}** |
-| **Classificação MIT CISR** | **${levelInfo.name}** |
-| **Referência MIT** | ${levelInfo.nameEn} |
-| **Foco Principal** | ${levelInfo.focus} |
-| **% de Empresas neste Nível** | ${levelInfo.percentage} |
+${tabelaResultadoPrincipalExport({
+  frameworkMaturidade: frameworkMaturidadeDashboard,
+  scoreGeral,
+  nivelGeral,
+  levelInfo
+})}
 
-## Principais Descobertas
-
-### Pontos Fortes (Score ≥ 3.5)
-${areasFortes.length > 0 ? areasFortes.map(a => `- **${a.area}**: ${a.score.toFixed(2)} (${a.nivel})`).join('\n') : '- Nenhuma área com score ≥ 3.5'}
-
-### Áreas de Atenção (Score < 3.0)
-${areasParaMelhorar.length > 0 ? areasParaMelhorar.map(a => `- **${a.area}**: ${a.score.toFixed(2)} (${a.nivel})`).join('\n') : '- ✅ Todas as áreas com score ≥ 3.0'}
-
----
+${blocoDescobertasSumarioExport(areasFortes, areasParaMelhorar)}
 
 # 2. BENCHMARKING COMPETITIVO
 

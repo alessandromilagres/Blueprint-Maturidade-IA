@@ -1,7 +1,7 @@
 # Documentação Técnica do Blueprint IA
 
 **Sistema:** Blueprint IA / Blueprint Agêntico
-**Versão:** Junho/2026
+**Versão:** Julho/2026 (isolamento taxonômico SATF em relatórios IA)
 **Ambiente de produção:** Azure VM + Docker Compose + Azure DevOps
 
 ---
@@ -308,8 +308,11 @@ Utilitários: `regulatorioSnapshot.js`, `regulatorioCiclo.js`, `regulatorioCross
 ### 7.7 Rubrica e Guias de Progressão
 
 - `nivelMaturidadeRubrica.js`: faixas oficiais de score → nível 1–5.
-- `guiasProgressaoFramework.js`: trechos dos guias de progressão por dimensão/nível para books IA.
-- `ordemDimensoesFramework.js`: ordem canônica D01–D16 (Plataforma = 13, IA como Gerador de Receita = 14).
+- `guiasProgressaoFramework.js`: trechos dos guias de progressão por dimensão/nível para books IA (SATF usa mapeamento interno sem expor nomes Blueprint no documento).
+- `ordemDimensoesFramework.js`: ordem canônica Blueprint 16 ou SATF 11 (`FRAMEWORK_SATF_TI_V3` vs `BLUEPRINT_16`).
+- `satfBookIA.js`, `satfRelatorioExecutivoIA.js`, `satfBookTaxonomia.js`: geração e validação de books/executivos SATF.
+- `exportRelatorioFrameworkMeta.js`: cabeçalhos e sumários de exportação MD/ZIP por framework.
+- `blocoDesejosIaBook.js`: integração de Desejos IA nos prompts de book (Seção 3).
 
 ### 7.8 Roadmap de Iniciativas
 
@@ -417,7 +420,63 @@ calcularMetricasCenarioFinanceiro(beneficioBruto, investimentoAnual)
 
 Documentação funcional e fundamento teórico: [`docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`](Atual/METODOLOGIA_ROI_FINANCEIRO.md).
 
-Constantes de persona/atribuição IA: `backend/src/constants/consultorRelatorioIA.js` (SysMap Solutions; MIT CISR = referência).
+Constantes de persona/atribuição IA: `backend/src/constants/consultorRelatorioIA.js` (SysMap Solutions; MIT CISR = referência apenas em projetos **Blueprint 16**; SATF usa `METODOLOGIA_SATF_RESUMO` e `SYSTEM_PROMPT_PERSONA_BOOK_SATF`).
+
+### 10.2 Relatórios e Books IA — isolamento por framework (Jul/2026)
+
+A partir de Jul/2026, artefatos gerados por IA são **isolados por framework**. Projetos **SATF TI v3** não reutilizam prompts, blocos de dados nem taxonomia do **Blueprint 16 / MIT CISR** em books e relatórios executivos.
+
+#### Tipos na biblioteca
+
+| Artefato | Blueprint 16 (`BLUEPRINT_16`) | SATF TI v3 (`SATF_TI_V3`) |
+|----------|-------------------------------|---------------------------|
+| Relatório executivo IA | `executivo` — C-Level, ROI MIT | `executivo` — fluxo dedicado (`satfRelatorioExecutivoIA.js`) |
+| Book completo | `completo` (~16 dimensões, seções 1–13) | `completo_satf` (11 dimensões, seções 1–8) |
+| Book modo rápido | `completo_rapido` | `completo_satf_rapido` |
+
+#### Desvio de rota no backend
+
+```text
+POST /api/dashboard/projeto/:id/relatorio-ia
+  → se framework = SATF_TI_V3 → executarGeracaoRelatorioExecutivoSatf()
+  → senão → fluxo executivo Blueprint (MIT ROI, 16 dimensões)
+
+POST /api/dashboard/projeto/:id/relatorio-ia-completo
+  → se framework = SATF_TI_V3 → executarGeracaoBookSatf()
+  → senão → fluxo book Blueprint
+```
+
+#### Módulos SATF
+
+| Módulo | Função |
+|--------|--------|
+| `satfBookIA.js` | Book SATF multi-chunk (~18 blocos), seções 1–8 |
+| `satfRelatorioExecutivoIA.js` | Executivo SATF (5 seções, público CTO/engenharia) |
+| `satfBookTaxonomia.js` | Taxonomia canônica D1–D11, `validarTaxonomiaBookSatf()`, capa **CONFIDENCIAL**, `blocoDadosExtrasBookRapidoSatf` |
+| `exportRelatorioFrameworkMeta.js` | Títulos/sumários de export MD e ZIP; books SATF no pacote de versão |
+
+#### Regras de geração SATF
+
+1. **Taxonomia única:** somente dimensões SATF D1–D11 com nomes oficiais do seed (`satfFrameworkSeed.js`).
+2. **Proibição explícita** nos prompts: 16 dimensões Blueprint, MIT CISR como metodologia principal, taxonomias genéricas (ex.: “Engenharia de Dados”, “Produto & Experiência com IA”).
+3. **Modo rápido:** não injeta trajetória MIT nem Apêndice C do book Blueprint (`blocoDadosExtrasBookRapidoSatf`).
+4. **Guias de progressão:** `blocoGuiaProgressaoDimensaoSatf` — calibração interna; instrução para não reproduzir nomes Blueprint no documento final.
+5. **Desejos IA:** bloco consolidado em `blocoDesejosIaBook.js`, referenciado na Seção 3 de ambos os books.
+6. **Validação pós-geração:** `validarTaxonomiaBookSatf(markdown)`; cache (`reuse=true`) só reutiliza versão salva se validação OK.
+7. **Resposta API:** campo `avisoTaxonomia` quando contaminação é detectada (regenerar com `reuse=false`).
+
+#### Frontend
+
+- `RelatorioMITIA.jsx` — executivo; labels/disclaimer/Word footer SATF vs Blueprint.
+- `RelatorioMITIACompleto.jsx` — book; alerta amarelo de taxonomia; export Word com `footerMetodologia`.
+- `DashboardProjeto.jsx` — menu “Relatórios IA · SATF TI v3” e botão “Executivo TI / Engenharia (IA)” em projetos SATF.
+- `frameworkMaturidade.js` — `bookIaTipoProjeto()`, `relatorioFrameworkMeta()`.
+
+#### Exportações
+
+- `exportacao.js` usa `listarAreasDoProjeto` em projetos SATF (11 dimensões, não 16 genéricas).
+- ZIP de versão inclui `08-relatorio-ia-book-satf.md` / `-rapido` conforme framework.
+- Sumário executivo do relatório técnico MD diferencia SATF vs Blueprint (`paragrafoSumarioExecutivoExport`).
 
 ---
 

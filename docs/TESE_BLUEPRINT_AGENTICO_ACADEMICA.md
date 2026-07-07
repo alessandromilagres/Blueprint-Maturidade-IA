@@ -46,7 +46,7 @@ A Inteligência Artificial representa uma das maiores oportunidades de transform
 
 O **Blueprint Agêntico** é um framework metodológico que propõe uma abordagem sistêmica e integrada para este desafio. Fundamentado em modelos acadêmicos consolidados — MIT CISR, McKinsey, SFIA, NIST AI RMF e ADKAR/Prosci — o framework introduz três inovações principais:
 
-1. **Avaliação Multidimensional de Maturidade**: Um modelo com 16 dimensões e 108 perguntas que avaliam aspectos técnicos, organizacionais, culturais, financeiros, de plataforma, receita, tipos de IA e eficácia MIT CISR.
+1. **Avaliação Multidimensional de Maturidade**: Dois instrumentos por projeto — **Blueprint 16** (16 dimensões, 108 perguntas, visão enterprise/MIT CISR) e **SATF TI v3** (11 dimensões, 70 perguntas, visão TI/engenharia com evidência obrigatória, certificação consultiva e dimensão D10 Fábrica Agêntica fora da média geral).
 
 2. **Conceito de Transformação Agêntica**: Uma nova perspectiva que avalia a capacidade de organizações e produtos de operar no paradigma emergente de Multi-Agent Systems — agentes de IA autônomos que colaboram para executar tarefas complexas.
 
@@ -302,7 +302,7 @@ O Blueprint Agêntico é um framework metodológico para avaliação de maturida
 
 ### Característica 1: Integração Multidimensional
 
-Enquanto frameworks tradicionais focam em aspectos isolados (tecnologia OU governança OU talentos), o Blueprint Agêntico avalia **16 dimensões simultaneamente**, reconhecendo que a maturidade em IA é um fenômeno sistêmico que exige evolução coordenada em múltiplas frentes.
+Enquanto frameworks tradicionais focam em aspectos isolados (tecnologia OU governança OU talentos), o Blueprint Agêntico avalia **múltiplas dimensões simultaneamente** — **16 no instrumento enterprise (Blueprint 16)** ou **11 no instrumento TI (SATF TI v3)** — reconhecendo que a maturidade em IA é um fenômeno sistêmico que exige evolução coordenada em múltiplas frentes.
 
 ### Característica 2: Preparação para o Futuro Agêntico
 
@@ -349,7 +349,7 @@ O Blueprint Agêntico organiza-se em três módulos complementares:
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Módulo 1 — Maturidade Empresarial**: Responde à pergunta "Qual é nosso nível atual de prontidão para IA?" através de avaliação estruturada em 16 dimensões e 108 perguntas.
+**Módulo 1 — Maturidade Empresarial**: Responde à pergunta "Qual é nosso nível atual de prontidão para IA?" através de avaliação estruturada em **Blueprint 16** (16 dimensões, 108 perguntas) ou **SATF TI v3** (11 dimensões, 70 perguntas, foco TI/engenharia).
 
 **Módulo 2 — Produtos IA-First**: Responde à pergunta "Este produto específico está preparado para o futuro agêntico?" através do conceito de Transformação Agêntica.
 
@@ -737,6 +737,104 @@ Manter liderança através de inovação radical e preparação para paradigmas 
 
 ---
 
+# 6B. Instrumento SATF — IA Maturidade TI (v3)
+
+## 6B.1 Contexto e Posicionamento
+
+Além do modelo **Blueprint 16** (visão enterprise e MIT CISR), a plataforma oferece o instrumento **SATF TI v3** (*SysMap Assessment Framework for TI*), publicado em Jun/2026. O SATF responde à pergunta: *"A área de TI e engenharia está preparada para adotar, escalar e operar IA com segurança — incluindo código gerado por IA, agentes em produção e modernização de legado?"*
+
+A escolha do instrumento é feita **por projeto**, de forma **mutuamente exclusiva**, e **travada** após a primeira resposta de avaliação.
+
+| ID | Nome | Dimensões | Perguntas |
+|----|------|-----------|-----------|
+| `BLUEPRINT_16` | Blueprint IA — Maturidade Organizacional | 16 | 108 |
+| `SATF_TI_V3` | SATF — IA Maturidade TI | 11 | 70 |
+
+## 6B.2 As 11 Dimensões SATF
+
+| Cód. | Dimensão | Perg. | Na média? | Descrição resumida |
+|------|----------|-------|-----------|-------------------|
+| D1 | Estratégia & Postura de IA | 6 | Sim | Green/Red Zone, sponsor, OKRs |
+| D2 | Governança, Risco & Conformidade | 6 | Sim (2× regulado) | Política interna + IA em produto |
+| D3 | Pessoas, Cultura & Capacitação | 6 | Sim | Citizen devs, letramento crítico |
+| D4 | Engenharia & Padrões de Desenvolvimento | 6 | Sim | DORA, revisão sob volume IA |
+| D5 | Plataforma, Arquitetura & Escala | 6 | Sim | Golden paths, PoC → produção |
+| D6 | Dados, Contexto & Conhecimento | 6 | Sim | RAG, catálogos, PII |
+| D7 | Segurança & Qualidade Integrada (QA) | 7 | Sim (2× regulado) | SAST/SCA, least agency |
+| D8 | Modernização & Sustentação de Legado | 6 | Sim | Spec-first, AIOps |
+| D9 | FinOps, Valor & Apoio ao Negócio | 6 | Sim | Unit economics, FinOps gate |
+| D10 | Fábrica Agêntica de Software | 8 | **Não** | SDLC agêntico; score próprio |
+| D11 | Conformidade Regulatória de IA | 7 | Sim (2× regulado; obrig. se regulado) | ISO 42001, PL 2.338, LGPD, NIST RMF |
+
+## 6B.3 Evidência Obrigatória e Teto de Nota
+
+No SATF, afirmações de maturidade elevada exigem sustentação:
+
+- Pontuação **≥ 4** exige **observações com mínimo 20 caracteres**
+- Sem evidência válida, a **nota efetiva** é limitada a **3** (teto N3)
+- A finalização é **bloqueada** enquanto houver pendências (`SATF_EVIDENCIA_OBRIGATORIA`)
+- Cada pergunta exibe **evidência esperada** (ex.: "Dashboard DORA; série histórica")
+
+## 6B.4 Certificação Consultiva (Camada 3)
+
+Após consolidação das avaliações, consultores autorizados executam certificação por dimensão:
+
+| Camada | Significado |
+|--------|-------------|
+| Declarado | Média das notas dos avaliadores |
+| Com teto | Média após teto 3 onde faltou evidência |
+| Oficial | Nota certificada ou rebaixada pelo consultor |
+
+Status por dimensão: `pendente`, `certificado`, `rebaixado`. O score oficial do projeto prioriza: certificado → com teto → declarado.
+
+## 6B.5 Setor Regulado e Score Geral
+
+Com **setor regulado** ativo (finanças, saúde, telecom, energia):
+
+- **D2, D7 e D11** recebem peso **2×** antes da normalização
+- **D11** torna-se **obrigatória**
+
+O score geral SATF é média ponderada de **D1–D9 e D11** (10 dimensões). **D10** possui score separado e **não entra** na média geral.
+
+## 6B.6 Escala N1–N5 (SysMap)
+
+| Faixa | Nível |
+|-------|-------|
+| 1,0 – 1,8 | N1 Inicial |
+| 1,8 – 2,6 | N2 Oportunista |
+| 2,6 – 3,4 | N3 Estruturado |
+| 3,4 – 4,2 | N4 Gerenciado |
+| 4,2 – 5,0 | N5 Otimizado |
+
+## 6B.7 Artefatos e Documentação SATF
+
+### Biblioteca IA (tipos)
+
+| Artefato | Tipo | Pipeline |
+|----------|------|----------|
+| Executivo TI / Engenharia | `executivo` | `satfRelatorioExecutivoIA.js` |
+| Book completo | `completo_satf` | `satfBookIA.js` |
+| Book modo rápido | `completo_satf_rapido` | `satfBookIA.js` (modo rápido) |
+
+### Isolamento taxonômico (Jul/2026)
+
+Artefatos SATF **não compartilham** prompts, blocos MIT CISR nem taxonomia Blueprint 16:
+
+- **Taxonomia fechada** D1–D11 (`satfBookTaxonomia.js`)
+- **Validação pós-geração** (`validarTaxonomiaBookSatf`); cache só reutiliza versão válida
+- **Desejos IA** na Seção 3 do book (`blocoDesejosIaBook.js`)
+- **Exportação** MD/ZIP/Word com metadados SATF (`exportRelatorioFrameworkMeta.js`); capa **Confidencial**
+- **UI**: alerta quando contaminação é detectada; regenerar com `reuse=false`
+
+### Referências documentais
+
+- Fundamentação: `docs/Atual/Fundamentacao_SATF_IA_Maturidade_TI_SATF.docx`
+- Guias de progressão: `docs/Atual/Dimensoes_Evolucao_SAT/` (D01–D11)
+- Seed e critérios: `backend/src/data/satfFrameworkSeed.js`, `satfPerguntaCriterios.js`
+- Módulos IA: `satfBookIA.js`, `satfRelatorioExecutivoIA.js`, `satfBookTaxonomia.js`
+
+---
+
 # 7. O Conceito de Transformação Agêntica
 
 ## 7.1 O Paradigma Emergente
@@ -1079,14 +1177,21 @@ Onde:
 - $R_i$ = Resposta à pergunta $i$ (escala 1-5)
 - $n$ = Número de perguntas na dimensão
 
-### Score Geral de Maturidade
+**SATF TI v3:** para notas ≥ 4, $R_i^{efetiva} = R_i$ apenas se houver evidência nas observações (≥ 20 caracteres); caso contrário $R_i^{efetiva} = \min(R_i, 3)$.
+
+### Score Geral de Maturidade (Blueprint 16)
 
 O score geral é a média ponderada das dimensões:
 
-$$S_{maturidade} = \frac{\sum_{j=1}^{12} (S_{dimensão_j} \times P_j)}{\sum_{j=1}^{12} P_j}$$
+$$S_{maturidade} = \frac{\sum_{j=1}^{16} (S_{dimensão_j} \times P_j)}{\sum_{j=1}^{16} P_j}$$
 
-Onde:
-- $P_j$ = Peso da dimensão $j$ (conforme tabela de pesos)
+### Score Geral SATF TI v3
+
+$$S_{maturidade}^{SATF} = \frac{\sum_{j \in \{D1..D9, D11\}} (S_j \times P_j)}{\sum_{j \in \{D1..D9, D11\}} P_j}$$
+
+D10 (Fábrica Agêntica) calcula score próprio e **não entra** no numerador. Com `setorRegulado`, $P_{D2} = P_{D7} = P_{D11} = 2$ antes da normalização.
+
+**Score oficial SATF** (após certificação): $S_{oficial} = S_{certificado} \;||\; S_{com\_teto} \;||\; S_{declarado}$.
 
 ### Consolidação de Múltiplos Avaliadores
 
@@ -1139,6 +1244,8 @@ $$S_{valor}^{norm} = \frac{S_{valor}}{\sum_{d=1}^{n} (w_d \times 5)} \times 100$
 
 ## 10.3 Classificação
 
+**Blueprint 16 (MIT):**
+
 | Score | Nível de Maturidade |
 |-------|---------------------|
 | 1.00 - 1.49 | Inicial |
@@ -1146,6 +1253,16 @@ $$S_{valor}^{norm} = \frac{S_{valor}}{\sum_{d=1}^{n} (w_d \times 5)} \times 100$
 | 2.50 - 3.49 | Estruturado |
 | 3.50 - 4.49 | Gerenciado |
 | 4.50 - 5.00 | Otimizado |
+
+**SATF TI v3 (SysMap N1–N5):**
+
+| Score | Nível |
+|-------|-------|
+| 1,0 – 1,8 | N1 Inicial |
+| 1,8 – 2,6 | N2 Oportunista |
+| 2,6 – 3,4 | N3 Estruturado |
+| 3,4 – 4,2 | N4 Gerenciado |
+| 4,2 – 5,0 | N5 Otimizado |
 
 ---
 
@@ -1478,7 +1595,7 @@ contato@sysmap.com.br
 
 *Blueprint Agêntico — Transformando empresas com Inteligência Artificial*
 
-*Documento versão 2.1 — Abril de 2026*
+*Documento versão 2.2 — Julho de 2026*
 
 ---
 
@@ -1489,6 +1606,8 @@ contato@sysmap.com.br
 | 1.0 | Janeiro 2026 | Versão inicial do framework |
 | 2.0 | Março 2026 | Adição do Módulo 3 (Especificação Automática) |
 | 2.1 | Abril 2026 | Arquitetura Multi-Provedor de IA (Anthropic, OpenAI, Groq), Exportação Multi-Formato (MD, Word, PDF), Interface Administrativa de Configuração |
+| 2.2 | Julho 2026 | Instrumento **SATF TI v3**: seleção por projeto, 11 dimensões, evidência obrigatória, certificação consultiva, setor regulado, D10 fora da média (Cap. 6B) |
+| 2.3 | Julho 2026 | **Isolamento taxonômico SATF** em relatórios IA: pipeline dedicado, validação D1–D11, executivo TI/engenharia, export Word/MD SATF (§6B.7) |
 
 ---
 

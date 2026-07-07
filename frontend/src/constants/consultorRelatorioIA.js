@@ -8,6 +8,9 @@ export const EMPRESA_CONSULTORIA = 'SysMap Solutions';
 export const METODOLOGIA_BLUEPRINT_RESUMO =
   'SysMap Blueprint IA (referência MIT CISR e frameworks complementares)';
 
+export const METODOLOGIA_SATF_RESUMO =
+  'SATF TI v3 — IA Maturidade TI (instrumento SysMap Solutions para engenharia, plataforma e delivery)';
+
 export const AUTOR_RELATORIO_IA = `BluePrint IA · ${EMPRESA_CONSULTORIA}`;
 
 export const LABEL_CONSULTOR_CABECALHO = `Consultor Sênior IA · ${EMPRESA_CONSULTORIA}`;
@@ -16,13 +19,25 @@ export const LABEL_METODOLOGIA = `Metodologia ${METODOLOGIA_BLUEPRINT_RESUMO}`;
 
 export const LABEL_VALIDADO_METODOLOGIA = `Estruturado pela metodologia SysMap Blueprint IA`;
 
+export const LABEL_VALIDADO_METODOLOGIA_SATF =
+  'Estruturado pelo instrumento SATF TI v3 — IA Maturidade TI (SysMap Solutions)';
+
 export const RODAPE_GERADO_IA = `Relatório gerado com apoio de Inteligência Artificial · ${EMPRESA_CONSULTORIA}`;
 
 export const DISCLAIMER_RELATORIO_EXECUTIVO =
   'Este relatório foi produzido pela consultoria SysMap Solutions com apoio de IA, aplicando a metodologia SysMap Blueprint IA (com referência ao MIT CISR Enterprise AI Maturity Model e outros frameworks). As recomendações são baseadas nos dados do assessment e devem ser contextualizadas pela liderança antes da execução. Projeções são referenciais.';
 
+export const DISCLAIMER_RELATORIO_EXECUTIVO_SATF =
+  'Documento confidencial produzido pela consultoria SysMap Solutions com apoio de IA, aplicando o instrumento SATF TI v3 — IA Maturidade TI. As recomendações devem ser contextualizadas pela liderança de engenharia antes da execução.';
+
 export const DISCLAIMER_BOOK_COMPLETO =
   'Este documento é uma referência aprofundada produzida pela consultoria SysMap Solutions com apoio de IA, aplicando a metodologia SysMap Blueprint IA (com referência ao MIT CISR e frameworks complementares). As recomendações, KPIs e roadmaps devem ser contextualizados pela liderança antes da execução. Projeções financeiras são referenciais.';
 
+export const DISCLAIMER_BOOK_SATF =
+  'Documento confidencial produzido pela consultoria SysMap Solutions com apoio de IA, aplicando o instrumento SATF TI v3 — IA Maturidade TI. As recomendações, KPIs e roadmaps devem ser contextualizados pela liderança de engenharia antes da execução.';
+
 export const FOOTER_DOC_METODOLOGIA =
   'Documento gerado com tecnologia de Inteligência Artificial · Metodologia SysMap Blueprint IA (referência MIT CISR Enterprise AI Maturity Model)';
+
+export const FOOTER_DOC_METODOLOGIA_SATF =
+  'Documento confidencial gerado com apoio de IA · Instrumento SATF TI v3 — IA Maturidade TI (SysMap Solutions)';

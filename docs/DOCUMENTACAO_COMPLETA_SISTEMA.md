@@ -2,7 +2,7 @@
 
 **Produto:** Blueprint IA / Blueprint Agêntico
 **Empresa:** SysMap Solutions
-**Versão da documentação:** Junho/2026
+**Versão da documentação:** Julho/2026 (isolamento taxonômico SATF em relatórios IA)
 **Ambiente de produção:** `https://agentica.sysmap.com.br`
 **Escopo:** documentação funcional, técnica, operacional, administrativa e de CI/CD do sistema.
 
@@ -283,15 +283,35 @@ Saídas:
 
 ### 7.5 Relatórios Gerados por IA
 
-Relatórios longos são gerados em background.
+Relatórios longos são gerados em background. O **framework do projeto** determina prompts, taxonomia e tipos de artefato.
 
-Tipos:
+#### Blueprint 16
 
-- Relatório estratégico C-Level.
-- Book completo de maturidade em IA.
-- Book modo rápido.
-- Relatório executivo.
-- Documentos técnicos.
+| Artefato | Tipo biblioteca |
+|----------|-----------------|
+| Relatório estratégico C-Level | `executivo` |
+| Book completo (16 dimensões, seções 1–13) | `completo` |
+| Book modo rápido | `completo_rapido` |
+
+Referência metodológica MIT CISR; projeções ROI na Seção 8.
+
+#### SATF TI v3 (Jul/2026 — pipeline isolado)
+
+| Artefato | Tipo biblioteca | Módulo backend |
+|----------|-----------------|----------------|
+| Executivo TI / Engenharia | `executivo` | `satfRelatorioExecutivoIA.js` |
+| Book completo (11 dimensões, seções 1–8) | `completo_satf` | `satfBookIA.js` |
+| Book modo rápido | `completo_satf_rapido` | `satfBookIA.js` |
+
+- Taxonomia **somente D1–D11**; validação pós-geração (`validarTaxonomiaBookSatf`)
+- Cache (`reuse=true`) condicionado à validação; `avisoTaxonomia` na API se contaminado
+- Desejos IA integrados na Seção 3 do book
+- Export Word/MD/ZIP com metadados SATF (`exportRelatorioFrameworkMeta.js`)
+
+#### Tipos adicionais (ambos frameworks)
+
+- Relatório executivo técnico (não-IA)
+- Documentos técnicos de especificação automática
 
 Os relatórios ficam em biblioteca versionada.
 
@@ -783,14 +803,25 @@ As chaves são persistidas no banco com proteção.
 
 IA é usada para:
 
-- Relatórios estratégicos.
-- Books de maturidade.
-- Relatórios executivos.
+- Relatórios estratégicos (Blueprint) e executivos TI/engenharia (SATF).
+- Books de maturidade (16 dimensões Blueprint ou 11 dimensões SATF).
 - Especificações automáticas.
 - Documentos técnicos.
-- Apoio à estruturação de recomendações.
+- Apoio à estruturação de recomendações (inclui Desejos IA dos avaliadores nos books).
 
-### 16.4 Jobs em Background
+**Isolamento por framework:** `POST /relatorio-ia` e `/relatorio-ia-completo` desviam para módulos SATF quando `frameworkMaturidade = SATF_TI_V3`. Personas e constantes em `consultorRelatorioIA.js` — MIT CISR apenas como referência em Blueprint; SATF usa `METODOLOGIA_SATF_RESUMO`.
+
+### 16.4 Validação taxonômica SATF
+
+Após geração de books/executivos SATF:
+
+1. `validarTaxonomiaBookSatf(markdown)` detecta referências a dimensões Blueprint, MIT como metodologia principal ou taxonomias genéricas proibidas.
+2. Versões contaminadas **não** são reutilizadas do cache.
+3. Frontend exibe alerta; consultor deve regenerar com `reuse=false`.
+
+Módulos: `satfBookTaxonomia.js`, `satfBookIA.js`, `satfRelatorioExecutivoIA.js`.
+
+### 16.5 Jobs em Background
 
 Relatórios longos usam jobs para evitar timeout.
 
@@ -818,6 +849,8 @@ O sistema exporta:
 Regra importante:
 
 Exportações de avaliação individual usam a nota da avaliação da pessoa que respondeu, recalculando a partir das respostas quando necessário.
+
+**Projetos SATF:** cabeçalhos e sumários de relatórios técnicos MD/ZIP usam metadados SATF TI v3 (`exportRelatorioFrameworkMeta.js`). Export Word de books/executivos IA usa rodapé SATF e marca **Confidencial**. Pacotes ZIP de versão incluem `08-relatorio-ia-book-satf.md` quando existir na biblioteca.
 
 ---
 

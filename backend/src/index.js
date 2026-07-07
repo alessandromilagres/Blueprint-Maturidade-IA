@@ -168,6 +168,7 @@ import {
 } from './utils/satfEvidenciaObrigatoria.js';
 import { enriquecerScoresDashboardSatf } from './utils/projetoDimensaoCertificacao.js';
 import { executarGeracaoBookSatf } from './utils/satfBookIA.js';
+import { executarGeracaoRelatorioExecutivoSatf } from './utils/satfRelatorioExecutivoIA.js';
 import { FRAMEWORK_SATF_TI_V3 } from './constants/frameworkMaturidadePolicy.js';
 import { NOMES_NIVEL_BLUEPRINT, faixaNivelPorScore } from './utils/nivelMaturidadeRubrica.js';
 import { blocoGuiaProgressaoDimensao } from './utils/guiasProgressaoFramework.js';
@@ -5971,6 +5972,14 @@ app.get('/api/dashboard/produtos-projeto/:id', async (req, res) => {
 app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
   try {
     const projetoId = parseInt(req.params.id);
+    const { frameworkMaturidade: fwExec } = await carregarFrameworkProjeto(prisma, projetoId);
+    if (fwExec === FRAMEWORK_SATF_TI_V3) {
+      return executarGeracaoRelatorioExecutivoSatf(req, res, {
+        obterVersaoSelecionadaProjeto,
+        idsAvaliacoesDaVersao
+      });
+    }
+
     const reuse = req.query.reuse !== 'false'; // default: true
     const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
     const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);

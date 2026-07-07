@@ -41,11 +41,8 @@ import { adicionarIndiceAoBookMarkdown } from './bookMarkdownIndice.js';
 import {
   tabelaPerguntasDimensaoMarkdown,
   dimensaoComScoreZero,
-  blocoDimensaoScoreZeroSecao3,
-  blocoFallbackErroSecao3Dimensao,
   instrucaoPromptSecao3SemCabecalhos,
   relatorioBookSecao3Completo,
-  blocoDadosExtrasBookRapido,
   limparConteudoIaSecao3Dimensao
 } from './bookModoRapidoMarkdown.js';
 import { blocoGuiaProgressaoDimensaoSatf } from './guiasProgressaoFramework.js';
@@ -55,21 +52,15 @@ import {
   blocoInstrucoesDesejosIaSecao3Dimensao
 } from './blocoDesejosIaBook.js';
 import { desejosIaTemRespostasGuardadas } from './desejosIaAvaliacaoMaturidade.js';
-
-function introducaoSecao3SatfBookMarkdown(totalDimensoes, ordemNomes) {
-  const listaOrdem = ordemNomes.map((nome, idx) => `${idx + 1}. ${nome}`).join('\n');
-  return `# 3. DIAGNÓSTICO POR DIMENSÃO (SATF TI v3)
-
-Este capítulo apresenta as **${totalDimensoes} dimensões** do instrumento SATF TI v3 na ordem abaixo. Dimensões com **score 0** constam apenas para registro.
-
-${listaOrdem}
-
-**Numeração:** **3.N** = dimensão (##); **3.N.1**, **3.N.2**… = subseções (###).
-
-**Scores:** use o **score oficial** (certificado ou com teto por evidência). Quando o bloco DADOS indicar gap entre declarado e oficial, mencione na análise.
-
-**Personalização:** quando houver bloco **Contexto do cliente** nos DADOS, cada dimensão deve citar entregáveis, sistemas, pilotos e métricas reais do projeto — como no book Blueprint MIT.`;
-}
+import {
+  blocoTaxonomiaObrigatoriaSatfMarkdown,
+  blocoRegrasTaxonomiaSatfPrompt,
+  blocoDadosExtrasBookRapidoSatf,
+  blocoDimensaoScoreZeroSecao3Satf,
+  capaConfidencialBookSatfMarkdown,
+  introducaoSecao3SatfBookMarkdown,
+  validarTaxonomiaBookSatf
+} from './satfBookTaxonomia.js';
 
 function mediaSetorTiBenchmark(setor) {
   const s = String(setor || '').toLowerCase();
@@ -142,7 +133,8 @@ function montarPromptSecao3DimensaoSatf({
       : '';
 
   const regrasAntiGenericidade = `
-OBRIGATÓRIO — EVITE REPETIÇÃO E GENERICIDADE (como no book Blueprint MIT):
+OBRIGATÓRIO — EVITE REPETIÇÃO, GENERICIDADE E CONTAMINAÇÃO DE TAXONOMIA:
+- Use **somente** dimensões SATF TI v3 (D1–D11) com nomes oficiais do bloco DADOS — **proibido** dimensões Blueprint ou genéricas.
 - A **Análise Diagnóstica** deve abordar **${dim.area}** de forma explícita: referencie [Qn] e o padrão de respostas (não use parágrafo genérico de "maturidade de IA em TI").
 - **Evidências Críticas:** separe fatores que elevaram vs puxaram o score; cite [Qn] e documentos do contexto (Entregáveis A–H) quando existirem.
 - **Risco:** específico desta dimensão — **proibido** repetir a mesma frase entre dimensões.
@@ -333,6 +325,8 @@ ${blocoDesejosIa ? `${blocoDesejosIa}\n\n` : ''}
 
 ${blocoCert}
 
+${blocoTaxonomiaObrigatoriaSatfMarkdown(dimensoesDiagnostico)}
+
 ${blocoEvolucao}
 
 ## Metodologia de score SATF
@@ -392,24 +386,27 @@ function montarChunksSatf({
 }) {
   const chunks = [];
   const dados = modoRapido ? dadosBlockRapido : dadosBlock;
+  const regrasTaxonomia = blocoRegrasTaxonomiaSatfPrompt();
 
   chunks.push({
     id: 'sec_1_2',
     label: 'Metodologia SATF + Sumário',
-    prompt: `Gere SOMENTE as Seções 1 e 2 do book SATF TI v3, em Markdown condensado:
+    prompt: `${regrasTaxonomia}
+Gere SOMENTE as Seções 1 e 2 do book SATF TI v3, em Markdown condensado:
 
 # 1. METODOLOGIA SATF TI v3
-- Instrumento SysMap para maturidade de IA em **TI e engenharia** (11 dimensões, escala N1–N5)
+- Instrumento SysMap **SATF TI v3 — IA Maturidade TI** para maturidade de IA em **TI e engenharia** (11 dimensões D1–D11, escala N1–N5)
 - Três camadas: coleta Likert → evidência obrigatória (nota ≥4) → certificação consultor
 - Como interpretar score **oficial** vs declarado
+- **Não** apresente MIT CISR, SysMap Blueprint IA ou 16 dimensões como metodologia deste documento
 
 # 2. SUMÁRIO EXECUTIVO
 - 1 parágrafo diagnóstico TI (situação atual) — cite Entregáveis A–H do inventário com **rótulos canônicos** (E = Roteiro de Pilotos; H = Diagnóstico de Clientes)
 - Tabela: Score oficial | Nível | Gap vs declarado (se houver) | Certificação pendente?
-- 5 insights em bullet (foco engenharia/plataforma/SDLC; inclua pilotos e entregáveis E–H se cadastrados)
+- 5 insights em bullet (foco engenharia/plataforma/SDLC; referencie dimensões SATF D1–D11; inclua pilotos e entregáveis E–H se cadastrados)
 - Subseção **Evolução entre rodadas** se dados disponíveis
 
-NÃO cite MIT CISR como framework principal. Público: CTO / engenharia.
+Público: CTO / engenharia. Metodologia = **SATF TI v3** exclusivamente.
 
 DADOS:
 ${dados}
@@ -429,10 +426,11 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
           let md = '';
           if (isFirst) md += `${introducaoSecao3SatfBookMarkdown(dimensoesDiagnostico.length, ordemNomes)}\n\n`;
           md += `${rotuloDimensaoSatfBookMarkdown(dim, numSecao)}\n\n`;
-          md += blocoDimensaoScoreZeroSecao3(numSecao, dim, {
+          md += blocoDimensaoScoreZeroSecao3Satf(numSecao, dim, {
             isFirst: false,
             totalDimensoes: dimensoesDiagnostico.length,
-            modoRapido: true
+            ordemNomes,
+            modoRapido
           }).replace(introducaoSecao3SatfBookMarkdown(dimensoesDiagnostico.length, ordemNomes), '');
           return md;
         })()
@@ -468,9 +466,11 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
   chunks.push({
     id: 'sec_4',
     label: 'Roadmap engenharia 30-60-90',
-    prompt: `# 4. ROADMAP ENGENHARIA & PLATAFORMA (30-60-90 dias)
+    prompt: `${regrasTaxonomia}
+# 4. ROADMAP ENGENHARIA & PLATAFORMA (30-60-90 dias)
 
-Gere em Markdown: visão por horizonte (30/60/90), foco SDLC agêntico, plataforma, dados e governança técnica. Tabela resumo. Sem MIT CISR.
+Gere em Markdown: visão por horizonte (30/60/90), foco SDLC agêntico, plataforma, dados e governança técnica. Tabela resumo.
+Ao referenciar gaps e iniciativas, use **somente** dimensões SATF D1–D11 com nomes oficiais do bloco DADOS.
 
 DADOS:\n${dados}`,
     maxTokens: 4000
@@ -479,10 +479,12 @@ DADOS:\n${dados}`,
   chunks.push({
     id: 'sec_5',
     label: 'Fábrica Agêntica (D10)',
-    prompt: `# 5. FÁBRICA AGÊNTICA E SDLC (dimensão D10)
+    prompt: `${regrasTaxonomia}
+# 5. FÁBRICA AGÊNTICA E SDLC (dimensão D10 — Fábrica Agêntica de Software)
 
 Se D10 estiver nos dados com score > 0, analise maturidade de fábrica agêntica. Senão, nota curta "fora de escopo ou sem dados".
 Ao citar entregáveis do escopo use **rótulos canônicos**: E = Roteiro de Pilotos (não "Mapa de Jornadas"); H = Diagnóstico de Clientes (não "Business Case"); G = Capacitação e Gestão de Mudança.
+**Não** introduza outras dimensões além das SATF D1–D11.
 
 DADOS:\n${dados}`,
     maxTokens: 3500
@@ -491,9 +493,11 @@ DADOS:\n${dados}`,
   chunks.push({
     id: 'sec_6',
     label: 'Conformidade TI (D11)',
-    prompt: `# 6. CONFORMIDADE E REGULATÓRIO EM TI (D11)
+    prompt: `${regrasTaxonomia}
+# 6. CONFORMIDADE E REGULATÓRIO EM TI (D11 — Conformidade Regulatória de IA)
 
 Governança de IA em TI, LGPD técnico, auditoria de modelos. Se setor regulado ou D11 ativa, aprofunde.
+Referencie **D11** e, se pertinente, **D2 Governança, Risco & Conformidade** — nomes SATF oficiais.
 
 DADOS:\n${dados}`,
     maxTokens: 3500
@@ -502,9 +506,11 @@ DADOS:\n${dados}`,
   chunks.push({
     id: 'sec_7',
     label: 'Capacitação e governança',
-    prompt: `# 7. CAPACITAÇÃO, PAPÉIS E GOVERNANÇA DE TIMES
+    prompt: `${regrasTaxonomia}
+# 7. CAPACITAÇÃO, PAPÉIS E GOVERNANÇA DE TIMES
 
 Skills, chapter leads, guildas de IA, operating model de engenharia.
+Ancorar em **D3 Pessoas, Cultura & Capacitação** e **D2 Governança, Risco & Conformidade** (SATF) — não use taxonomia Blueprint.
 
 DADOS:\n${dados}`,
     maxTokens: 3500
@@ -513,9 +519,11 @@ DADOS:\n${dados}`,
   chunks.push({
     id: 'sec_8',
     label: 'Próximos passos 30 dias',
-    prompt: `# 8. PRÓXIMOS PASSOS IMEDIATOS (30 DIAS)
+    prompt: `${regrasTaxonomia}
+# 8. PRÓXIMOS PASSOS IMEDIATOS (30 DIAS)
 
 7–10 ações numeradas com responsável, entregável e prazo. Foco TI.
+Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).
 
 DADOS:\n${dados}`,
     maxTokens: 4000
@@ -545,6 +553,7 @@ async function executarChunksLoop({
   let modelUsado = null;
 
   const systemPrompt = `${SYSTEM_PROMPT_PERSONA_BOOK_SATF}
+${blocoRegrasTaxonomiaSatfPrompt()}
 ${modoRapido ? '\nMODO RÁPIDO: textos mais curtos, mas mantenha especificidade por dimensão, [Qn], contexto do projeto e recomendações acionáveis (não resuma em bullets genéricos).' : ''}
 ${temContexto ? blocoInstrucoesSistemaSecao3ComContexto() : ''}
 Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
@@ -630,15 +639,21 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
         registrar(
           chunk,
           dimensaoComScoreZero(dim)
-            ? blocoDimensaoScoreZeroSecao3(numSecao, dim, {
+            ? blocoDimensaoScoreZeroSecao3Satf(numSecao, dim, {
                 isFirst: dimIdx === 0,
                 totalDimensoes: dimensoesDiagnostico.length,
-                modoRapido: true
+                ordemNomes,
+                modoRapido
               })
-            : blocoFallbackErroSecao3Dimensao(numSecao, dim, err.message, {
+            : montarBlocoSecao3DimensaoSatf({
+                numSecao,
+                dim,
+                conteudoIa: `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ **Esta seção não pôde ser gerada pela IA** (${String(err.message || 'erro temporário').slice(0, 300)}).\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
                 isFirst: dimIdx === 0,
                 totalDimensoes: dimensoesDiagnostico.length,
-                modoRapido: true
+                ordemNomes,
+                modoRapido,
+                inventarioDocumentos
               })
         );
       } else {
@@ -709,11 +724,13 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     if (ultimoSalvo) {
       const dadosSnap = ultimoSalvo.dadosSnapshot ? JSON.parse(ultimoSalvo.dadosSnapshot) : null;
       const sec3 = relatorioBookSecao3Completo(ultimoSalvo.conteudoMd || '', TOTAL_DIMENSOES_SATF);
+      const taxonomia = validarTaxonomiaBookSatf(ultimoSalvo.conteudoMd || '');
       if (
         filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax) &&
         Number(dadosSnap?.projetoVersao?.id || 0) === Number(projetoVersao?.id || 0) &&
         dadosSnap?.frameworkMaturidade === FRAMEWORK_SATF_TI_V3 &&
-        sec3.ok
+        sec3.ok &&
+        taxonomia.ok
       ) {
         const empresaAtual = await prisma.projeto.findUnique({
           where: { id: projetoId },
@@ -871,12 +888,11 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     bottom5
   });
 
-  const dadosBlockRapido = `${dadosBlock}\n\n${blocoDadosExtrasBookRapido({
+  const dadosBlockRapido = `${dadosBlock}\n\n${blocoDadosExtrasBookRapidoSatf({
     scoresPorArea: dimensoesDiagnostico,
     scoreGeral,
     nivel,
-    nomesNivel: NOMES_NIVEL_BLUEPRINT,
-    faturamentoAnualProjeto: projeto.faturamentoAnualProjeto
+    nomesNivel: NOMES_NIVEL_BLUEPRINT
   })}`;
 
   const chunks = montarChunksSatf({
@@ -921,13 +937,22 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     console.warn(`[Book SATF] Seção 3 incompleta: ${validacao.total}/${TOTAL_DIMENSOES_SATF}`);
   }
 
+  const validacaoTaxonomia = validarTaxonomiaBookSatf(markdown);
+  if (!validacaoTaxonomia.ok) {
+    console.warn(
+      `[Book SATF] Contaminação taxonômica detectada: ${validacaoTaxonomia.total} ocorrência(s)`,
+      validacaoTaxonomia.ocorrencias.map((o) => `${o.nome} (${o.count})`).join('; ')
+    );
+  }
+
   const markdownFinal =
     inventarioDocumentos.entregaveis.length > 0
       ? normalizarRotulosEntregaveisEscopo(markdown, inventarioDocumentos)
       : markdown;
 
   const comIndice = adicionarIndiceAoBookMarkdown(markdownFinal);
-  const relatorioFinal = prependCapaNivelAvaliadoresAoRelatorio(comIndice, {
+  const comConfidencial = `${capaConfidencialBookSatfMarkdown(projeto.empresa.nome, projeto.nome)}${comIndice}`;
+  const relatorioFinal = prependCapaNivelAvaliadoresAoRelatorio(comConfidencial, {
     filtroMax: filtroNivelMax,
     avaliacoesFiltradas,
     empresaNome: projeto.empresa.nome,
@@ -1011,6 +1036,10 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     tipoRelatorio,
     modoGeracao: modoRapido ? 'rapido' : 'completo_satf',
     filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
-    projetoVersao
+    projetoVersao,
+    validacaoTaxonomia,
+    avisoTaxonomia: validacaoTaxonomia.ok
+      ? null
+      : `Book gerado com ${validacaoTaxonomia.total} possível(is) referência(s) a outra taxonomia — regenere com reuse=false antes de entregar.`
   });
 }

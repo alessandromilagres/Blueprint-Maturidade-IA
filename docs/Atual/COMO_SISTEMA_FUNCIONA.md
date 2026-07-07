@@ -1,8 +1,8 @@
 # Como o Sistema Blueprint IA Funciona
 
-**Versão:** Junho/2026
+**Versão:** Julho/2026 (relatórios IA SATF isolados)
 **Produto:** Blueprint IA / Blueprint Agêntico
-**Objetivo:** explicar o funcionamento operacional da plataforma, da configuração inicial à geração de relatórios e especificações.
+**Objetivo:** explicar o funcionamento operacional da plataforma, da configuração inicial à geração de relatórios, acompanhamento de avaliadores e especificações.
 
 ---
 
@@ -10,12 +10,14 @@
 
 O Blueprint IA é uma plataforma web para avaliar maturidade em Inteligência Artificial, analisar produtos IA-First, gerar relatórios executivos com IA e transformar diagnósticos em especificações técnicas.
 
-Na prática, o sistema conecta quatro fluxos:
+Na prática, o sistema conecta seis fluxos:
 
 1. **Diagnóstico de maturidade organizacional**
 2. **Avaliação de produtos IA-First**
 3. **Relatórios e books gerados por IA**
 4. **Especificação automática para execução de produtos**
+5. **Aplicativo mobile do avaliador**
+6. **Acompanhamento executivo e auditoria operacional**
 
 ---
 
@@ -28,7 +30,7 @@ Na prática, o sistema conecta quatro fluxos:
 | Avaliador | Responde avaliações de maturidade ou produto a partir de convites |
 | Executivo | Consome relatórios, dashboards, recomendações e exportações |
 
-O perfil **avaliador** tem acesso restrito: ao entrar no sistema, é direcionado para sua tela de entrada e só consegue acessar avaliações pendentes, avaliações de produto e páginas de conclusão.
+O perfil **avaliador** tem acesso restrito: ao entrar no sistema web, é direcionado para sua lista de avaliações e só consegue acessar avaliações pendentes, avaliações de produto e páginas de conclusão. Quando usa o aplicativo mobile, o avaliador acessa o mesmo backend e as mesmas regras de autorização, mas em uma experiência simplificada para celular.
 
 ---
 
@@ -58,6 +60,10 @@ Exemplos:
 
 O gestor pode aceitar ou ajustar as sugestões antes de enviar o convite.
 
+Convites de maturidade usam **magic link**: o avaliador pode abrir o link recebido por e-mail, ou o QR Code associado, e acessar diretamente a avaliação sem digitar senha. O backend valida o token do convite, cria ou reutiliza a avaliação vinculada ao avaliador, gera uma sessão JWT e redireciona para a tela correta. Convites de produto continuam usando o fluxo autenticado tradicional.
+
+Quando o convite é enviado, aberto ou usado para iniciar a avaliação, o sistema registra eventos operacionais para acompanhamento e auditoria.
+
 ### 3.3 Resposta da Avaliação
 
 O avaliador responde perguntas em escala de 1 a 5. Cada pergunta apresenta:
@@ -70,6 +76,14 @@ O avaliador responde perguntas em escala de 1 a 5. Cada pergunta apresenta:
 - Opção **sem informação**
 
 A opção **sem informação** é usada quando o avaliador não tem evidência suficiente para responder. Ela conta para o progresso da avaliação, mas não entra no cálculo do score.
+
+Antes de finalizar, a tela apresenta uma revisão com:
+
+- Total respondido e percentual de progresso
+- Perguntas pendentes
+- Quantidade de respostas marcadas como sem informação
+- Grupos/dimensões recusados
+- Confirmação explícita antes de bloquear a edição
 
 ### 3.4 Consolidação
 
@@ -102,7 +116,37 @@ Esse fluxo ajuda a identificar divergências entre avaliadores, dimensões com b
 
 ---
 
-## 5. Dashboards
+## 5. Acompanhamento de Avaliadores
+
+A tela de acompanhamento permite ao gestor operar a adesão da avaliação em tempo real. Ela combina dados de convite, avaliação, lembretes e auditoria de eventos.
+
+O painel mostra:
+
+- Avaliadores por status: convite pendente, não iniciado, em andamento, pronto para finalizar e finalizado
+- Indicadores de link enviado, link aberto e avaliação iniciada
+- Casos em que o avaliador abriu o link, mas ainda não iniciou a resposta
+- Progresso médio do projeto
+- Filtros rápidos para pendentes, alertas de qualidade, lembretes, não abriu e abriu sem iniciar
+- Ação contextual de lembrete ou reenvio de link
+- Trilha recente do avaliador, incluindo convite enviado, link aberto, avaliação iniciada, progresso salvo e finalização
+
+### 5.1 Auditoria e Qualidade
+
+O backend mantém uma tabela operacional `AvaliacaoEvento` para registrar eventos do fluxo de avaliação. Essa trilha não substitui logs técnicos, mas ajuda o gestor a entender onde a adesão está travando.
+
+Além disso, o sistema calcula alertas de qualidade:
+
+- Respostas com a mesma nota em sequência
+- Conclusão rápida demais
+- Muitas marcações "sem informação"
+- Notas extremas sem observação/evidência
+- "Sem informação" sem contexto
+
+Esses alertas ajudam a separar problemas reais de maturidade de problemas de qualidade de resposta.
+
+---
+
+## 6. Dashboards
 
 O sistema possui dashboards por diferentes níveis:
 
@@ -110,24 +154,45 @@ O sistema possui dashboards por diferentes níveis:
 - **Projeto**: avaliação de maturidade, avaliadores, financeiro, produtos e relatórios
 - **Produto**: avaliação IA-First, relevância agêntica e especificação
 - **Usuários**: perfis, convites e permissões
+- **Prontidão Executiva**: índice agregado de prontidão por projeto, combinando score e conclusão
+- **Comparativo por Empresa**: comparação lado a lado de projetos por prontidão, maturidade, conclusão e riscos
 
 Os dashboards combinam dados operacionais, scores e projeções para apoiar decisões de priorização.
 
+O comparativo por empresa pode ser exportado em CSV ou impresso como PDF pelo navegador.
+
 ---
 
-## 6. Relatórios Gerados por IA
+## 7. Relatórios Gerados por IA
 
-### 6.1 Tipos de Relatório
+### 7.1 Tipos de Relatório
 
-A plataforma gera:
+A plataforma gera artefatos distintos conforme o **framework do projeto** (Blueprint 16 ou SATF TI v3):
 
-- Relatório estratégico C-Level
-- Book completo de maturidade em IA
-- Book em modo rápido
-- Relatórios executivos e exportações tradicionais
-- Documentos técnicos de especificação
+| Artefato | Blueprint 16 | SATF TI v3 |
+|----------|--------------|------------|
+| Executivo IA | Estratégico C-Level (MIT ROI) | Executivo TI / Engenharia (CTO, plataforma) |
+| Book completo | 16 dimensões, seções 1–13 | 11 dimensões SATF, seções 1–8 |
+| Book rápido | Versão condensada Blueprint | Versão condensada SATF |
+| Export Word | Rodapé Blueprint / MIT referência | Rodapé SATF TI v3 + marca **Confidencial** |
 
-### 6.2 Geração em Background
+Tipos adicionais (ambos frameworks):
+
+- Relatórios executivos e exportações tradicionais (assessment técnico, não-IA)
+- Documentos técnicos de especificação automática
+
+### 7.1.1 Isolamento taxonômico SATF (Jul/2026)
+
+Em projetos **SATF**, books e relatórios executivos gerados por IA:
+
+- Usam **apenas** as 11 dimensões SATF (D1–D11) — nunca as 16 dimensões Blueprint nem rótulos MIT CISR como metodologia principal.
+- Passam por **validação automática** após a geração; versões contaminadas não são reutilizadas do cache.
+- Exibem **alerta na interface** se o sistema detectar referências a outra taxonomia (regenerar com “Gerar novo” / `reuse=false`).
+- Integram **Desejos IA** dos avaliadores nas recomendações da Seção 3 do book, quando cadastrados.
+
+Consultores devem **regenerar** books SATF gerados antes de Jul/2026 se houver mistura de dimensões no índice ou no corpo do documento.
+
+### 7.2 Geração em Background
 
 Relatórios de IA são extensos e podem demorar. Por isso, a geração ocorre em **background**.
 
@@ -142,7 +207,7 @@ O fluxo é:
 
 Esse modelo evita timeout no navegador, preserva versões e permite relatórios multi-chunk.
 
-### 6.3 Biblioteca de IA
+### 7.3 Biblioteca de IA
 
 Todo relatório gerado por IA pode ser salvo com:
 
@@ -156,15 +221,23 @@ Todo relatório gerado por IA pode ser salvo com:
 
 Isso permite rastreabilidade e comparação entre versões.
 
-### 6.4 Metodologia de ROI e projeções financeiras
+### 7.4 Metodologia de ROI e projeções financeiras
 
-Books e relatórios financeiros separam **benefício bruto**, **investimento**, **ganho líquido (custo abatido)** e **ROI líquido %**. Benchmarks MIT/McKinsey/BCG por nível de maturidade indicam ROI líquido típico *sobre investimento em IA*, não margem sobre o faturamento total.
+Books e relatórios financeiros seguem uma metodologia explícita que separa:
 
-Documentação completa: [`docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`](Atual/METODOLOGIA_ROI_FINANCEIRO.md).
+- **Benefício bruto** — valor econômico anual estimado *antes* de abater investimento em IA
+- **Investimento de referência** — custo anual típico em capacidades de IA
+- **Ganho líquido** — benefício bruto menos investimento (custo abatido)
+- **ROI líquido %** — métrica padrão para CFO/conselho: (ganho líquido ÷ investimento) × 100
+- **Benchmark MIT por nível** — faixa de ROI líquido típico sobre investimento em IA (referência MIT CISR / McKinsey / BCG), **não** margem sobre faturamento total
+
+Os cenários Conservador / Base / Agressivo usam o **faturamento anual do projeto** (quando cadastrado) para calibrar benefício bruto e investimento. A Seção 8 dos books **Blueprint** e os relatórios executivos **Blueprint** exibem tabela com as cinco colunas acima. **Projetos SATF** não usam bloco de trajetória MIT nos books; o executivo SATF foca capacidades de engenharia e plataforma.
+
+Documentação completa com fórmulas, tabelas MIT e referência de código: [`docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`](Atual/METODOLOGIA_ROI_FINANCEIRO.md).
 
 ---
 
-## 7. Avaliação de Produtos IA-First
+## 8. Avaliação de Produtos IA-First
 
 O módulo de produtos avalia se uma solução está preparada para operar no paradigma IA-First e agêntico.
 
@@ -177,7 +250,7 @@ O score final combina prontidão agêntica, impacto em ROI, automação, integra
 
 ---
 
-## 8. Especificação Automática
+## 9. Especificação Automática
 
 A partir do cadastro do produto, avaliações e documentos de referência, o sistema pode gerar:
 
@@ -193,7 +266,7 @@ O processamento roda em background quando necessário e pode usar arquivos de re
 
 ---
 
-## 9. Configurações de IA
+## 10. Configurações de IA
 
 Administradores podem configurar provedores de IA:
 
@@ -205,7 +278,7 @@ As configurações são persistidas no banco de dados com proteção, evitando p
 
 ---
 
-## 10. Exportações
+## 11. Exportações
 
 O sistema exporta conteúdos em:
 
@@ -215,22 +288,98 @@ O sistema exporta conteúdos em:
 
 Exportações de avaliação usam o score da avaliação correta do respondente e recalculam resultados quando necessário a partir das respostas.
 
+**Projetos SATF:** relatórios técnicos MD/ZIP usam cabeçalho e sumário executivo **SATF TI v3** (sem classificação MIT CISR na tabela principal). Pacotes ZIP de versão incluem books `completo_satf` quando existirem na biblioteca IA.
+
 ---
 
-## 11. Arquitetura Técnica
+## 12. Aplicativo Mobile do Avaliador
+
+O Blueprint IA também possui um aplicativo mobile dedicado ao avaliador: **Blueprint IA Avaliador**. Ele foi criado para reduzir atrito no preenchimento das avaliações e permitir que executivos, gestores e especialistas respondam pelo celular sem navegar por áreas administrativas do sistema.
+
+### 12.1 Escopo do Aplicativo
+
+O aplicativo mobile cobre apenas a jornada do avaliador:
+
+- Login com as mesmas credenciais do Blueprint IA
+- Persistência segura do token no dispositivo
+- Listagem de avaliações pendentes
+- Resposta de avaliação de maturidade por projeto
+- Resposta de avaliação de produto IA-First
+- Marcação de área recusada quando o avaliador não está apto a responder uma dimensão
+- Marcação "não tenho informação suficiente" em perguntas de maturidade
+- Salvamento parcial de progresso
+- Finalização da avaliação
+
+Administração, cadastro de empresas, criação de projetos, envio de convites, dashboards, relatórios, biblioteca de IA e configurações continuam no sistema web.
+
+### 12.2 Como o App se Conecta ao Sistema
+
+O app é construído em **Expo / React Native** e consome a API do backend Node/Express. A URL da API é configurada por ambiente:
+
+```text
+EXPO_PUBLIC_API_URL=https://agentica.sysmap.com.br/api
+```
+
+Em desenvolvimento, pode apontar para a máquina local:
+
+```text
+EXPO_PUBLIC_API_URL=http://SEU_IP_LOCAL:3001/api
+```
+
+No simulador iOS, `http://localhost:3001/api` costuma funcionar. No emulador Android, normalmente usa-se `http://10.0.2.2:3001/api`.
+
+### 12.3 Fluxo no Aplicativo
+
+```text
+Login do avaliador
+      ↓
+Token salvo no AsyncStorage
+      ↓
+Lista de avaliações pendentes
+      ↓
+Escolha de avaliação de maturidade ou produto
+      ↓
+Resposta, observações e salvamento parcial
+      ↓
+Finalização
+      ↓
+Backend atualiza scores, progresso e dashboards web
+```
+
+### 12.4 Relação com QR Code e Convites
+
+Os convites enviados pelo sistema web podem incluir QR Code para abrir a avaliação pelo celular. Para avaliações de maturidade, o link web usa magic link e pode iniciar uma sessão sem senha. Quando houver distribuição/publicação do app, o mesmo fluxo pode evoluir para deep link usando o scheme `blueprintavaliador`.
+
+### 12.5 Limites Atuais
+
+O app mobile é intencionalmente enxuto. Ele não substitui o sistema web e não contempla:
+
+- Gestão administrativa
+- Criação ou edição de projetos
+- Cadastro de usuários
+- Envio de convites
+- Geração de relatórios IA
+- Exportações
+- Configurações de provedores de IA
+
+---
+
+## 13. Arquitetura Técnica
 
 | Camada | Descrição |
 |--------|-----------|
 | Frontend | React, Vite, TailwindCSS e React Router |
+| Aplicativo mobile | Expo, React Native e AsyncStorage |
 | Backend | Node.js, Express e Prisma |
 | Banco | PostgreSQL em produção |
 | Autenticação | JWT e rotas protegidas por perfil |
+| Auditoria operacional | Eventos `AvaliacaoEvento` para convite, abertura, início, salvamento e finalização |
 | IA | Provedores configuráveis e geração com continuação quando necessário |
 | Deploy | Azure DevOps, Docker/Docker Compose, Nginx e HTTPS |
 
 ---
 
-## 12. Fluxo Resumido Ponta a Ponta
+## 14. Fluxo Resumido Ponta a Ponta
 
 ```text
 Empresa/Projeto
@@ -239,13 +388,17 @@ Cadastro de usuários e avaliadores
       ↓
 Sugestão de dimensões por cargo
       ↓
-Convite por e-mail/link
+Convite por e-mail/link/QR Code
       ↓
-Resposta da avaliação
+Magic link, login ou app mobile
+      ↓
+Resposta, salvamento parcial e revisão final
       ↓
 Consolidação de scores
       ↓
-Dashboards e análise por dimensão
+Auditoria, acompanhamento e alertas de qualidade
+      ↓
+Dashboards, prontidão executiva e comparativo por empresa
       ↓
 Relatórios IA em background
       ↓
@@ -256,6 +409,6 @@ Especificação automática de produto
 
 ---
 
-## 13. Resultado Esperado
+## 15. Resultado Esperado
 
 Ao usar o Blueprint IA, a organização sai de uma avaliação subjetiva e fragmentada para um processo estruturado, rastreável e acionável. O sistema mostra onde a empresa está, quais dimensões precisam evoluir, quais produtos têm maior potencial IA-First e quais documentos devem orientar a execução.

@@ -6,13 +6,13 @@
 
 ## Resumo Executivo
 
-O **Blueprint Agêntico** representa uma evolução significativa no campo de frameworks de avaliação de maturidade em Inteligência Artificial, oferecendo uma abordagem holística que integra diagnóstico organizacional, avaliação de produtos IA-First e geração automática de especificações técnicas por meio de agentes de IA.
+O **Blueprint Agêntico** representa uma evolução significativa no campo de frameworks de avaliação de maturidade em Inteligência Artificial, oferecendo uma abordagem holística que integra diagnóstico organizacional, avaliação de produtos IA-First e geração automática de especificações técnicas por meio de agentes de IA. 
 
 Este framework metodológico fundamenta-se em modelos acadêmicos consolidados — MIT CISR Enterprise AI Maturity (Weill, Woerner & Sebastian, 2024), McKinsey Value Creation, SFIA Framework, NIST AI RMF e ADKAR/Prosci — e introduz o conceito inovador de **Transformação Agêntica**, que avalia a prontidão de organizações e produtos para o paradigma emergente de Multi-Agent Systems (MAS).
 
 A plataforma oferece três módulos integrados:
 
-1. **Avaliação de Maturidade Empresarial**: 16 dimensões e 108 perguntas estruturadas, com múltiplos avaliadores, seleção de dimensões por cargo e respostas "sem informação"
+1. **Avaliação de Maturidade Empresarial**: escolha de **framework por projeto** — **Blueprint 16** (16 dimensões, 108 perguntas, C-Level/MIT) ou **SATF TI v3** (11 dimensões, 70 perguntas, TI/engenharia com evidência obrigatória e certificação); múltiplos avaliadores, seleção de dimensões por cargo e respostas "sem informação"
 2. **Avaliação de Produtos IA-First**: 8 perguntas universais de Transformação Agêntica + 12 verticais setoriais
 3. **Especificação Automática**: Geração de documentação técnica completa via IA generativa, biblioteca de relatórios IA e exportações multi-formato
 
@@ -169,17 +169,11 @@ O Blueprint Agêntico é implementado como uma plataforma web completa com três
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  MÓDULO 1: MATURIDADE EMPRESARIAL                                   │    │
+│  │  MÓDULO 1: MATURIDADE EMPRESARIAL (framework por projeto)           │    │
 │  │  ┌─────────────────────────────────────────────────────────────────┐│    │
-│  │  │  16 Dimensões de Avaliação (108 perguntas)                      ││    │
-│  │  │  • Estratégia e Liderança         • Operações e Processos       ││    │
-│  │  │  • Dados e Tecnologia             • Inovação e Experimentação   ││    │
-│  │  │  • Governança e Risco             • Valor de Negócio/ROI        ││    │
-│  │  │  • Pessoas e Cultura              • Ecossistema/Parcerias       ││    │
-│  │  │  • Valor por Unidade de Negócio   • Talentos e Capacidades      ││    │
-│  │  │  • Conformidade Regulatória       • Prontidão para Mudança      ││    │
-│  │  │  • Plataforma e Industrialização  • IA como Receita             ││    │
-│  │  │  • Maturidade por Tipo de IA      • Eficácia de IA (MIT CISR)   ││    │
+│  │  │  Blueprint 16 — 16 dimensões, 108 perguntas (enterprise/MIT)   ││    │
+│  │  │  SATF TI v3 — 11 dimensões, 70 perguntas (TI/engenharia)       ││    │
+│  │  │  Escolha exclusiva; travada após 1ª resposta de avaliação       ││    │
 │  │  └─────────────────────────────────────────────────────────────────┘│    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
@@ -226,6 +220,28 @@ O Blueprint Agêntico opera como uma plataforma de diagnóstico e execução:
 5. **Análise e decisão**: dashboards, análise de avaliações por dimensão e relatórios executivos mostram gaps, divergências, prioridades e oportunidades de ROI.
 6. **Geração IA em background**: relatórios estratégicos e books completos rodam como jobs em background, são versionados em biblioteca e podem ser exportados.
 7. **Especificação automática**: produtos IA-First podem gerar PRD, requisitos, arquitetura, estimativas e blueprint de construção a partir dos dados coletados.
+
+### 3.2.1 Frameworks de Maturidade: Blueprint 16 e SATF TI v3
+
+O Módulo 1 suporta **dois instrumentos mutuamente exclusivos**, selecionados por projeto:
+
+| Instrumento | ID | Dimensões | Perguntas | Público |
+|-------------|-----|-----------|-----------|---------|
+| Blueprint IA | `BLUEPRINT_16` | 16 | 108 | C-Level, board, transformação enterprise |
+| SATF — IA Maturidade TI | `SATF_TI_V3` | 11 | 70 | TI, engenharia, plataforma, CTO |
+
+**SATF TI v3** (Instrumento SysMap v3, Jun/2026) avalia capacidade técnica de adoção de IA: estratégia de postura (D1), governança (D2), pessoas (D3), engenharia/DORA (D4), plataforma (D5), dados/contexto (D6), segurança & QA integrada (D7), legado (D8), FinOps (D9), **Fábrica Agêntica de Software (D10 — score próprio, fora da média)** e conformidade regulatória (D11).
+
+**Diferenciais SATF na plataforma:**
+
+- **Evidência obrigatória**: notas ≥ 4 exigem observações (mín. 20 caracteres); sem evidência, nota efetiva limitada a 3
+- **Certificação consultiva**: após avaliações, consultor certifica ou rebaixa cada dimensão; score oficial usa camada certificada
+- **Setor regulado**: D2, D7 e D11 com peso 2×; D11 obrigatória
+- **Escala N1–N5** SysMap (1,0–1,8 … 4,2–5,0)
+- **Relatórios IA isolados** (Jul/2026): pipeline SATF dedicado; validação taxonômica D1–D11; executivo TI/engenharia; books `completo_satf` / `completo_satf_rapido`; export Word/MD com metodologia SATF e marca Confidencial
+- Fundamentação: `docs/Atual/Fundamentacao_SATF_IA_Maturidade_TI_SATF.docx` e 11 guias em `Dimensoes_Evolucao_SAT/`
+
+Detalhamento completo: `docs/TESE_BLUEPRINT_IA.md` (§3.3–3.5).
 
 ### 3.3 Stack Tecnológico
 
@@ -782,23 +798,23 @@ flowchart TB
     UI[React App]
     Charts[Chart.js]
   end
-
+  
   subgraph Backend
     API[Express API]
     Auth[JWT Auth]
     Prisma[Prisma ORM]
   end
-
+  
   subgraph AI
     Claude[Anthropic Claude]
     RAG[RAG Pipeline]
   end
-
+  
   subgraph Data
     DB[(PostgreSQL)]
     VectorDB[(Vector Store)]
   end
-
+  
   UI --> API
   API --> Claude
   API --> Prisma
@@ -1300,7 +1316,7 @@ O **Blueprint Agêntico** apresenta um framework robusto e cientificamente funda
 
 ### 13.2 Contribuições
 
-1. **Modelo Multidimensional**: 16 dimensões e 108 perguntas cobrindo aspectos técnicos, organizacionais, culturais, financeiros, de plataforma, receita e eficácia MIT CISR
+1. **Modelo Multidimensional Dual**: Blueprint 16 (enterprise) e SATF TI v3 (TI/engenharia com evidência e certificação)
 2. **Métricas Quantitativas**: Fórmulas objetivas para cálculo de scores e classificação
 3. **Transformação Agêntica**: Primeiro framework a incorporar avaliação de Multi-Agent Systems
 4. **Projeções Financeiras**: Correlação entre maturidade e ROI baseada em evidências
@@ -1393,9 +1409,13 @@ O Blueprint Agêntico permite às organizações:
 
 ## Anexos
 
-### Anexo A: Questionário Completo de Maturidade
+### Anexo A: Questionário Blueprint 16
 
-*[Documento com as 108 perguntas organizadas por 16 dimensões, incluindo critérios de avaliação para cada nível]*
+*[108 perguntas em 16 dimensões — ver `docs/PERGUNTAS_BLUEPRINT_COMPLETO.md`]*
+
+### Anexo A2: Questionário SATF TI v3
+
+*[70 perguntas em 11 dimensões — ver `backend/src/data/satfFrameworkSeed.js` e `docs/Atual/Fundamentacao_SATF_IA_Maturidade_TI_SATF.docx`]*
 
 ### Anexo B: Questionário de Transformação Agêntica
 
@@ -1421,8 +1441,8 @@ O Blueprint Agêntico permite às organizações:
 
 ---
 
-*Documento atualizado em: Junho de 2026*
-*Versão: 2.3 - Edição Operacional*
+*Documento atualizado em: Julho de 2026*
+*Versão: 2.4*
 
 ---
 
@@ -1434,3 +1454,5 @@ O Blueprint Agêntico permite às organizações:
 | 2.0 | Março 2026 | Edição Agêntica - Módulo de Especificação Automática |
 | 2.1 | Abril 2026 | Multi-Provedor de IA, Exportação Multi-Formato |
 | 2.3 | Junho 2026 | Alinhamento ao sistema atual: 16 dimensões, 108 perguntas, avaliadores restritos, matriz Cargo × Dimensão, análise por dimensão e relatórios IA em background |
+| 2.4 | Julho 2026 | Instrumento **SATF TI v3**: seleção por projeto, 11 dimensões, evidência obrigatória, certificação, setor regulado, D10 fora da média |
+| 2.5 | Julho 2026 | **Isolamento taxonômico SATF** em relatórios IA: pipeline dedicado, validação pós-geração, executivo TI/engenharia, export Word/MD SATF |

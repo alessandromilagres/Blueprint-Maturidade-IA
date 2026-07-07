@@ -245,7 +245,8 @@ export function generateDocFromMarkdown(markdown, options = {}) {
     autor = 'BluePrint IA',
     headerColor = '#6b21a8',
     accentColor = '#a855f7',
-    logoDataUrl = null
+    logoDataUrl = null,
+    footerMetodologia = FOOTER_DOC_METODOLOGIA
   } = options;
   
   const dataAtual = new Date().toLocaleDateString('pt-BR', { 
@@ -345,7 +346,7 @@ br.page-break {
   </div>
   
   <div class="footer-info">
-    ${FOOTER_DOC_METODOLOGIA}
+    ${escapeHtml(footerMetodologia)}
   </div>
 </div>
 

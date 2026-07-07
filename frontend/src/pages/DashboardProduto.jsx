@@ -358,6 +358,27 @@ export default function DashboardProduto() {
           </div>
         )}
 
+        {/* Acesso — Engenharia de Valor (classificação por drivers do Blueprint) */}
+        <Link
+          to={`/dashboard/produto/${produto.id}/engenharia-valor`}
+          className="flex items-center justify-between gap-4 rounded-2xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/60 dark:bg-indigo-950/20 p-5 hover:bg-indigo-100/70 dark:hover:bg-indigo-950/40 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-indigo-500/15 rounded-xl">
+              <Calculator className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                Engenharia de valor (drivers do Blueprint)
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Priorize por dimensões com menor nota · peso Fibonacci · impacto 0–5
+              </p>
+            </div>
+          </div>
+          <span className="text-indigo-600 dark:text-indigo-400 text-sm font-medium shrink-0">Abrir →</span>
+        </Link>
+
         {/* Score Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Gauge Card - Score Final */}

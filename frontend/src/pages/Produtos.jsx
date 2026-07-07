@@ -105,13 +105,24 @@ export default function Produtos() {
             <p className="text-gray-600 dark:text-gray-400">Módulo de Validação por Vertical (MIT CISR)</p>
           </div>
         </div>
-        <Link 
-          to={filterProjeto ? `/produtos/novo?projetoId=${filterProjeto}` : '/produtos/novo'} 
-          className="btn btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Produto
-        </Link>
+        <div className="flex items-center gap-2">
+          {filterProjeto && (
+            <Link
+              to={`/dashboard/projeto/${filterProjeto}/produtos-command-center`}
+              className="btn btn-secondary flex items-center gap-2"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Command Center
+            </Link>
+          )}
+          <Link
+            to={filterProjeto ? `/produtos/novo?projetoId=${filterProjeto}` : '/produtos/novo'}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Produto
+          </Link>
+        </div>
       </div>
 
       <div className="card">

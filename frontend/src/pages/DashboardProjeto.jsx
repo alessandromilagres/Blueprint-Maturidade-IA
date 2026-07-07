@@ -23,6 +23,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { queryNivelMapeamentoMaturidade } from '../utils/filtroNivelMaturidade';
 import { nivelNumericoDeScore } from '../utils/nivelMaturidadeRubrica.js';
 import { ResumoRegulatorioProjeto } from '../components/ImplicacoesRegulatoriasDimensao';
+import FrameworkMaturidadeBadge from '../components/FrameworkMaturidadeBadge';
+import { FRAMEWORK_SATF_TI_V3 } from '../constants/frameworkMaturidade';
 
 ChartJS.register(
   RadialLinearScale,
@@ -564,6 +566,8 @@ export default function DashboardProjeto() {
     );
   }
 
+  const isSatf = dashboard.frameworkMaturidade === FRAMEWORK_SATF_TI_V3;
+
   const radarData = {
     labels: dashboard.scoresPorArea.map(a => a.area.split(' ')[0]),
     datasets: [{
@@ -587,7 +591,20 @@ export default function DashboardProjeto() {
         angleLines: { color: 'rgba(148, 163, 184, 0.2)' },
       },
     },
-    plugins: { legend: { display: false } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (items) => dashboard.scoresPorArea[items[0]?.dataIndex]?.area || '',
+          label: (item) => {
+            const dim = dashboard.scoresPorArea[item.dataIndex] || {};
+            const partes = [`Score: ${Number(dim.score || 0).toFixed(2)}`];
+            if (dim.peso != null) partes.push(`Peso: ${dim.peso}%`);
+            return partes.join('  ·  ');
+          },
+        },
+      },
+    },
     maintainAspectRatio: true,
   };
 
@@ -645,7 +662,24 @@ export default function DashboardProjeto() {
     return result;
   };
 
-  const categoriasComScores = getCategoriasComScores();
+  const categoriasComScores = isSatf
+    ? {
+        'Núcleo SATF': {
+          score: dashboard.scoreGeral,
+          areas: dashboard.scoresPorArea || []
+        },
+        ...(dashboard.dimensoesEspecializadas?.length
+          ? {
+              Especializada: {
+                score:
+                  dashboard.dimensoesEspecializadas.reduce((acc, a) => acc + (a.score || 0), 0) /
+                  dashboard.dimensoesEspecializadas.length,
+                areas: dashboard.dimensoesEspecializadas
+              }
+            }
+          : {})
+      }
+    : getCategoriasComScores();
   const planoAcao = dashboard.planoAcao || [];
   const resumoRegulatorio = dashboard.resumoRegulatorio || null;
   const resumoComentarios = dashboard.resumoComentarios || { totalComentarios: 0, areas: [] };
@@ -916,8 +950,14 @@ export default function DashboardProjeto() {
                         <Brain className="w-3.5 h-3.5 text-emerald-300" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white">Book de Trabalho Completo (IA)</p>
-                        <p className="text-[10px] text-slate-400">Profundo · 1 chamada/dimensão + blocos · típico 1h+</p>
+                        <p className="text-sm font-medium text-white">
+                          {isSatf ? 'Book SATF TI v3 (IA)' : 'Book de Trabalho Completo (IA)'}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          {isSatf
+                            ? '11 dimensões · score certificado · ~18 blocos'
+                            : 'Profundo · 1 chamada/dimensão + blocos · típico 1h+'}
+                        </p>
                       </div>
                     </button>
 
@@ -929,7 +969,9 @@ export default function DashboardProjeto() {
                         <Zap className="w-3.5 h-3.5 text-amber-300" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white">Book modo rápido (IA)</p>
+                        <p className="text-sm font-medium text-white">
+                          {isSatf ? 'Book SATF (modo rápido)' : 'Book modo rápido (IA)'}
+                        </p>
                         <p className="text-[10px] text-slate-400">Mesma estrutura enxuta · meta típica até ~30 min</p>
                       </div>
                     </button>
@@ -1008,6 +1050,27 @@ export default function DashboardProjeto() {
             >
               <TrendingUp className="h-4 w-4" />
               Evolução
+            </Link>
+            <Link
+              to={`/dashboard/projeto/${id}/roadmap${dashboard.projetoVersao?.id ? `?versaoId=${dashboard.projetoVersao.id}` : ''}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-3 py-2 text-sm font-medium text-indigo-200 transition hover:bg-indigo-500/25"
+            >
+              <GitBranch className="h-4 w-4" />
+              Roadmap
+            </Link>
+            <Link
+              to={`/dashboard/projeto/${id}/roadmap-produtos`}
+              className="inline-flex items-center gap-2 rounded-lg border border-fuchsia-500/40 bg-fuchsia-500/15 px-3 py-2 text-sm font-medium text-fuchsia-200 transition hover:bg-fuchsia-500/25"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Roadmap produtos
+            </Link>
+            <Link
+              to={`/dashboard/projeto/${id}/executive-dashboard${dashboard.projetoVersao?.id ? `?versaoId=${dashboard.projetoVersao.id}` : ''}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/25"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Executive
             </Link>
           </div>
           <p className="text-slate-400 mb-6">{dashboard.projeto.nome}</p>
@@ -1200,8 +1263,8 @@ export default function DashboardProjeto() {
             ))}
           </div>
 
-          {/* MIT CISR Maturity Level */}
-          {(() => {
+          {/* MIT CISR Maturity Level (Blueprint 16) */}
+          {dashboard.mitCISR && (() => {
             const currentLevel = getMaturityLevelFromScore(dashboard.scoreGeral);
             const levelInfo = MIT_CISR_LEVELS[currentLevel];
             const vertical = dashboard.projeto?.vertical;
@@ -1714,6 +1777,96 @@ export default function DashboardProjeto() {
               </div>
             </div>
           </div>
+
+          {isSatf && dashboard.metodologiaScore?.descricaoScore && (
+            <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-4 mb-6 text-sm text-indigo-100">
+              <div className="flex items-center gap-2 mb-1">
+                <FrameworkMaturidadeBadge projeto={dashboard.projeto} />
+                <span className="font-medium">Metodologia SATF TI v3</span>
+              </div>
+              <p className="text-indigo-200/90">{dashboard.metodologiaScore.descricaoScore}</p>
+            </div>
+          )}
+
+          {isSatf && dashboard.certificacaoSatf && (
+            <div
+              className={`rounded-xl border p-4 mb-6 text-sm flex flex-wrap items-center justify-between gap-3 ${
+                dashboard.certificacaoSatf.statusGeral === 'certificado'
+                  ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-100'
+                  : 'border-amber-500/40 bg-amber-950/30 text-amber-100'
+              }`}
+            >
+              <div>
+                <p className="font-medium">
+                  {dashboard.certificacaoSatf.statusGeral === 'certificado'
+                    ? 'Certificação consultor concluída'
+                    : 'Certificação consultor pendente'}
+                </p>
+                <p className="mt-1 opacity-90">
+                  Score oficial: <strong>{dashboard.scoreGeral?.toFixed(2)}</strong>
+                  {dashboard.scoreGeralDeclarado != null &&
+                    dashboard.scoreGeralDeclarado !== dashboard.scoreGeral && (
+                      <>
+                        {' '}
+                        (declarado {dashboard.scoreGeralDeclarado.toFixed(2)})
+                      </>
+                    )}
+                  {' · '}
+                  {dashboard.certificacaoSatf.pendentes} dimensão(ões) pendente(s)
+                </p>
+              </div>
+              <Link
+                to={`/projetos/${id}/certificacao`}
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 font-medium"
+              >
+                Revisar evidências
+              </Link>
+            </div>
+          )}
+
+          {/* Dimensões fora do escopo do projeto */}
+          {dashboard.dimensoesForaEscopo?.length > 0 && (
+            <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 mb-6">
+              <h3 className="text-white font-semibold mb-1">Dimensões fora do escopo deste projeto</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Desativadas na configuração do projeto. Não entram no score consolidado (média ponderada),
+                nem no radar, gaps ou plano de ação.
+              </p>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                {dashboard.dimensoesForaEscopo.map((d) => (
+                  <div key={d.areaId} className="rounded-lg bg-slate-700/40 px-3 py-2 opacity-70">
+                    <p className="text-slate-200 text-sm font-medium">{d.area}</p>
+                    <p className="text-slate-400 text-xs">
+                      {d.score > 0 ? `Nota histórica ${Number(d.score).toFixed(2)} (ignorada)` : 'Sem avaliação'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* D10 — Fábrica Agêntica (score próprio, fora da média geral) */}
+          {dashboard.dimensoesEspecializadas?.length > 0 && (
+            <div className="bg-slate-800 rounded-xl p-6 border border-violet-500/30 mb-6">
+              <h3 className="text-white font-semibold mb-1">Dimensão especializada (fora da média geral)</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Avaliada no assessment, com score próprio. Não entra no score consolidado de maturidade TI.
+              </p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {dashboard.dimensoesEspecializadas.map((d) => (
+                  <div key={d.areaId} className="rounded-lg bg-violet-500/10 border border-violet-500/20 px-4 py-3">
+                    <p className="text-violet-100 font-medium">{d.area}</p>
+                    <p className="text-2xl font-bold text-violet-300 mt-1">
+                      {d.score > 0 ? Number(d.score).toFixed(2) : '—'}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {d.score > 0 ? 'Score próprio da Fábrica Agêntica' : 'Sem avaliação consolidada'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Avaliadores */}
           {dashboard.avaliadores.length > 0 && (

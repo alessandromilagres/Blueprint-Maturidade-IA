@@ -25,7 +25,19 @@ async function request(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+    const contentType = response.headers.get('content-type') || '';
+    let error = { error: 'Erro na requisição' };
+    if (contentType.includes('application/json')) {
+      error = await response.json().catch(() => error);
+    } else {
+      const text = await response.text().catch(() => '');
+      if (response.status === 404 && /Cannot (GET|PUT|POST|DELETE)/i.test(text)) {
+        error.error =
+          'Recurso não encontrado na API. Reinicie o backend (npm run dev ou node src/index.js) após atualizar o código.';
+      } else if (text) {
+        error.error = `Erro HTTP ${response.status}`;
+      }
+    }
     let msg = error.error || 'Erro na requisição';
     if (Array.isArray(error.detalhes) && error.detalhes.length > 0) {
       const extra = error.detalhes
@@ -158,10 +170,63 @@ export const projetosApi = {
   },
   lembretesLog: (projetoId, limit = 50) =>
     request(`/projetos/${projetoId}/avaliadores/lembretes-log?limit=${limit}`),
+  dimensoes: (projetoId) => request(`/projetos/${projetoId}/dimensoes`),
+  salvarDimensoes: (projetoId, dimensoes) =>
+    request(`/projetos/${projetoId}/dimensoes`, {
+      method: 'PUT',
+      body: JSON.stringify({ dimensoes })
+    }),
+  certificacao: (projetoId) => request(`/projetos/${projetoId}/certificacao`),
+  salvarCertificacaoDimensao: (projetoId, areaId, data) =>
+    request(`/projetos/${projetoId}/certificacao/${areaId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  contexto: (projetoId) => request(`/projetos/${projetoId}/contexto`),
+  salvarContexto: (projetoId, body) =>
+    request(`/projetos/${projetoId}/contexto`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    }),
+  uploadContexto: async (projetoId, body) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/projetos/${projetoId}/contexto/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type') || '';
+      let error = { error: 'Erro no upload' };
+      if (contentType.includes('application/json')) {
+        error = await response.json().catch(() => error);
+      } else if (response.status === 404) {
+        error.error = 'Upload indisponível — reinicie o backend após atualizar o código.';
+      }
+      throw new Error(error.error || 'Erro no upload');
+    }
+    return response.json();
+  },
+  removerArquivoContexto: (projetoId, arquivoId) =>
+    request(`/projetos/${projetoId}/contexto/arquivos/${arquivoId}`, { method: 'DELETE' }),
+  urlContextoVisualizar: (projetoId, arquivoId) =>
+    `${API_URL}/projetos/${projetoId}/contexto/arquivos/${arquivoId}/visualizar`,
+  urlContextoDownload: (projetoId, arquivoId) =>
+    `${API_URL}/projetos/${projetoId}/contexto/arquivos/${arquivoId}/download`,
 };
 
 export const areasApi = {
-  listar: () => request('/areas'),
+  listar: (projetoId, framework, opts = {}) => {
+    const params = new URLSearchParams();
+    if (projetoId != null && projetoId !== '') params.set('projetoId', String(projetoId));
+    if (framework) params.set('framework', framework);
+    if (opts.apenasAtivas) params.set('apenasAtivas', '1');
+    const qs = params.toString();
+    return request(`/areas${qs ? `?${qs}` : ''}`);
+  },
 };
 
 export const avaliacoesApi = {
@@ -280,6 +345,78 @@ export const dashboardApi = {
     if (params.limit) p.set('limit', String(params.limit));
     return request(`/relatorios-ia-jobs?${p.toString()}`);
   },
+};
+
+export const iniciativasApi = {
+  listar: (params = {}) => {
+    const p = new URLSearchParams();
+    if (params.projetoId != null) p.set('projetoId', String(params.projetoId));
+    if (params.projetoVersaoId) p.set('projetoVersaoId', String(params.projetoVersaoId));
+    if (params.contextoTipo) p.set('contextoTipo', params.contextoTipo);
+    if (params.contextoId) p.set('contextoId', params.contextoId);
+    if (params.status) p.set('status', params.status);
+    const qs = p.toString();
+    return request(`/iniciativas${qs ? `?${qs}` : ''}`);
+  },
+  criar: (data) => request('/iniciativas', { method: 'POST', body: JSON.stringify(data) }),
+  atualizar: (id, data) => request(`/iniciativas/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remover: (id) => request(`/iniciativas/${id}`, { method: 'DELETE' }),
+  importarRoadmapIA: (relatorioId, data) =>
+    request(`/iniciativas/importar-roadmap-ia/${relatorioId || 0}`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  exportarCsv: async (params = {}) => {
+    const p = new URLSearchParams();
+    if (params.projetoId != null) p.set('projetoId', String(params.projetoId));
+    if (params.projetoVersaoId) p.set('projetoVersaoId', String(params.projetoVersaoId));
+    if (params.contextoTipo) p.set('contextoTipo', params.contextoTipo);
+    const resp = await fetch(`${API_URL}/iniciativas/export?${p.toString()}`, {
+      headers: { ...getAuthHeaders() }
+    });
+    if (!resp.ok) throw new Error('Falha ao exportar CSV');
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `roadmap-projeto-${params.projetoId || 'export'}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+};
+
+export const engenhariaValorApi = {
+  obterProduto: (produtoId) => request(`/engenharia-valor/produto/${produtoId}`),
+  salvarProduto: (produtoId, data) =>
+    request(`/engenharia-valor/produto/${produtoId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  roadmapProjeto: (projetoId) => request(`/engenharia-valor/projeto/${projetoId}/roadmap`)
+};
+
+export const produtosCommandCenterApi = {
+  obter: (projetoId) => request(`/projetos/${projetoId}/produtos-command-center`),
+  importarIniciativasProduto: (produtoId, data = {}) =>
+    request(`/iniciativas/importar-produto/${produtoId}`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+};
+
+export const executiveDashboardApi = {
+  obter: (projetoId, opts = {}) => {
+    const params = new URLSearchParams();
+    const n = opts.nivelPrioridadeMapeamentoMaturidade;
+    if (n >= 1 && n <= 3) params.set('nivelPrioridadeMapeamentoMaturidade', String(n));
+    if (opts.versaoId || opts.projetoVersaoId) {
+      params.set('projetoVersaoId', String(opts.versaoId || opts.projetoVersaoId));
+    }
+    const q = params.toString();
+    return request(`/projetos/${projetoId}/executive-dashboard${q ? `?${q}` : ''}`);
+  }
 };
 
 export const regulatorioApi = {
@@ -598,6 +735,11 @@ export const exportarApi = {
   especificacao: (especificacaoId) => `${API_URL}/exportar/especificacao/${especificacaoId}`,
   produto: (produtoId) => `${API_URL}/exportar/produto/${produtoId}`,
   dashboard: (projetoId) => `${API_URL}/exportar/dashboard/${projetoId}`,
+  executiveDashboardMd: (projetoId, versaoId) => {
+    const q = versaoId ? `?versaoId=${encodeURIComponent(versaoId)}` : '';
+    return `${API_URL}/exportar/executive-dashboard/${projetoId}${q}`;
+  },
+  produtosCommandCenterMd: (projetoId) => `${API_URL}/exportar/produtos-command-center/${projetoId}`,
   pacoteVersao: (projetoId, versaoId) => `${API_URL}/exportar/versao/${projetoId}/${versaoId}/zip`,
   
   // Função auxiliar para download

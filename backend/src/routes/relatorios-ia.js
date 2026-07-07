@@ -8,6 +8,14 @@ import { enriquecerDadosUsadosComLogo } from '../utils/empresaLogo.js';
 
 const router = express.Router();
 
+const TIPOS_RELATORIO_IA_VALIDOS = [
+  'executivo',
+  'completo',
+  'completo_rapido',
+  'completo_satf',
+  'completo_satf_rapido'
+];
+
 function parseJsonSeguro(raw) {
   if (!raw) return null;
   try {
@@ -77,8 +85,11 @@ router.get('/versoes/:projetoId/:tipo', async (req, res) => {
   try {
     const { projetoId, tipo } = req.params;
     
-    if (!['executivo', 'completo', 'completo_rapido'].includes(tipo)) {
-      return res.status(400).json({ error: 'Tipo inválido. Use "executivo", "completo" ou "completo_rapido"' });
+    if (!TIPOS_RELATORIO_IA_VALIDOS.includes(tipo)) {
+      return res.status(400).json({
+        error:
+          'Tipo inválido. Use executivo, completo, completo_rapido, completo_satf ou completo_satf_rapido'
+      });
     }
     
     const versoes = await prisma.relatorioIA.findMany({
@@ -117,7 +128,7 @@ router.get('/latest/:projetoId/:tipo', async (req, res) => {
     const { projetoId, tipo } = req.params;
     const filtroAtual = filtroNivelPrioridadeFromRaw(req.query?.nivelPrioridadeMapeamentoMaturidade);
     
-    if (!['executivo', 'completo', 'completo_rapido'].includes(tipo)) {
+    if (!TIPOS_RELATORIO_IA_VALIDOS.includes(tipo)) {
       return res.status(400).json({ error: 'Tipo inválido' });
     }
     

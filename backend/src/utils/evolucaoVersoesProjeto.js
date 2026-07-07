@@ -1,4 +1,5 @@
 import { calcularScoresConsolidadoMaturidade } from './scoresConsolidadoProjetoMaturidade.js';
+import { mapaApresentacaoDimensoes } from './projetoDimensoesConfig.js';
 import {
   blocoFaixasRubricaMarkdown,
   nivelNumericoDeScore
@@ -34,6 +35,7 @@ export async function montarComparativoVersoesProjeto(
     ORDER BY v."numero" ASC
   `;
 
+  const { porAreaId: dimensoesConfig } = await mapaApresentacaoDimensoes(prisma, projetoId);
   const historico = versoes
     .map((versao) => {
       const ids = new Set((versao.avaliacaoIds || []).map((id) => Number(id)));
@@ -44,7 +46,8 @@ export async function montarComparativoVersoesProjeto(
       );
       const { scoreGeral, todasDimensoes } = calcularScoresConsolidadoMaturidade(
         avaliacoesVersao,
-        areas
+        areas,
+        { dimensoesConfig }
       );
       return {
         versaoId: Number(versao.id),
@@ -114,11 +117,22 @@ export async function montarComparativoVersoesProjeto(
   };
 }
 
-export function blocoLogicaMaturidadeMarkdown({ scoreGeral, nomesNivel, nivel }) {
+export function blocoLogicaMaturidadeMarkdown({ scoreGeral, nomesNivel, nivel, ponderacao = null }) {
+  const ponderado = ponderacao && ponderacao.ponderado === true;
+  const foraEscopo = (ponderacao && Array.isArray(ponderacao.dimensoesForaEscopo)
+    ? ponderacao.dimensoesForaEscopo
+    : []
+  ).map((d) => d.area || d);
+  const linhaAgregacao = ponderado
+    ? '- **Agregação:** média por pergunta dentro de cada dimensão, depois média entre avaliadores incluídos no filtro de prioridade; o score geral é a **média ponderada** das dimensões dentro do escopo, segundo os pesos (%) configurados para este projeto.'
+    : '- **Agregação:** média por pergunta dentro de cada dimensão, depois média entre avaliadores incluídos no filtro de prioridade; o score geral é a média das dimensões com score > 0.';
+  const linhaEscopo = foraEscopo.length
+    ? `\n- **Dimensões fora do escopo deste projeto (não entram no score):** ${foraEscopo.join(', ')}.`
+    : '';
   return `## Lógica de maturidade aplicada no assessment
 
 - **Escala do score:** 1,0 a 5,0 por dimensão e consolidado.
-- **Agregação:** média por pergunta dentro de cada dimensão, depois média entre avaliadores incluídos no filtro de prioridade; o score geral é a média das dimensões com score > 0.
+${linhaAgregacao}${linhaEscopo}
 - **Nível atual interpretado:** Nível ${nivel} — ${nomesNivel[nivel - 1]}.
 - **Score consolidado desta versão:** ${Number(scoreGeral).toFixed(2)}.
 - **Tradução MIT CISR:** o modelo público MIT descreve **quatro estágios empresariais** (Experiment and Prepare → AI Future Ready); a escala 1–5 acima é operacional Blueprint IA, mapeável aos estágios MIT quando pertinente.

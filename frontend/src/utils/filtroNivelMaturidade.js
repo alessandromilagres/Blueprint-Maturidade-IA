@@ -1,4 +1,5 @@
 import { relatorioBookSecao3Completo } from '../constants/ordemDimensoesFramework.js';
+import { totalDimensoesBookFramework } from '../constants/frameworkMaturidade.js';
 
 /** Lê o filtro de prioridade da URL (alinhado ao dashboard). Padrão: 3. */
 export function filtroNivelMapeamentoFromSearchParams(searchParams) {
@@ -31,7 +32,7 @@ export function filtroNivelFromDadosUsados(dadosUsados) {
 
 export function queryVersaoBibliotecaRelatorioIA(r) {
   const qs = new URLSearchParams();
-  if (r.tipo === 'completo_rapido') qs.set('modo', 'rapido');
+  if (r.tipo === 'completo_rapido' || r.tipo === 'completo_satf_rapido') qs.set('modo', 'rapido');
   const filtro =
     r.dadosUsados?.filtroNivelPrioridadeMapeamentoMaturidadeAplicado ??
     (typeof r.dadosSnapshot === 'string'
@@ -88,11 +89,17 @@ export async function carregarRelatorioSalvoSeCompativel({
     ) {
       return null;
     }
-    if (tipo === 'completo' || tipo === 'completo_rapido') {
+    if (
+      tipo === 'completo' ||
+      tipo === 'completo_rapido' ||
+      tipo === 'completo_satf' ||
+      tipo === 'completo_satf_rapido'
+    ) {
+      const fw = dados?.frameworkMaturidade;
+      const totalEsp = totalDimensoesBookFramework(fw);
       if (
-        Number(dados?.totalDimensoesFramework || 0) !== 16 ||
-        (dados?.scoresPorArea?.length || 0) !== 16 ||
-        !relatorioBookSecao3Completo(row.conteudoMd || '').ok
+        Number(dados?.totalDimensoesFramework || 0) !== totalEsp ||
+        !relatorioBookSecao3Completo(row.conteudoMd || '', totalEsp).ok
       ) {
         return null;
       }

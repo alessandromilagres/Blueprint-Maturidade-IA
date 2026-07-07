@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Download, Printer, Loader2, AlertCircle, AlertTriangle, CheckCircle2, Cpu, Zap, File, Layers, Library, Bookmark, ChevronUp, History, Clock, Ban } from 'lucide-react';
-import { dashboardApi, relatoriosIAApi } from '../services/api';
+import { dashboardApi, relatoriosIAApi, projetosApi } from '../services/api';
 import { mapRelatorioIASalvoToViewShape } from '../utils/relatorioIAViewModel';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import {
@@ -29,6 +29,12 @@ import {
 } from '../constants/consultorRelatorioIA';
 import EmpresaLogoRelatorio from '../components/EmpresaLogoRelatorio';
 import { fetchEmpresaLogoDataUrl } from '../hooks/useEmpresaLogo';
+import {
+  bookIaTipoProjeto,
+  totalDimensoesBookFramework,
+  isTipoBookCompleto,
+  relatorioFrameworkMeta
+} from '../constants/frameworkMaturidade';
 
 function formatDurationMs(ms) {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
@@ -78,6 +84,8 @@ export default function RelatorioMITIACompleto() {
   const [mensagemProgresso, setMensagemProgresso] = useState('Iniciando análise profunda...');
   const [showBackTop, setShowBackTop] = useState(false);
   const [jobBg, setJobBg] = useState(null);
+  const [frameworkProjeto, setFrameworkProjeto] = useState(null);
+  const [frameworkCarregando, setFrameworkCarregando] = useState(true);
   const [iniciandoBg, setIniciandoBg] = useState(false);
   const [cancelandoBg, setCancelandoBg] = useState(false);
   const [tickRelogio, setTickRelogio] = useState(0);
@@ -96,13 +104,43 @@ export default function RelatorioMITIACompleto() {
     }`;
 
   useEffect(() => {
+    if (!id) return;
+    setFrameworkCarregando(true);
+    projetosApi
+      .buscar(id)
+      .then((p) => setFrameworkProjeto(p?.frameworkMaturidade || null))
+      .catch(() => setFrameworkProjeto(null))
+      .finally(() => setFrameworkCarregando(false));
+  }, [id]);
+
+  const fwAtual =
+    data?.frameworkMaturidade ||
+    data?.dadosUsados?.frameworkMaturidade ||
+    frameworkProjeto;
+  const tipoBook = bookIaTipoProjeto(fwAtual, modoRapido);
+  const totalDimsBook = totalDimensoesBookFramework(fwAtual);
+  const fwMeta = relatorioFrameworkMeta(fwAtual);
+
+  useEffect(() => {
     if (skipGeracaoEffectRef.current) {
       skipGeracaoEffectRef.current = false;
       return;
     }
+    if (!relatorioSalvoId && frameworkCarregando) return;
     geracaoIniciadaRef.current = false;
     gerarRelatorio();
-  }, [id, relatorioSalvoId, projetoVersaoId, modoRapido, filtroNivelUrl]);
+  }, [id, relatorioSalvoId, projetoVersaoId, modoRapido, filtroNivelUrl, frameworkCarregando, frameworkProjeto]);
+
+  useEffect(() => {
+    if (!relatorioSalvoId) return;
+    setJobBg(null);
+    setError(null);
+    backgroundRunningRef.current = false;
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, [relatorioSalvoId]);
 
   useEffect(() => {
     setFiltroNivelSelecionado(filtroNivelUrl);
@@ -147,7 +185,7 @@ export default function RelatorioMITIACompleto() {
     try {
       const jobs = await dashboardApi.listarRelatoriosIaJobs({
         projetoId: parseInt(id, 10),
-        tipo: modoRapido ? 'completo_rapido' : 'completo',
+        tipo: tipoBook,
         limit: 20
       });
       return (Array.isArray(jobs) ? jobs : []).find((j) =>
@@ -180,7 +218,7 @@ export default function RelatorioMITIACompleto() {
     if (row.projetoId !== parseInt(id, 10)) {
       throw new Error('Este relatório não pertence a este projeto.');
     }
-    if (row.tipo !== 'completo' && row.tipo !== 'completo_rapido') {
+    if (!isTipoBookCompleto(row.tipo)) {
       throw new Error('Este item não é um Book de Trabalho (completo ou modo rápido).');
     }
     return mapRelatorioIASalvoToViewShape(row);
@@ -224,7 +262,7 @@ export default function RelatorioMITIACompleto() {
       const salvo = await carregarRelatorioSalvoSeCompativel({
         relatoriosIAApi,
         projetoId: id,
-        tipo: modoRapido ? 'completo_rapido' : 'completo',
+        tipo: tipoBook,
         filtroNivel: filtroNivelUrl,
         projetoVersaoId
       });
@@ -250,6 +288,7 @@ export default function RelatorioMITIACompleto() {
   }
 
   useEffect(() => {
+    if (relatorioSalvoId) return undefined;
     const jid = jobBg?.id;
     const st = jobBg?.status;
     if (!jid || !['queued', 'running'].includes(st)) {
@@ -300,14 +339,14 @@ export default function RelatorioMITIACompleto() {
         pollingRef.current = null;
       }
     };
-  }, [jobBg?.id, jobBg?.status, id, navigate, modoRapido, filtroNivelUrl]);
+  }, [jobBg?.id, jobBg?.status, id, navigate, modoRapido, filtroNivelUrl, relatorioSalvoId]);
 
   async function iniciarGeracaoBackground(filtroNivelOverride = filtroNivelUrl) {
     try {
       setIniciandoBg(true);
       const res = await dashboardApi.iniciarRelatorioIABackground(
         id,
-        modoRapido ? 'completo_rapido' : 'completo',
+        tipoBook,
         {
           nivelPrioridadeMapeamentoMaturidade: filtroNivelOverride,
           versaoId: projetoVersaoId
@@ -319,7 +358,9 @@ export default function RelatorioMITIACompleto() {
       backgroundRunningRef.current = true;
       setJobBg(job);
     } catch (err) {
-      alert(err.message || 'Erro ao iniciar geração em background');
+      geracaoIniciadaRef.current = false;
+      backgroundRunningRef.current = false;
+      setError(err.message || 'Erro ao iniciar geração em background');
     } finally {
       setIniciandoBg(false);
     }
@@ -414,6 +455,7 @@ export default function RelatorioMITIACompleto() {
       modoRapido ||
       data?.modoGeracao === 'rapido' ||
       data?.tipoRelatorio === 'completo_rapido' ||
+      data?.tipoRelatorio === 'completo_satf_rapido' ||
       data?.dadosUsados?.modoGeracao === 'rapido';
     const projectName = bookMITCompletoSafeBaseName(data);
     const logoDataUrl = data.dadosUsados?.empresaLogoDisponivel
@@ -439,7 +481,7 @@ export default function RelatorioMITIACompleto() {
     );
   }
 
-  if (loading) {
+  if (loading || (!relatorioSalvoId && frameworkCarregando)) {
     const carregandoBiblioteca = Boolean(relatorioSalvoId);
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-emerald-950/20 to-slate-950 flex items-center justify-center p-6 print:hidden">
@@ -596,10 +638,13 @@ export default function RelatorioMITIACompleto() {
     modoRapido ||
     data?.modoGeracao === 'rapido' ||
     data?.tipoRelatorio === 'completo_rapido' ||
+    data?.tipoRelatorio === 'completo_satf_rapido' ||
     data?.dadosUsados?.modoGeracao === 'rapido';
 
   const indice = extrairEntradasIndiceMarkdown(data?.relatorio || '');
-  const statusSecao3 = data?.relatorio ? relatorioBookSecao3Completo(data.relatorio) : null;
+  const statusSecao3 = data?.relatorio
+    ? relatorioBookSecao3Completo(data.relatorio, totalDimsBook)
+    : null;
   const secao3Incompleta = Boolean(statusSecao3 && !statusSecao3.ok);
   const headerBtn =
     'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition disabled:pointer-events-none disabled:opacity-60';
@@ -804,11 +849,13 @@ export default function RelatorioMITIACompleto() {
           <div className="mx-auto flex max-w-7xl items-start gap-2 px-6 py-3 text-sm text-amber-950">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
             <div>
-              <p className="font-semibold">Seção 3 incompleta ({statusSecao3.total}/16 dimensões)</p>
+              <p className="font-semibold">
+                Seção 3 incompleta ({statusSecao3.total}/{totalDimsBook} dimensões)
+              </p>
               <p className="mt-1 text-xs text-amber-900/90">
                 Esta versão foi gerada com formato antigo ou interrompida. Use <strong>Gerar em background</strong> ou
                 remova <code className="rounded bg-amber-100 px-1">relatorioSalvoId</code> da URL para criar um book
-                novo com as 16 dimensões na ordem do framework.
+                novo com as {totalDimsBook} dimensões na ordem do framework {fwMeta.apendicePrincipal?.nome || 'SATF'}.
               </p>
             </div>
           </div>
@@ -1020,7 +1067,7 @@ export default function RelatorioMITIACompleto() {
                   <div className="flex flex-wrap gap-3 text-xs">
                     <div className="bg-white/10 backdrop-blur border border-white/20 rounded-lg px-3 py-1.5">
                       <span className="text-emerald-200">Score Geral:</span>{' '}
-                      <span className="font-bold">{data?.dadosUsados?.scoreGeral?.toFixed(2)}</span>
+                      <span className="font-bold">{Number(data?.dadosUsados?.scoreGeral ?? 0).toFixed(2)}</span>
                     </div>
                     <div className="bg-white/10 backdrop-blur border border-white/20 rounded-lg px-3 py-1.5">
                       <span className="text-emerald-200">Nível:</span>{' '}

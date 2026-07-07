@@ -24,6 +24,7 @@ import { projecaoFinanceiraRelatorio } from '../utils/roiPorFaturamento';
 import { formatarMoedaCompacta } from '../utils/metodologiaRoiFinanceiro';
 import NotaMetodologiaRoi from '../components/NotaMetodologiaRoi';
 import ImplicacoesRegulatoriasDimensao, { DisclaimerRegulatorio } from '../components/ImplicacoesRegulatoriasDimensao';
+import { relatorioFrameworkMeta } from '../constants/frameworkMaturidade';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -348,6 +349,7 @@ export default function Relatorio() {
   };
 
   const corNivel = getNivelColor(relatorio.nivelGeral);
+  const fwMeta = relatorioFrameworkMeta(relatorio.frameworkMaturidade);
 
   const indice = [
     { num: '1', titulo: 'Sumário Executivo', page: 1 },
@@ -422,7 +424,7 @@ export default function Relatorio() {
             <div className="text-center mb-8">
               <p className="text-xs text-slate-400 print:text-slate-500 uppercase tracking-widest mb-2">Relatório Técnico</p>
               <h1 className="text-2xl font-bold text-blue-400 print:text-blue-600 mb-2">Maturidade em Inteligência Artificial</h1>
-              <p className="text-sm text-slate-400 print:text-slate-500">Assessment Completo • MIT CISR Framework</p>
+              <p className="text-sm text-slate-400 print:text-slate-500">{fwMeta.coverSubtitle}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 print:gap-3 mb-8 print:mb-6">
@@ -507,17 +509,11 @@ export default function Relatorio() {
             </div>
           </div>
 
-          {/* Escala MIT CISR */}
+          {/* Escala de maturidade */}
           <div className="bg-slate-800 print:bg-slate-50 rounded-lg p-4 print:p-3 print:border print:border-slate-200" style={{ pageBreakInside: 'avoid' }}>
-            <h3 className="text-[10px] print:text-[9px] text-slate-400 uppercase tracking-wider mb-3 print:mb-2">Escala de Maturidade MIT CISR</h3>
+            <h3 className="text-[10px] print:text-[9px] text-slate-400 uppercase tracking-wider mb-3 print:mb-2">{fwMeta.scaleTitle}</h3>
             <div className="grid grid-cols-5 gap-2 print:gap-1">
-              {[
-                { nivel: 'Inicial', score: '1.0-1.5', cor: 'red' },
-                { nivel: 'Oportunista', score: '1.5-2.5', cor: 'orange' },
-                { nivel: 'Estruturado', score: '2.5-3.5', cor: 'amber' },
-                { nivel: 'Gerenciado', score: '3.5-4.5', cor: 'blue' },
-                { nivel: 'Otimizado', score: '4.5-5.0', cor: 'green' },
-              ].map((n) => (
+              {fwMeta.escalaNiveis.map((n) => (
                 <div key={n.nivel} className={`p-2 print:p-1.5 rounded text-center ${relatorio.nivelGeral === n.nivel ? `bg-${n.cor}-500/20 print:bg-${n.cor}-100 border border-${n.cor}-500/50` : 'bg-slate-900/50 print:bg-slate-100'}`}>
                   <p className={`text-[10px] print:text-[8px] font-bold ${relatorio.nivelGeral === n.nivel ? `text-${n.cor}-400 print:text-${n.cor}-600` : 'text-slate-400'}`}>{n.nivel}</p>
                   <p className="text-[9px] print:text-[7px] text-slate-500">{n.score}</p>
@@ -736,7 +732,9 @@ export default function Relatorio() {
                   ) : (
                     <> Investimento de referência: {formatarMoedaCompacta(baseInvestimento)}. </>
                   )}
-                  ROI líquido = (benefício bruto − investimento) ÷ investimento. Benchmarks MIT por nível indicam ROI líquido típico sobre investimento em IA, não margem sobre receita total.
+                  {fwMeta.roiDisclaimerMit
+                    ? ' ROI líquido = (benefício bruto − investimento) ÷ investimento. Benchmarks MIT por nível indicam ROI líquido típico sobre investimento em IA, não margem sobre receita total.'
+                    : ' ROI líquido = (benefício bruto − investimento) ÷ investimento. Projeção ilustrativa para apoio à decisão; não substitui análise financeira detalhada.'}
                 </p>
               </div>
             </div>
@@ -1012,17 +1010,17 @@ export default function Relatorio() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 print:gap-2">
-            {/* MIT CISR */}
+            {/* Framework principal */}
             <div className="bg-slate-800 print:bg-slate-50 rounded-lg p-3 print:p-2 print:border print:border-slate-200" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               <div className="flex items-center gap-2 print:gap-1 mb-2 print:mb-1">
                 <div className="p-1 rounded bg-blue-500/20 print:bg-blue-100"><Target className="w-3 h-3 print:w-2.5 print:h-2.5 text-blue-400 print:text-blue-600" /></div>
                 <div>
-                  <h3 className="text-[10px] print:text-[9px] font-bold text-white print:text-slate-900">{FRAMEWORKS.mitcisr.nome}</h3>
-                  <p className="text-[8px] print:text-[7px] text-slate-400">{FRAMEWORKS.mitcisr.subtitulo}</p>
+                  <h3 className="text-[10px] print:text-[9px] font-bold text-white print:text-slate-900">{fwMeta.apendicePrincipal.nome}</h3>
+                  <p className="text-[8px] print:text-[7px] text-slate-400">{fwMeta.apendicePrincipal.subtitulo}</p>
                 </div>
               </div>
-              <p className="text-[9px] print:text-[8px] text-slate-300 print:text-slate-700 mb-1">{FRAMEWORKS.mitcisr.descricao}</p>
-              <p className="text-[8px] print:text-[7px] text-slate-500">Ref: {FRAMEWORKS.mitcisr.referencia}</p>
+              <p className="text-[9px] print:text-[8px] text-slate-300 print:text-slate-700 mb-1">{fwMeta.apendicePrincipal.descricao}</p>
+              <p className="text-[8px] print:text-[7px] text-slate-500">Ref: {fwMeta.apendicePrincipal.referencia}</p>
             </div>
 
             {/* DORA */}
@@ -1090,7 +1088,7 @@ export default function Relatorio() {
           <div className="text-center">
             <p className="text-[10px] text-slate-500 print:text-slate-600">Blueprint IA • Relatório Técnico de Maturidade em Inteligência Artificial</p>
             <p className="text-[10px] text-slate-500 print:text-slate-600">{relatorio.empresa.nome} • {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
-            <p className="text-[9px] text-slate-600 print:text-slate-500 mt-1">Baseado no MIT CISR Enterprise AI Maturity Model</p>
+            <p className="text-[9px] text-slate-600 print:text-slate-500 mt-1">{fwMeta.footerMetodologia}</p>
           </div>
         </footer>
 

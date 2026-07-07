@@ -34,6 +34,26 @@ const TIPO_CONFIG = {
     accentColor: 'text-amber-600',
     badgeColor: 'bg-amber-100 text-amber-900 border-amber-200',
     chipColor: 'bg-gradient-to-br from-amber-500 to-teal-600'
+  },
+  completo_satf: {
+    label: 'Book SATF TI v3',
+    icon: BookOpen,
+    bgColor: 'bg-cyan-500/10',
+    borderColor: 'border-cyan-500/30',
+    textColor: 'text-cyan-800',
+    accentColor: 'text-cyan-600',
+    badgeColor: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+    chipColor: 'bg-gradient-to-br from-cyan-500 to-indigo-600'
+  },
+  completo_satf_rapido: {
+    label: 'Book SATF (rápido)',
+    icon: Zap,
+    bgColor: 'bg-cyan-500/10',
+    borderColor: 'border-cyan-500/30',
+    textColor: 'text-cyan-900',
+    accentColor: 'text-cyan-600',
+    badgeColor: 'bg-cyan-100 text-cyan-900 border-cyan-200',
+    chipColor: 'bg-gradient-to-br from-cyan-400 to-teal-600'
   }
 };
 

@@ -1116,6 +1116,27 @@ $$S_{verticais} = \frac{1}{v} \sum_{j=1}^{v} \left( \frac{1}{6} \sum_{k=1}^{6} R
 
 Onde $v$ = número de verticais avaliadas.
 
+### Classificação Alternativa por Engenharia de Valor
+
+Além do score de relevância (combinação agêntico + verticais), a plataforma oferece um **segundo método de priorização de produtos**, fundamentado em **Engenharia de Valor** (Value Engineering — Miles, 1961). Os dois métodos **coexistem**: o modelo de relevância (60/40) permanece como classificação padrão e a Engenharia de Valor adiciona uma lente complementar, orientada aos gaps de maturidade do projeto.
+
+**Princípio.** Em Engenharia de Valor, a prioridade de uma alternativa resulta da soma ponderada de critérios ("drivers de valor"). No Blueprint, os drivers são as **16 dimensões de maturidade** do projeto ao qual o produto pertence. O peso de cada driver é dado pela **ordem** definida pelo decisor, seguindo a sequência de **Fibonacci** (o driver no topo recebe o maior peso). A ordem **padrão** é sugerida pela **nota inversa** de maturidade — a dimensão de menor nota fica no topo —, priorizando aquilo que mais reduz a nota geral do projeto; o decisor pode reordenar livremente.
+
+Para cada produto atribui-se um **impacto** (escala 0–5) sobre cada driver. A prioridade de valor é:
+
+$$S_{valor} = \sum_{d=1}^{n} \left( w_d \times I_d \right)$$
+
+Onde:
+- $n$ = número de drivers (dimensões) ativos;
+- $w_d$ = peso de Fibonacci associado à posição do driver $d$ (topo = maior peso);
+- $I_d$ = impacto do produto no driver $d$ (0–5).
+
+A forma normalizada (0–100%), usada para comparar produtos, é:
+
+$$S_{valor}^{norm} = \frac{S_{valor}}{\sum_{d=1}^{n} (w_d \times 5)} \times 100$$
+
+**Escopo e governança.** A configuração de drivers (ordem, impacto e ativação) é mantida **por produto**. Como os pesos derivam da maturidade vigente do Blueprint e da priorização explícita do decisor, o método expõe uma **memória de cálculo transparente** (peso × impacto por driver) e alinha a priorização de produtos aos gaps estratégicos identificados no diagnóstico.
+
 ## 10.3 Classificação
 
 | Score | Nível de Maturidade |

@@ -1,18 +1,58 @@
 import { areaContaParaAvaliacao } from './avaliacaoAreasRecusadas.js';
 import {
   ordenarAreasPorFramework,
-  garantirTodasDimensoesFramework
+  garantirTodasDimensoesFramework,
+  frameworkMaturidadeDeAreas
 } from './ordemDimensoesFramework.js';
 import { nivelNumericoDeScore } from './nivelMaturidadeRubrica.js';
+import { areaForaDaMediaGeral } from './frameworkScoringPolicy.js';
 
 export { nivelNumericoDeScore };
 
 /**
  * Mesma agregação do GET /api/dashboard/projeto/:id:
  * média por área em cada avaliador → média entre avaliadores; por pergunta, média das respostas válidas.
+ *
+ * @param {object} [options]
+ * @param {Map<number, number>} [options.pesosPorArea] Pesos (percentuais) por areaId das dimensões
+ *   ATIVAS do projeto. Quando informado, o scoreGeral vira média PONDERADA por esses pesos
+ *   (dimensões fora do map são excluídas do score). Sem o map → média simples (comportamento atual).
+ * @param {Map<number, {ativa:boolean, peso:number, foraDeEscopo:boolean}>} [options.dimensoesConfig]
+ *   Config de apresentação por areaId (de mapaApresentacaoDimensoes). Quando informado:
+ *   - anexa `peso` e `foraDeEscopo` a cada dimensão (scoresPorArea e todasDimensoes);
+ *   - o scoreGeral pondera apenas dimensões ativas (peso > 0, não fora de escopo);
+ *   - dimensões fora de escopo saem de `scoresPorArea` (gaps/radar) e vão para `dimensoesForaEscopo`.
  */
-export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas) {
-  const areasOrdenadas = ordenarAreasPorFramework(areas);
+export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas, options = {}) {
+  const dimensoesConfig =
+    options && options.dimensoesConfig instanceof Map ? options.dimensoesConfig : null;
+  // Compat: pesosPorArea explícito OU derivado da config (ativas, peso>0, não fora de escopo).
+  let pesosPorArea =
+    options && options.pesosPorArea instanceof Map ? options.pesosPorArea : null;
+  if (!pesosPorArea && dimensoesConfig) {
+    pesosPorArea = new Map();
+    for (const [areaId, cfg] of dimensoesConfig.entries()) {
+      if (cfg && cfg.ativa && !cfg.foraDeEscopo && !cfg.foraDaMediaGeral && Number(cfg.peso) > 0) {
+        pesosPorArea.set(areaId, Number(cfg.peso));
+      }
+    }
+  }
+  const pesoDe = (areaId) => {
+    const cfg = dimensoesConfig?.get(areaId);
+    return cfg ? Number(cfg.peso) || 0 : null;
+  };
+  const foraDeEscopoDe = (areaId) => {
+    const cfg = dimensoesConfig?.get(areaId);
+    return cfg ? cfg.foraDeEscopo === true : false;
+  };
+  const foraDaMediaDe = (areaId, areaObj) => {
+    const cfg = dimensoesConfig?.get(areaId);
+    if (cfg?.foraDaMediaGeral === true) return true;
+    if (areaObj) return areaForaDaMediaGeral(areaObj);
+    return false;
+  };
+  const fw = frameworkMaturidadeDeAreas(areas);
+  const areasOrdenadas = ordenarAreasPorFramework(areas, fw);
   const todasAreaIds = areasOrdenadas.map((a) => a.id);
   const totalAvaliadores = avaliacoesFinalizadas.length;
 
@@ -66,22 +106,83 @@ export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas
       avaliadoresCobriram: countAvaliacoes,
       totalAvaliadores,
       perguntas,
-      semDadosConsolidados: countAvaliacoes === 0
+      semDadosConsolidados: countAvaliacoes === 0,
+      foraDaMediaGeral: foraDaMediaDe(area.id, area),
+      ...(dimensoesConfig
+        ? {
+            peso: pesoDe(area.id),
+            foraDeEscopo: foraDeEscopoDe(area.id),
+            foraDaMediaGeral: foraDaMediaDe(area.id, area)
+          }
+        : {})
     };
   });
 
-  const areasComScore = scoresPorArea.filter((a) => a.score > 0);
-  const scoreGeral =
+  const entraNaMediaGeral = (a) => {
+    const areaObj = areasOrdenadas.find((ar) => ar.id === a.areaId);
+    return a.foraDeEscopo !== true && !foraDaMediaDe(a.areaId, areaObj);
+  };
+
+  // Gaps/radar: dimensões com nota na média geral (exclui desativadas e D10 SATF).
+  const areasComScore = scoresPorArea.filter((a) => a.score > 0 && entraNaMediaGeral(a));
+  const dimensoesForaEscopo = dimensoesConfig
+    ? scoresPorArea.filter((a) => a.foraDeEscopo === true)
+    : [];
+  const dimensoesEspecializadas = scoresPorArea.filter(
+    (a) => a.foraDaMediaGeral === true && a.foraDeEscopo !== true
+  );
+  const mediaSimples =
     areasComScore.length > 0
       ? areasComScore.reduce((acc, a) => acc + a.score, 0) / areasComScore.length
       : 0;
 
-  const todasDimensoes = garantirTodasDimensoesFramework(areasOrdenadas, scoresPorArea);
+  let scoreGeral = mediaSimples;
+  if (pesosPorArea && pesosPorArea.size > 0 && areasComScore.length > 0) {
+    let somaPonderada = 0;
+    let somaPesos = 0;
+    for (const a of areasComScore) {
+      const peso = Number(pesosPorArea.get(a.areaId)) || 0;
+      if (peso > 0) {
+        somaPonderada += a.score * peso;
+        somaPesos += peso;
+      }
+    }
+    // Se nenhuma dimensão ativa tem nota ainda, mantém a média simples como fallback.
+    scoreGeral = somaPesos > 0 ? somaPonderada / somaPesos : mediaSimples;
+  }
+
+  let todasDimensoes = garantirTodasDimensoesFramework(areasOrdenadas, scoresPorArea, fw);
+  if (dimensoesConfig) {
+    todasDimensoes = todasDimensoes.map((d) => ({
+      ...d,
+      peso: d.areaId != null ? pesoDe(d.areaId) : (d.peso ?? null),
+      foraDeEscopo: d.areaId != null ? foraDeEscopoDe(d.areaId) : (d.foraDeEscopo === true),
+      foraDaMediaGeral:
+        d.areaId != null
+          ? foraDaMediaDe(
+              d.areaId,
+              areasOrdenadas.find((ar) => ar.id === d.areaId)
+            )
+          : d.foraDaMediaGeral === true
+    }));
+  } else {
+    todasDimensoes = todasDimensoes.map((d) => ({
+      ...d,
+      foraDaMediaGeral: foraDaMediaDe(
+        d.areaId,
+        areasOrdenadas.find((ar) => ar.id === d.areaId)
+      )
+    }));
+  }
 
   return {
-    /** Dimensões com score > 0 (média do projeto, top/bottom gaps). */
+    /** Dimensões com score > 0 na média geral (gaps/radar/plano). */
     scoresPorArea: areasComScore,
-    /** Todas as 16 dimensões na ordem oficial do framework. */
+    /** Dimensões desativadas na config do projeto. */
+    dimensoesForaEscopo,
+    /** Dimensões avaliadas com score próprio fora da média (ex.: D10 SATF). */
+    dimensoesEspecializadas,
+    /** Todas as dimensões do framework na ordem canônica. */
     todasDimensoes,
     scoreGeral: parseFloat(scoreGeral.toFixed(2)),
     totalAvaliadores

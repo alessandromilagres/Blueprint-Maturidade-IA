@@ -11,6 +11,7 @@ import {
   faixaNivelPorScore
 } from './nivelMaturidadeRubrica.js';
 import { fetchEmpresaLogoDataUrl } from '../hooks/useEmpresaLogo.js';
+import { relatorioFrameworkMeta } from '../constants/frameworkMaturidade.js';
 
 // =============================================================================
 // BENCHMARKING POR VERTICAL (Dados de mercado baseados em pesquisas de 2024)
@@ -1714,6 +1715,7 @@ export function generateWordReport(dashboardData) {
   const entityName = isProjeto ? dashboardData.projeto.nome : dashboardData.empresa.nome;
   const empresaNome = dashboardData.empresa.nome;
   const projetoVersaoLabel = dashboardData.projetoVersao?.titulo || 'Versão atual';
+  const fwMeta = relatorioFrameworkMeta(dashboardData.frameworkMaturidade);
   
   const vertical = isProjeto && dashboardData.projeto.vertical ? dashboardData.projeto.vertical : null;
   const verticalConfig = vertical ? VERTICAIS_CONFIG[vertical] : null;
@@ -1853,7 +1855,7 @@ export function generateWordReport(dashboardData) {
 <div style="text-align: center; margin: 25px 0;">
   <p style="font-size: 8pt; color: #64748b; text-transform: uppercase; letter-spacing: 2px;">Relatório Técnico</p>
   <h1 style="border: none; font-size: 20pt; margin: 5px 0;">Maturidade em Inteligência Artificial</h1>
-  <p style="font-size: 10pt; color: #64748b;">Assessment Completo • MIT CISR Framework</p>
+  <p style="font-size: 10pt; color: #64748b;">${fwMeta.coverSubtitle}</p>
 </div>
 
 <div class="score-box">
@@ -1914,7 +1916,7 @@ export function generateWordReport(dashboardData) {
 <!-- ============================================ -->
 <h1>1. SUMÁRIO EXECUTIVO</h1>
 
-<p>Este relatório apresenta os resultados do Assessment de Maturidade em Inteligência Artificial realizado na <strong>${empresaNome}</strong>${isProjeto ? ` para o projeto <strong>${dashboardData.projeto.nome}</strong>` : ''}, utilizando a metodologia SysMap Blueprint IA, alinhada com o <strong>MIT CISR Enterprise AI Maturity Model</strong>.</p>
+<p>Este relatório apresenta os resultados do Assessment de Maturidade em Inteligência Artificial realizado na <strong>${empresaNome}</strong>${isProjeto ? ` para o projeto <strong>${dashboardData.projeto.nome}</strong>` : ''}, utilizando ${fwMeta.roiDisclaimerMit ? 'a metodologia SysMap Blueprint IA, alinhada com o <strong>MIT CISR Enterprise AI Maturity Model</strong>' : 'o instrumento <strong>SATF TI v3 — IA Maturidade TI</strong> (SysMap Solutions)'}.</p>
 
 <p>A avaliação analisou <strong>múltiplas dimensões</strong> críticas de maturidade em IA, com base nas respostas de <strong>${dashboardData.totalAvaliadores} avaliador(es)</strong>, resultando em um score geral de <strong>${dashboardData.scoreGeral.toFixed(1)} pontos</strong>, classificando a organização no nível <strong>"${dashboardData.nivelGeral}"</strong>.</p>
 
@@ -1922,7 +1924,7 @@ export function generateWordReport(dashboardData) {
   <div class="stage-title">📊 Nível de Maturidade: ${levelInfo.name}</div>
   <p><strong>Score:</strong> ${dashboardData.scoreGeral.toFixed(1)} / 5.0 (Nível ${maturityLevel} de 5)</p>
   <p><strong>Foco Principal:</strong> ${levelInfo.focus}</p>
-  <p><strong>Referência MIT:</strong> ${levelInfo.nameEn}</p>
+  ${fwMeta.roiDisclaimerMit ? `<p><strong>Referência MIT:</strong> ${levelInfo.nameEn}</p>` : ''}
   
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin: 15px 0; background: #f8fafc; padding: 15px; border-radius: 8px;">
     <div style="text-align: center;">
@@ -2411,7 +2413,7 @@ ${Object.values(ROADMAP_DETALHADO).map((fase, index) => `
   <div class="stage-title">📊 ${levelInfo.name}</div>
   <p><strong>Score Atual:</strong> ${dashboardData.scoreGeral.toFixed(1)} / 5.0</p>
   <p><strong>Foco Principal:</strong> ${levelInfo.focus}</p>
-  <p><strong>Referência MIT:</strong> ${levelInfo.nameEn}</p>
+  ${fwMeta.roiDisclaimerMit ? `<p><strong>Referência MIT:</strong> ${levelInfo.nameEn}</p>` : ''}
   
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin: 15px 0; background: #f1f5f9; padding: 15px; border-radius: 8px;">
     <div style="text-align: center;">
@@ -4216,7 +4218,7 @@ ${top5Gaps.slice(0, 3).map(gap => {
 <div class="footer">
   <p><strong>Blueprint IA</strong> • Relatório Executivo de Maturidade em Inteligência Artificial</p>
   <p>${empresaNome} • ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
-  <p style="font-size: 9pt; margin-top: 10px;">Baseado no MIT CISR Enterprise AI Maturity Model (Weill, Woerner & Sebastian, 2024)</p>
+  <p style="font-size: 9pt; margin-top: 10px;">${fwMeta.footerMetodologia}</p>
 </div>
 
 </body>
@@ -4292,7 +4294,8 @@ export async function downloadWordFromRelatorio(relatorio) {
       email: relatorio.usuario.email,
       areasSelecionadas: relatorio.avaliacao.areasSelecionadas || relatorio.scoresPorArea.map(a => a.areaId),
       dataAvaliacao: relatorio.avaliacao.updatedAt
-    }]
+    }],
+    frameworkMaturidade: relatorio.frameworkMaturidade
   };
   
   await downloadWordDocument(dashboardData);

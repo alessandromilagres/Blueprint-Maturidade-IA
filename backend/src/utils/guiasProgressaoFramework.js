@@ -47,6 +47,27 @@ export function extrairSecaoGuiaProgressao(texto, nivel) {
   return bloco.trim().slice(0, 3200);
 }
 
+/** Mapeamento aproximado SATF TI v3 → guia Blueprint (mesma pasta de progressão). */
+const SATF_PARA_GUIA_BLUEPRINT = {
+  'Estratégia & Postura de IA': 'Estratégia e Liderança',
+  'Governança, Risco & Conformidade': 'Governança e Risco',
+  'Pessoas, Cultura & Capacitação': 'Pessoas e Cultura',
+  'Engenharia & Padrões de Desenvolvimento': 'Operações e Processos',
+  'Plataforma, Arquitetura & Escala': 'Plataforma e Industrialização de IA',
+  'Dados, Contexto & Conhecimento': 'Dados e Tecnologia',
+  'Segurança & Qualidade Integrada (QA)': 'Governança e Risco',
+  'Modernização & Sustentação de Legado': 'Operações e Processos',
+  'FinOps, Valor & Apoio ao Negócio': 'Valor de Negócio e ROI',
+  'Fábrica Agêntica de Software': 'Plataforma e Industrialização de IA',
+  'Conformidade Regulatória de IA': 'Conformidade Regulatória'
+};
+
+export function blocoGuiaProgressaoDimensaoSatf(nomeDimensaoSatf, scoreOuNivel) {
+  const nomeBlueprint = SATF_PARA_GUIA_BLUEPRINT[String(nomeDimensaoSatf || '').trim()];
+  if (!nomeBlueprint) return '';
+  return blocoGuiaProgressaoDimensao(nomeBlueprint, scoreOuNivel);
+}
+
 export function blocoGuiaProgressaoDimensao(nomeDimensao, scoreOuNivel) {
   const idx = ORDEM_DIMENSOES_FRAMEWORK.indexOf(String(nomeDimensao || '').trim());
   if (idx < 0) return '';

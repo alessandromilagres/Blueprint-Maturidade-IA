@@ -12,6 +12,14 @@ import {
   queryNivelPrioridadeMapeamentoMaturidade
 } from '../utils/nivelPrioridadeMapeamentoMaturidade.js';
 
+const TIPOS_RELATORIO_IA_VALIDOS = [
+  'executivo',
+  'completo',
+  'completo_rapido',
+  'completo_satf',
+  'completo_satf_rapido'
+];
+
 const router = express.Router();
 
 function parseJsonSeguro(raw) {
@@ -79,10 +87,14 @@ async function processarJobRelatorioIA({
 
     const nivelQ = queryNivelPrioridadeMapeamentoMaturidade(filtroNivelMax);
     const versaoQ = versaoId ? `&projetoVersaoId=${encodeURIComponent(String(versaoId))}` : '';
-    const endpoint =
-      tipo === 'completo' || tipo === 'completo_rapido'
+    const isBook =
+      tipo === 'completo' ||
+      tipo === 'completo_rapido' ||
+      tipo === 'completo_satf' ||
+      tipo === 'completo_satf_rapido';
+    const endpoint = isBook
         ? `/api/dashboard/projeto/${projetoId}/relatorio-ia-completo?reuse=false&jobId=${jobId}&${nivelQ}${versaoQ}${
-            tipo === 'completo_rapido' ? '&mode=rapido' : ''
+            tipo === 'completo_rapido' || tipo === 'completo_satf_rapido' ? '&mode=rapido' : ''
           }`
         : `/api/dashboard/projeto/${projetoId}/relatorio-ia?reuse=false&${nivelQ}${versaoQ}`;
 
@@ -91,9 +103,9 @@ async function processarJobRelatorioIA({
       data: {
         progresso: 30,
         etapa:
-          tipo === 'completo'
+          tipo === 'completo' || tipo === 'completo_satf'
             ? 'Gerando book completo com IA (multi-chunk)'
-            : tipo === 'completo_rapido'
+            : tipo === 'completo_rapido' || tipo === 'completo_satf_rapido'
               ? 'Gerando book modo rápido (multi-chunk reduzido)'
               : 'Gerando relatório executivo com IA'
       }
@@ -292,8 +304,11 @@ router.post('/start', async (req, res) => {
     if (!projetoIdNum || Number.isNaN(projetoIdNum)) {
       return res.status(400).json({ error: 'projetoId inválido' });
     }
-    if (!['executivo', 'completo', 'completo_rapido'].includes(tipo)) {
-      return res.status(400).json({ error: 'tipo inválido. Use executivo, completo ou completo_rapido' });
+    if (!TIPOS_RELATORIO_IA_VALIDOS.includes(tipo)) {
+      return res.status(400).json({
+        error:
+          'tipo inválido. Use executivo, completo, completo_rapido, completo_satf ou completo_satf_rapido'
+      });
     }
 
     const jobsAtivos = await prisma.relatorioIAJob.findMany({

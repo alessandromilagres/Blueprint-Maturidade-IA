@@ -328,30 +328,53 @@ export default function Usuarios() {
     };
   }
 
+  async function carregarAreasConviteProjeto(projetoId) {
+    if (!projetoId) {
+      setAreas([]);
+      return [];
+    }
+    const areasData = await areasApi.listar(projetoId, null, { apenasAtivas: true });
+    setAreas(areasData);
+    return areasData;
+  }
+
+  async function aoSelecionarProjetoConvite(projetoId) {
+    if (!projetoId) {
+      setAreas([]);
+      setFormConvite((prev) => ({ ...prev, projetoId: '', areaIds: [] }));
+      return;
+    }
+    try {
+      const areasData = await carregarAreasConviteProjeto(projetoId);
+      setFormConvite(aplicarSugestaoCargoProjeto(usuarioConvite, areasData, { projetoId }));
+    } catch (error) {
+      console.error('Erro ao carregar áreas do projeto:', error);
+      setAreas([]);
+      setFormConvite((prev) => ({ ...prev, projetoId, areaIds: [] }));
+      setErro('Não foi possível carregar as dimensões deste projeto.');
+    }
+  }
+
   async function abrirModalConvite(usuario) {
     setUsuarioConvite(usuario);
     setFormConvite({ tipo: 'projeto', projetoId: '', produtoId: '', areaIds: [], incluirMencaoDesejosIaNoConvite: true });
     setResultadoConvite(null);
     setErro('');
-    
+    setAreas([]);
+
     try {
-      const [projetosData, produtosData, areasData] = await Promise.all([
+      const [projetosData, produtosData] = await Promise.all([
         projetosApi.listar(usuario.empresaId),
-        produtosApi.listar(null, usuario.empresaId),
-        areasApi.listar()
+        produtosApi.listar(null, usuario.empresaId)
       ]);
       setProjetos(projetosData);
       setProdutos(produtosData);
-      setAreas(areasData);
-
-      setFormConvite(aplicarSugestaoCargoProjeto(usuario, areasData));
     } catch (error) {
-      console.error('Erro ao carregar projetos/produtos/áreas:', error);
+      console.error('Erro ao carregar projetos/produtos:', error);
       setProjetos([]);
       setProdutos([]);
-      setAreas([]);
     }
-    
+
     setModalConviteAberto(true);
   }
 
@@ -1058,14 +1081,16 @@ export default function Usuarios() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() =>
-                    setFormConvite(
-                      aplicarSugestaoCargoProjeto(usuarioConvite, areas, {
-                        projetoId: formConvite.projetoId || '',
-                        produtoId: ''
-                      })
-                    )
-                  }
+                  onClick={async () => {
+                    setAreas([]);
+                    setFormConvite({
+                      tipo: 'projeto',
+                      projetoId: '',
+                      produtoId: '',
+                      areaIds: [],
+                      incluirMencaoDesejosIaNoConvite: true
+                    });
+                  }}
                   className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
                     formConvite.tipo === 'projeto'
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
@@ -1111,7 +1136,7 @@ export default function Usuarios() {
                   </label>
                   <select
                     value={formConvite.projetoId}
-                    onChange={(e) => setFormConvite({ ...formConvite, projetoId: e.target.value })}
+                    onChange={(e) => aoSelecionarProjetoConvite(e.target.value)}
                     required
                     className="input"
                   >
@@ -1191,7 +1216,12 @@ export default function Usuarios() {
                       </div>
                     )}
                     <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                      {areas.map(area => (
+                      {areas.length === 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 py-2">
+                          Nenhuma dimensão ativa neste projeto. Configure em Projeto → Dimensões.
+                        </p>
+                      ) : (
+                      areas.map(area => (
                         <label
                           key={area.id}
                           className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
@@ -1221,7 +1251,8 @@ export default function Usuarios() {
                             )}
                           </div>
                         </label>
-                      ))}
+                      ))
+                      )}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       {formConvite.areaIds.length} de {areas.length} áreas selecionadas

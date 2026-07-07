@@ -527,6 +527,14 @@ export default function DashboardProjetoProdutos() {
                 <DollarSign className="w-4 h-4" />
                 Dashboard Financeiro
               </Link>
+
+              <Link
+                to={`/dashboard/projeto/${id}/produtos-command-center`}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Target className="w-4 h-4" />
+                Command Center
+              </Link>
               
               <button
                 onClick={toggleDarkMode}

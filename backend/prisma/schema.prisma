@@ -51,6 +51,7 @@ model Usuario {
   especificacoesAprovadas EspecificacaoProduto[] @relation("EspecificacaoAprovadaPor")
   relatoriosIAGerados RelatorioIA[] @relation("RelatoriosIAGerados")
   relatoriosIAJobs RelatorioIAJob[] @relation("RelatoriosIAJobs")
+  iniciativasCriadas Iniciativa[] @relation("IniciativasCriadas")
   presenca UsuarioPresenca?
 }
 
@@ -129,6 +130,7 @@ model Projeto {
   convites    ConviteAvaliacao[]
   relatoriosIA RelatorioIA[]
   relatoriosIAJobs RelatorioIAJob[]
+  iniciativas Iniciativa[]
 }
 
 model Area {
@@ -753,4 +755,48 @@ model RelatorioIAJob {
 
   @@index([projetoId, tipo, status])
   @@index([createdAt])
+}
+
+// ==========================================
+// MÓDULO ROADMAP VISUAL MULTI-CONTEXTO
+// Iniciativas nascidas do diagnóstico (gap → execução → re-diagnóstico).
+// Eixo polimórfico ("lente"): dimensao | produto | portfolio.
+// projetoVersaoId referencia a tabela raw "ProjetoVersao" (sem relation Prisma,
+// mesmo padrão de ProdutoRegulatorioCiclo.projetoVersaoId).
+// ==========================================
+model Iniciativa {
+  id              Int       @id @default(autoincrement())
+  projetoId       Int
+  projetoVersaoId Int?
+
+  // Eixo polimórfico — a "lente" do roadmap
+  contextoTipo    String    @default("dimensao") // dimensao | produto | portfolio
+  contextoId      String    // "D01".."D16", id do produto, ou id do programa
+  contextoRotulo  String?   // rótulo amigável para exibição
+
+  titulo          String
+  descricao       String?   @db.Text
+  responsavel     String?
+  dataInicio      DateTime?
+  dataFimPrevista DateTime?
+  dataFimReal     DateTime?
+  status          String    @default("backlog") // backlog | planejada | em_andamento | concluida | cancelada
+  prioridade      String    @default("media")   // alta | media | baixa
+  progresso       Int       @default(0)          // 0–100%
+
+  // Amarração com o diagnóstico — diferencial vs. ferramenta de PM genérica
+  gapVinculado      Float?    // gap mensurável que originou a iniciativa
+  scoreAlvo         Float?    // score-alvo (quando contextoTipo = dimensao)
+  roiEstimado       Float?    // ROI projetado vinculado
+  origemRelatorioId Int?      // relatório IA que gerou a iniciativa
+
+  criadoPorId     Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  projeto         Projeto   @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  criadoPor       Usuario?  @relation("IniciativasCriadas", fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([projetoId, contextoTipo])
+  @@index([projetoVersaoId])
 }

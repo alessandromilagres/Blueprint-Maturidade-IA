@@ -23,8 +23,14 @@ blueprint-ia/
 - **Resposta qualificada**: seleção de dimensões por cargo, recusa de dimensão, opção "sem informação", observações/evidências e revisão antes da finalização.
 - **Acompanhamento de avaliadores**: status operacional, lembretes, trilha recente, auditoria de abertura de link/início/salvamento/finalização e alertas de qualidade.
 - **Dashboards executivos**: empresa, projeto, produto, prontidão executiva, ranking de projetos e comparativo por empresa.
-- **Relatórios IA em background**: relatórios estratégicos e books longos com jobs persistidos, biblioteca versionada e exportações.
+- **Relatórios IA em background**: relatórios estratégicos e books longos com jobs persistidos, biblioteca versionada e exportações. Consultoria atribuída à **SysMap Solutions**; MIT CISR como referência metodológica.
+- **Versionamento de projetos**: fechamento de versões, comparativo visual de evolução, export ZIP por versão e relatórios filtrados por ciclo.
 - **Produtos IA-First**: avaliação por perguntas universais e verticais setoriais.
+- **Módulo regulatório**: snapshots PL 2338/2023, ISO/IEC 42001 e LGPD; validação do consultor, ciclos, mitigações com evidências e dashboard regulatório por projeto.
+- **Metodologia ROI financeira**: benefício bruto, investimento, ganho líquido e ROI líquido % alinhados a benchmarks MIT (não confundir com múltiplo bruto).
+- **Logo da empresa**: upload e exibição em dashboards, relatórios e exportações Word.
+- **Roadmap Visual Multi-Contexto**: timeline/Gantt leve com eixo polimórfico ("lente": dimensão, produto ou portfólio); iniciativas nascem do diagnóstico (gap → score-alvo → ROI), com importação a partir das lacunas e export CSV.
+- **Executive Dashboard**: painel único C-Level consolidando score/nível, radar das 16 dimensões, top lacunas, status regulatório, ROI líquido, próximos passos (30/60/90) e comparativo entre versões, com modo apresentação.
 - **Especificação automática**: geração de PRD, requisitos, arquitetura, cronograma, custos e blueprint de construção.
 - **Aplicativo mobile do avaliador**: app Expo/React Native para responder avaliações pelo celular.
 
@@ -91,6 +97,9 @@ npm run dev
 - `docs/MANUAL_USUARIO_ADMINISTRADOR.md`: manual de uso para administradores.
 - `docs/MANUAL_CICD_AZURE_DEVOPS.md`: manual de CI/CD e deploy no Azure DevOps.
 - `docs/DOCUMENTACAO_TECNICA.md`: arquitetura técnica, dados, APIs, segurança e operação.
+- `docs/MANUAL_MODULO_REGULATORIO.md`: manual operacional do módulo regulatório.
+- `docs/METODOLOGIA_ROI_FINANCEIRO.md`: metodologia canônica de ROI (referência a `docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`).
+- `docs/VALIDADOR_VERSIONAMENTO_PRODUCAO.md`: validação de versionamento de projetos em produção.
 - `docs/TESE_BLUEPRINT_IA.md`: tese e base metodológica atual.
 - `docs/APLICATIVO_AVALIADOR_MOBILE.md`: documentação do aplicativo mobile.
 - `docs/PERGUNTAS_MATURIDADE_POR_DIMENSAO_EXPORT.md`: perguntas por dimensão.

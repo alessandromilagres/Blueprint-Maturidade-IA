@@ -8,6 +8,9 @@ import {
 import { projetosApi, empresasApi } from '../services/api';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
+import FrameworkMaturidadeSelector from '../components/FrameworkMaturidadeSelector';
+import FrameworkMaturidadeBadge from '../components/FrameworkMaturidadeBadge';
+import { FRAMEWORK_BLUEPRINT_16 } from '../constants/frameworkMaturidade';
 
 const VERTICAIS = [
   { id: 'fintech', nome: 'Tecnologia Financeira (FinTech)', descricao: 'Pagamentos, investimentos, empréstimos e compliance', icon: Wallet, color: 'text-green-500' },
@@ -76,6 +79,9 @@ export default function Projetos() {
     lentesPrioritarias: [],
     faturamentoAnualProjeto: '',
     dataLimiteAvaliacao: '',
+    frameworkMaturidade: FRAMEWORK_BLUEPRINT_16,
+    setorRegulado: false,
+    frameworkTravado: false,
     status: 'ativo',
     empresaId: '',
   });
@@ -113,6 +119,9 @@ export default function Projetos() {
             ? String(projeto.faturamentoAnualProjeto)
             : '',
         dataLimiteAvaliacao: extrairPrazoDescricao(projeto.descricao),
+        frameworkMaturidade: projeto.frameworkMaturidade || FRAMEWORK_BLUEPRINT_16,
+        setorRegulado: projeto.setorRegulado === true,
+        frameworkTravado: projeto.frameworkTravado === true,
         status: projeto.status || 'ativo',
         empresaId: projeto.empresaId?.toString() || '',
       });
@@ -126,6 +135,9 @@ export default function Projetos() {
         lentesPrioritarias: [],
         faturamentoAnualProjeto: '',
         dataLimiteAvaliacao: '',
+        frameworkMaturidade: FRAMEWORK_BLUEPRINT_16,
+        setorRegulado: false,
+        frameworkTravado: false,
         status: 'ativo',
         empresaId: empresas[0]?.id?.toString() || '',
       });
@@ -147,6 +159,8 @@ export default function Projetos() {
           formData.faturamentoAnualProjeto === '' || formData.faturamentoAnualProjeto == null
             ? null
             : parseFloat(String(formData.faturamentoAnualProjeto).replace(',', '.')),
+        frameworkMaturidade: formData.frameworkMaturidade || FRAMEWORK_BLUEPRINT_16,
+        setorRegulado: formData.setorRegulado === true,
       };
       if (editingProjeto) {
         await projetosApi.atualizar(editingProjeto.id, data);
@@ -233,9 +247,12 @@ export default function Projetos() {
                     <FolderKanban className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <Link to={`/projetos/${projeto.id}`} className="font-semibold text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400">
-                      {projeto.nome}
-                    </Link>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link to={`/projetos/${projeto.id}`} className="font-semibold text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400">
+                        {projeto.nome}
+                      </Link>
+                      <FrameworkMaturidadeBadge projeto={projeto} />
+                    </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">{projeto.empresa.nome}</p>
                   </div>
                 </div>
@@ -301,6 +318,15 @@ export default function Projetos() {
         title={editingProjeto ? 'Editar Projeto' : 'Novo Projeto'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          <FrameworkMaturidadeSelector
+            value={formData.frameworkMaturidade}
+            onChange={(frameworkMaturidade) => setFormData({ ...formData, frameworkMaturidade })}
+            locked={editingProjeto?.frameworkTravado === true || formData.frameworkTravado === true}
+            setorRegulado={formData.setorRegulado}
+            onSetorReguladoChange={(setorRegulado) => setFormData({ ...formData, setorRegulado })}
+            showSetorRegulado
+          />
+
           <div>
             <label className="label">Empresa *</label>
             <select

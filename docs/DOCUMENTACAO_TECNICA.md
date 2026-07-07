@@ -8,7 +8,7 @@
 
 ## 1. Visão Técnica
 
-O Blueprint IA é uma aplicação web full-stack para avaliação de maturidade em IA, análise de produtos IA-First, acompanhamento de avaliadores, geração de relatórios por IA e especificação automática de produtos.
+O Blueprint IA é uma aplicação web full-stack para avaliação de maturidade em IA, análise de produtos IA-First, conformidade regulatória estimada, acompanhamento de avaliadores, versionamento de projetos, geração de relatórios por IA e especificação automática de produtos.
 
 Arquitetura principal:
 
@@ -101,8 +101,11 @@ Responsabilidades:
 - Rotas de empresas, projetos, produtos e avaliações.
 - Convites e magic link.
 - Acompanhamento de avaliadores.
+- Versionamento de projetos (`ProjetoVersao`).
 - Dashboards.
-- Relatórios IA.
+- Relatórios IA (SysMap Solutions; MIT CISR como referência).
+- Módulo regulatório (snapshots, ciclos, mitigações).
+- Logo da empresa (`/api/empresas/:id/logo`).
 - Especificações.
 - Exportações.
 - Ajustes compatíveis de schema em produção.
@@ -133,8 +136,10 @@ Rotas em `backend/src/routes/`:
 
 - `arquivos.js`: arquivos de referência.
 - `diagnostico.js`: diagnóstico rápido.
+- `empresa-logo.js`: upload, leitura e remoção de logo da empresa.
 - `especificacao.js`: geração e consulta de especificações.
-- `exportacao.js`: exportações.
+- `exportacao.js`: exportações Markdown/ZIP por versão.
+- `regulatorio.js`: crosswalk, snapshots, ciclos, mitigações, dashboard e notificações.
 - `relatorios-ia.js`: biblioteca e versões de relatórios IA.
 - `relatorios-ia-jobs.js`: jobs em background de relatórios IA.
 
@@ -183,9 +188,13 @@ Execução e relatórios:
 - `DashboardProntidao.jsx`
 - `ComparativoEmpresa.jsx`
 - `DashboardProjetosRanking.jsx`
+- `EvolucaoProjeto.jsx`
 - `RelatoriosIABiblioteca.jsx`
 - `RelatorioMITIA.jsx`
 - `RelatorioMITIACompleto.jsx`
+- `DashboardRegulatorioProjeto.jsx`
+- `ValidacaoRegulatoriaProduto.jsx`
+- `PlanoMitigacaoRegulatoria.jsx`
 - `Especificacoes.jsx`
 - `EspecificacaoProduto.jsx`
 
@@ -233,11 +242,13 @@ backend/prisma/schema.prisma
 
 ### 7.1 Núcleo Organizacional
 
-- `Empresa`: cliente/organização.
+- `Empresa`: cliente/organização (`logoPath` opcional).
 - `Usuario`: usuários e perfis.
 - `UsuarioPresenca`: presença e última atividade.
-- `Projeto`: contexto da avaliação de maturidade.
+- `Projeto`: contexto da avaliação de maturidade (`isoTargetScore` opcional para ISO 42001).
 - `Produto`: produto IA-First vinculado a projeto.
+- `ProjetoVersao`: versões numeradas do projeto (aberta/fechada).
+- `ProjetoVersaoAvaliacao` / `ProjetoVersaoConvite`: vínculos da versão.
 
 ### 7.2 Maturidade
 
@@ -285,6 +296,27 @@ Eventos operacionais:
 - `ArquivoReferencia`
 - `ArquiteturaReferencia`
 - `ArquivoArquiteturaReferencia`
+
+### 7.6 Regulatório
+
+- `RegulatorySnapshot`: snapshot PL 2338, ISO 42001 e LGPD por produto.
+- `ProdutoRegulatorioCiclo`: ciclo aberto/fechado vinculado à versão do projeto.
+- `ProdutoRegulatorioMitigacao`: ações de mitigação com evidências anexadas.
+
+Utilitários: `regulatorioSnapshot.js`, `regulatorioCiclo.js`, `regulatorioCrosswalk.js`, `regulatorioDashboard.js`, `regulatorioNotificacoes.js`. Dados estáticos em `backend/src/data/regulatorio/`.
+
+### 7.7 Rubrica e Guias de Progressão
+
+- `nivelMaturidadeRubrica.js`: faixas oficiais de score → nível 1–5.
+- `guiasProgressaoFramework.js`: trechos dos guias de progressão por dimensão/nível para books IA.
+- `ordemDimensoesFramework.js`: ordem canônica D01–D16 (Plataforma = 13, IA como Gerador de Receita = 14).
+
+### 7.8 Roadmap de Iniciativas
+
+- `Iniciativa`: item do roadmap com eixo polimórfico (`contextoTipo` = `dimensao` | `produto` | `portfolio`, `contextoId`, `contextoRotulo`).
+- Amarração ao diagnóstico: `gapVinculado`, `scoreAlvo`, `roiEstimado`, `origemRelatorioId`.
+- `projetoVersaoId` é coluna `Int` simples (a tabela `ProjetoVersao` é gerenciada por SQL raw, sem relation Prisma) — mesmo padrão de `ProdutoRegulatorioCiclo`.
+- Schema garantido em runtime por `ensureIniciativaSchema()` no startup (`backend/src/index.js`) e migration `20260625160000_roadmap_iniciativas`.
 
 ---
 
@@ -385,6 +417,81 @@ calcularMetricasCenarioFinanceiro(beneficioBruto, investimentoAnual)
 
 Documentação funcional e fundamento teórico: [`docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`](Atual/METODOLOGIA_ROI_FINANCEIRO.md).
 
+Constantes de persona/atribuição IA: `backend/src/constants/consultorRelatorioIA.js` (SysMap Solutions; MIT CISR = referência).
+
+---
+
+## 10.1 Módulo Regulatório
+
+Prefixo base: `/api/regulatorio`
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/crosswalk` | Mapa dimensão → implicações PL/ISO/LGPD |
+| GET | `/snapshot/:produtoId` | Snapshot atual do produto |
+| POST | `/snapshot/:produtoId/recalcular` | Recalcula após nova IA-First |
+| PUT | `/snapshot/:produtoId/confirm` | Validação do consultor |
+| GET/POST/PUT | `/produto/:produtoId/ciclos/*` | Ciclos abertos/fechados e mitigações |
+| GET | `/dashboard/:projetoId` | Dashboard consolidado do projeto |
+| GET | `/notificacoes` | Alertas operacionais |
+
+Manual: [`docs/MANUAL_MODULO_REGULATORIO.md`](MANUAL_MODULO_REGULATORIO.md).
+
+---
+
+## 10.2 Versionamento de Projetos
+
+Tabelas `ProjetoVersao`, `ProjetoVersaoAvaliacao`, `ProjetoVersaoConvite` criadas/verificadas em startup via `ensureProjetoVersaoSchema()`.
+
+Endpoints principais (em `index.js`):
+
+- Listagem e detalhe de versões por projeto
+- Fechar versão (checklist + resumo executivo)
+- Criar/reabrir versão
+- Export ZIP: `GET /api/exportar/versao/:projetoId/:versaoId/zip`
+- Comparativo visual: página `EvolucaoProjeto.jsx`
+
+Validador de produção: [`docs/VALIDADOR_VERSIONAMENTO_PRODUCAO.md`](VALIDADOR_VERSIONAMENTO_PRODUCAO.md).
+
+---
+
+## 10.3 Logo da Empresa
+
+Rotas em `empresa-logo.js`:
+
+```text
+GET    /api/empresas/:id/logo
+POST   /api/empresas/:id/logo
+DELETE /api/empresas/:id/logo
+```
+
+Armazenamento: `uploads/empresas/{empresaId}/`. Utilitário `empresaLogo.js` enriquece dashboards e `dadosUsados` dos relatórios IA.
+
+---
+
+## 10.4 Roadmap de Iniciativas e Executive Dashboard
+
+Rotas de iniciativas em `routes/iniciativas.js` (mutação restrita a `admin`, `gestor`, `sysmap`):
+
+```text
+GET    /api/iniciativas?projetoId=&projetoVersaoId=&contextoTipo=&contextoId=&status=
+GET    /api/iniciativas/export?projetoId=&contextoTipo=        (CSV, UTF-8 BOM)
+POST   /api/iniciativas
+PUT    /api/iniciativas/:id
+DELETE /api/iniciativas/:id
+POST   /api/iniciativas/importar-roadmap-ia/:relatorioId       (gera rascunhos a partir dos gaps do diagnóstico)
+```
+
+Executive Dashboard (consolidado, em `index.js`):
+
+```text
+GET    /api/projetos/:id/executive-dashboard?versaoId=&nivelPrioridadeMapeamentoMaturidade=
+```
+
+Retorno: `scoreGeral`/`nivel`, `scoresPorArea` (radar 16D), `topGaps`, `statusRegulatorio` (reusa `montarDashboardRegulatorioProjeto`), `roi` (reusa `projecaoFinanceiraRelatorio`), `proximosPassos` (30/60/90 derivados das iniciativas) e `comparativoVersao` (reusa `montarComparativoVersoesProjeto`).
+
+Frontend: `pages/RoadmapTimeline.jsx` (+ `components/GanttChart.jsx`, `components/IniciativaForm.jsx`) e `pages/ExecutiveDashboard.jsx`. Gantt é customizado (CSS grid + divs), sem dependências externas. O link público assinado do Executive Dashboard foi adiado para fase futura (entrega atual só com login).
+
 ---
 
 ## 11. Especificação Automática
@@ -452,6 +559,10 @@ Categorias:
 
 - Arquivos de referência de produto.
 - Arquivos de arquitetura de referência.
+- Logos de empresa (`uploads/empresas`).
+- Evidências de mitigação regulatória.
+
+O container backend usa `docker-entrypoint.sh` para criar `/app/uploads` com permissão do usuário `appuser` antes de iniciar a aplicação (evita `EACCES` em volumes montados).
 
 O backend pode extrair conteúdo textual para enriquecer prompts e especificações.
 
@@ -560,11 +671,15 @@ Regras principais:
 
 - `README.md`
 - `docs/COMO_SISTEMA_FUNCIONA.md`
+- `docs/DOCUMENTACAO_COMPLETA_SISTEMA.md`
 - `docs/Atual/METODOLOGIA_ROI_FINANCEIRO.md`
+- `docs/MANUAL_MODULO_REGULATORIO.md`
+- `docs/VALIDADOR_VERSIONAMENTO_PRODUCAO.md`
 - `docs/MANUAL_USUARIO_ADMINISTRADOR.md`
 - `docs/MANUAL_CICD_AZURE_DEVOPS.md`
 - `docs/ESPECIFICACAO_AUTOMATICA.md`
 - `docs/ESPECIFICACAO_PRODUTO_REQUISITOS.md`
+- `backend/docker-entrypoint.sh`
 - `backend/prisma/schema.prisma`
 - `azure-pipelines.yml`
 - `docker-compose.prod.yml`

@@ -11,6 +11,7 @@ import {
 } from './regulatorioCrosswalk.js';
 import { calcularScoresConsolidadoMaturidade } from './scoresConsolidadoProjetoMaturidade.js';
 import { ordenarAreasPorFramework } from './ordemDimensoesFramework.js';
+import { mapaApresentacaoDimensoes } from './projetoDimensoesConfig.js';
 
 export const AIPD_STATUS_OPCOES = ['nao_iniciada', 'em_andamento', 'concluida'];
 
@@ -375,7 +376,10 @@ export async function carregarScoresProjetoParaRegulatorio(prisma, projetoId) {
 
   if (avaliacoes.length === 0) return [];
 
-  const { scoresPorArea } = calcularScoresConsolidadoMaturidade(avaliacoes, areas);
+  const { porAreaId: dimensoesConfig } = await mapaApresentacaoDimensoes(prisma, projetoId);
+  const { scoresPorArea } = calcularScoresConsolidadoMaturidade(avaliacoes, areas, {
+    dimensoesConfig
+  });
   return scoresPorArea;
 }
 
@@ -628,16 +632,33 @@ export async function confirmarSnapshotConsultor(prisma, produtoId, usuarioId, b
 }
 
 export async function obterRegulatorySnapshotProduto(prisma, produtoId) {
-  const snap = await prisma.regulatorySnapshot.findUnique({ where: { produtoId } });
-  if (!snap) return null;
+  const mapa = await obterRegulatorySnapshotsProdutosEmLote(prisma, [produtoId]);
+  return mapa.get(Number(produtoId)) || null;
+}
 
-  let validador = null;
-  if (snap.validadoPorUsuarioId) {
-    validador = await prisma.usuario.findUnique({
-      where: { id: snap.validadoPorUsuarioId },
-      select: { id: true, nome: true, email: true }
-    });
+/** Busca snapshots regulatórios em lote (evita N+1 no Command Center). */
+export async function obterRegulatorySnapshotsProdutosEmLote(prisma, produtoIds = []) {
+  const ids = [...new Set(produtoIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))];
+  const resultado = new Map();
+  if (!ids.length) return resultado;
+
+  const snaps = await prisma.regulatorySnapshot.findMany({
+    where: { produtoId: { in: ids } }
+  });
+  if (!snaps.length) return resultado;
+
+  const validadorIds = [...new Set(snaps.map((s) => s.validadoPorUsuarioId).filter(Boolean))];
+  const validadores = validadorIds.length
+    ? await prisma.usuario.findMany({
+        where: { id: { in: validadorIds } },
+        select: { id: true, nome: true, email: true }
+      })
+    : [];
+  const validadorPorId = new Map(validadores.map((v) => [v.id, v]));
+
+  for (const snap of snaps) {
+    const validador = snap.validadoPorUsuarioId ? validadorPorId.get(snap.validadoPorUsuarioId) : null;
+    resultado.set(snap.produtoId, formatarSnapshotResposta(snap, null, validador));
   }
-
-  return formatarSnapshotResposta(snap, null, validador);
+  return resultado;
 }

@@ -96,7 +96,7 @@ import {
   areaContaParaAvaliacao,
   calcularProgressoAvaliacaoProjeto
 } from './utils/avaliacaoAreasRecusadas.js';
-import { normalizarDesejosIA, desejosIaParaRespostasEmail } from './utils/desejosIaAvaliacaoMaturidade.js';
+import { normalizarDesejosIA, desejosIaParaRespostasEmail, desejosIaTemRespostasGuardadas } from './utils/desejosIaAvaliacaoMaturidade.js';
 import {
   mergeDesejosIaNaAvaliacaoParaApi,
   findUniqueAvaliacaoApiOrFallback,
@@ -130,6 +130,14 @@ import {
   blocoInstrucoesPromptSecao3Dimensao,
   blocoInstrucoesSistemaExecutivoComContexto
 } from './utils/projetoContexto.js';
+import {
+  blocoDesejosIaMarkdown,
+  blocoDesejosIaResumoExecutivo,
+  projetoTemDesejosIaCadastrados,
+  blocoInstrucoesDesejosIaSistemaBook,
+  blocoInstrucoesDesejosIaSistemaExecutivo,
+  blocoInstrucoesDesejosIaSecao3Dimensao
+} from './utils/blocoDesejosIaBook.js';
 import { listarFrameworksParaApi, FRAMEWORK_BLUEPRINT_16 } from './constants/frameworkMaturidadePolicy.js';
 import {
   ensureProjetoFrameworkSchema,
@@ -3624,7 +3632,7 @@ app.delete('/api/projetos/:id', async (req, res) => {
 
 app.get('/api/areas', async (req, res) => {
   try {
-    const { projetoId, framework } = req.query;
+    const { projetoId, framework, apenasAtivas } = req.query;
     let areas;
     if (projetoId) {
       const pid = parseInt(String(projetoId), 10);
@@ -3632,6 +3640,14 @@ app.get('/api/areas', async (req, res) => {
         return res.status(400).json({ error: 'projetoId inválido' });
       }
       areas = await listarAreasDoProjeto(prisma, pid);
+      const filtrarAtivas = apenasAtivas === '1' || apenasAtivas === 'true';
+      if (filtrarAtivas) {
+        const ativosProjeto = await areaIdsAtivosDoProjeto(prisma, pid);
+        if (ativosProjeto && ativosProjeto.length > 0) {
+          const setAtivos = new Set(ativosProjeto);
+          areas = areas.filter((a) => setAtivos.has(a.id));
+        }
+      }
     } else if (framework) {
       areas = await listarAreasPorFramework(prisma, framework);
     } else {
@@ -6009,6 +6025,7 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
           where: { status: 'finalizada' },
           include: {
             usuario: true,
+            desejosIADados: true,
             respostas: {
               include: {
                 pergunta: { include: { area: true } }
@@ -6103,6 +6120,8 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
 
     const blocoContextoCliente = await blocoContextoProjetoMarkdown(prisma, projetoId);
     const temContextoProjetoExec = projetoTemContextoCadastrado(blocoContextoCliente);
+    const blocoDesejosIaExec = blocoDesejosIaResumoExecutivo(avaliacoesFiltradas);
+    const temDesejosIaExec = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);
 
     // System prompt e prompt do usuário
     const systemPrompt = `${SYSTEM_PROMPT_PERSONA_EXECUTIVO}
@@ -6138,7 +6157,7 @@ ESTRUTURA OBRIGATÓRIA DO RELATÓRIO:
 - Indique explicitamente em quais fases o "Playbook Atlas" deve ser utilizado para buscar aceleradores e reduzir o time-to-market.
 
 # Seção 5: Os 3 Pedidos para o C-Level
-- Liste 3 decisões imediatas que a diretoria precisa tomar hoje para destravar o roadmap (ex: aprovação de budget, nomeação de comitê).${temContextoProjetoExec ? blocoInstrucoesSistemaExecutivoComContexto() : ''}`;
+- Liste 3 decisões imediatas que a diretoria precisa tomar hoje para destravar o roadmap (ex: aprovação de budget, nomeação de comitê).${temContextoProjetoExec ? blocoInstrucoesSistemaExecutivoComContexto() : ''}${temDesejosIaExec ? blocoInstrucoesDesejosIaSistemaExecutivo() : ''}`;
 
     const pctRefExec = percentualReferenciaRoi(projeto.faturamentoAnualProjeto);
     const fatStrExec =
@@ -6184,6 +6203,7 @@ ${dimensoesForaEscopoExec.map(a => `- ${a.area}${a.score > 0 ? ` (nota históric
 ${blocoAvaliadoresExec}
 
 ${blocoContextoCliente ? `\n---\n\n${blocoContextoCliente}\n` : ''}
+${blocoDesejosIaExec ? `\n---\n\n${blocoDesejosIaExec}\n` : ''}
 
 ---
 
@@ -6239,7 +6259,13 @@ Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a
       projetoVersao,
       comparativoVersoes,
       faturamentoAnualProjeto: projeto.faturamentoAnualProjeto ?? null,
-      percentualReferenciaRoi: pctRefExec
+      percentualReferenciaRoi: pctRefExec,
+      temDesejosIa: temDesejosIaExec,
+      totalAvaliadoresComDesejosIa: temDesejosIaExec
+        ? avaliacoesFiltradas.filter((av) =>
+            desejosIaTemRespostasGuardadas(av.desejosIADados?.payload ?? av.desejosIA)
+          ).length
+        : 0
     };
 
     const conteudoExecutivo = prependCapaNivelAvaliadoresAoRelatorio(
@@ -6399,6 +6425,7 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
           where: { status: 'finalizada' },
           include: {
             usuario: true,
+            desejosIADados: true,
             respostas: {
               include: {
                 pergunta: { include: { area: true } }
@@ -6493,9 +6520,12 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
 
     const blocoContextoClienteBook = await blocoContextoProjetoMarkdown(prisma, projetoId);
     const temContextoProjeto = projetoTemContextoCadastrado(blocoContextoClienteBook);
+    const blocoDesejosIaBook = blocoDesejosIaMarkdown(avaliacoesFiltradas);
+    const temDesejosIa = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);
     const sufixoSistemaContextoSecao3 = temContextoProjeto
       ? blocoInstrucoesSistemaSecao3ComContexto()
       : '';
+    const sufixoSistemaDesejosSecao3 = temDesejosIa ? blocoInstrucoesDesejosIaSistemaBook() : '';
 
     // ============= SYSTEM PROMPT BASE (compartilhado entre chunks) =============
     const systemPromptBase = `${SYSTEM_PROMPT_PERSONA_BOOK}
@@ -6518,7 +6548,7 @@ DIRETRIZES DE REDAÇÃO (CRÍTICO):
 11. **Trajetória MIT (ROI × maturidade)**: benchmarks MIT/McKinsey/BCG por nível são **ROI líquido típico sobre investimento em IA**—não margem sobre faturamento. O ganho de longo prazo vem de **subir de nível**. Use o bloco "Trajetória de valor MIT CISR" dos dados;
 12. **Projeção temporal**: nas Seções 2, 8 e 13, inclua visão **12–36 meses** de acumulação de valor ao aproximar-se do próximo nível (roadmap de investimento em IA alinhado ao MIT).
 13. **Evolução entre versões**: quando o bloco "Evolução entre versões da pesquisa" estiver disponível, a Seção 2 deve incluir subseção **Evolução entre rodadas** interpretando score, nível e deltas por dimensão; referencie também nas Seções 8 e 13 quando pertinente.
-14. **Prioridade dos avaliadores**: a capa com filtro e lista de avaliadores é inserida **automaticamente no início** do book — **não** gere de novo "## Nível dos avaliadores no consolidado". Comece direto pela Seção 1 (Metodologia).${sufixoSistemaContextoSecao3}`;
+14. **Prioridade dos avaliadores**: a capa com filtro e lista de avaliadores é inserida **automaticamente no início** do book — **não** gere de novo "## Nível dos avaliadores no consolidado". Comece direto pela Seção 1 (Metodologia).${sufixoSistemaContextoSecao3}${sufixoSistemaDesejosSecao3}`;
 
     // Modo rápido: menos tokens por resposta, prioridade em estrutura e tabelas compactas
     const systemPromptBaseRapido = `${SYSTEM_PROMPT_PERSONA_BOOK_RAPIDO}
@@ -6532,7 +6562,7 @@ REGRAS DO MODO RÁPIDO:
 - **Evolução entre versões:** quando o bloco estiver disponível nos DADOS, inclua subseção **Evolução entre rodadas** na Seção 2.
 - **Prioridade dos avaliadores:** a capa com níveis já vem no início do arquivo — não duplique; comece na Seção 1.
 - Gere SOMENTE o que cada chamada pedir; não antecipe outras seções.
-- **Seção 3:** títulos de dimensão são inseridos pelo sistema (## 3.N Dimensão — nome); gere apenas subseções ### 3.N.1, ### 3.N.2, … (nunca repita # 3. nem ## 3.N).${sufixoSistemaContextoSecao3}`;
+- **Seção 3:** títulos de dimensão são inseridos pelo sistema (## 3.N Dimensão — nome); gere apenas subseções ### 3.N.1, ### 3.N.2, … (nunca repita # 3. nem ## 3.N).${sufixoSistemaContextoSecao3}${sufixoSistemaDesejosSecao3}`;
 
     // Dados de contexto compartilhados (resumo enxuto para incluir em todos os prompts)
     const detalhePerguntasTxt = dimensoesDiagnostico.map(a =>
@@ -6575,7 +6605,7 @@ REGRAS DO MODO RÁPIDO:
 
 ${blocoAvaliadoresBook}
 
-${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${blocoLogicaMaturidade}
+${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${blocoDesejosIaBook ? `${blocoDesejosIaBook}\n\n` : ''}${blocoLogicaMaturidade}
 
 ${blocoEvolucaoVersoes}
 
@@ -6681,7 +6711,7 @@ Reproduza **integralmente** a tabela pronta abaixo (incluindo a **última linha*
 ### ${numSecao}.3 Evidências (até 4 bullets com [Qn], referenciando a tabela)
 ### ${numSecao}.4 Risco (1 parágrafo — mecanismo de risco desta dimensão, não genérico)
 ### ${numSecao}.5 Benchmark (1 parágrafo curto vs setor)
-### ${numSecao}.6 Recomendações (3 bullets acionáveis${temContextoProjeto ? ', cada um ligado ao contexto do projeto' : ''}; cite Playbook Atlas quando couber)
+### ${numSecao}.6 Recomendações (3 bullets acionáveis${temContextoProjeto ? ', cada um ligado ao contexto do projeto' : ''}${temDesejosIa ? '; **≥1 deve citar Desejos IA** dos DADOS quando pertinente' : ''}; cite Playbook Atlas quando couber)
 ### ${numSecao}.7 KPIs (tabela 3 linhas: KPI | Baseline | Meta 12m)
 
 OBRIGATÓRIO:
@@ -6695,6 +6725,8 @@ CONTEXTO GERAL: ${projeto.empresa.nome} · ${setor} · porte ${porte} · score g
 ${blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score)}
 
 ${blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBook)}
+
+${blocoInstrucoesDesejosIaSecao3Dimensao(dim.area, temDesejosIa)}
 
 DADOS CONSOLIDADOS:
 ${dadosBlockRapido}
@@ -6830,7 +6862,7 @@ Gere SOMENTE as seções 1 e 2. Comece direto com "# 1. METODOLOGIA APLICADA".`,
 ### ${numSecao}.2 Evidências Críticas (bullets — quais perguntas puxaram score para cima/baixo)
 ### ${numSecao}.3 Risco de Negócio (1 parágrafo — o que pode acontecer se mantiver este nível)
 ### ${numSecao}.4 Benchmark Setorial (1 parágrafo — onde a empresa está vs concorrentes do setor)
-### ${numSecao}.5 Recomendações Específicas (3–4 ações concretas com Playbook Atlas quando aplicável)
+### ${numSecao}.5 Recomendações Específicas (3–4 ações concretas${temDesejosIa ? '; **≥1 deve ancorar em Desejos IA** dos DADOS' : ''}; Playbook Atlas quando aplicável)
 ### ${numSecao}.6 KPIs de Acompanhamento (tabela com 3–5 KPIs: KPI | Baseline | Meta 6m | Meta 12m)
 
 OBRIGATÓRIO — EVITE REPETIÇÃO (Análise Diagnóstica e Risco de Negócio):
@@ -6851,6 +6883,8 @@ ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
 ${blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score)}
 
 ${blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBook)}
+
+${blocoInstrucoesDesejosIaSecao3Dimensao(dim.area, temDesejosIa)}
 
 ${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${
   temContextoProjeto
@@ -7314,7 +7348,13 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
       comparativoVersoes,
       faturamentoAnualProjeto: projeto.faturamentoAnualProjeto ?? null,
       percentualReferenciaRoi: pctRefBook,
-      modoGeracao: modoRapido ? 'rapido' : 'completo'
+      modoGeracao: modoRapido ? 'rapido' : 'completo',
+      temDesejosIa,
+      totalAvaliadoresComDesejosIa: temDesejosIa
+        ? avaliacoesFiltradas.filter((av) =>
+            desejosIaTemRespostasGuardadas(av.desejosIADados?.payload ?? av.desejosIA)
+          ).length
+        : 0
     };
 
     // Persistir versão gerada

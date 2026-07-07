@@ -7,6 +7,14 @@ import { useToast } from '../contexts/ToastContext';
 import DesejosIaAvaliacaoMaturidade from '../components/DesejosIaAvaliacaoMaturidade.jsx';
 import { DESEJOS_IA_EMPTY, mergeDesejosFromApi } from '../constants/desejosIaAvaliacaoMaturidade.js';
 import { buscarEsclarecimentoAvaliacaoMaturidade } from '../constants/esclarecimentosAvaliacaoMaturidade.js';
+import {
+  coletarPendentesEvidenciaSatf,
+  evidenciaPreenchida,
+  exigeEvidenciaSatf,
+  frameworkExigeEvidenciaSatf,
+  SATF_EVIDENCIA_MIN_CHARS,
+  SATF_NOTA_MINIMA_COM_EVIDENCIA
+} from '../utils/satfEvidenciaAvaliacao.js';
 
 function gerarExplicacaoPergunta(pergunta, area) {
   const codigo = area?.ordem && pergunta?.numero ? `${area.ordem}.${pergunta.numero}` : null;
@@ -74,11 +82,9 @@ export default function AvaliacaoForm() {
   async function loadData() {
     setLoadError(null);
     try {
-      const [avaliacaoData, areasData] = await Promise.all([
-        avaliacoesApi.buscar(id),
-        areasApi.listar(),
-      ]);
-      
+      const avaliacaoData = await avaliacoesApi.buscar(id);
+      const areasData = await areasApi.listar(avaliacaoData.projetoId);
+
       setAvaliacao(avaliacaoData);
       
       const areasSelecionadas = avaliacaoData.areasSelecionadas 
@@ -314,6 +320,12 @@ export default function AvaliacaoForm() {
       );
       return;
     }
+    if (resumo.evidenciasPendentes > 0) {
+      toast.error(
+        `SATF: ${resumo.evidenciasPendentes} pergunta(s) com nota ≥ ${SATF_NOTA_MINIMA_COM_EVIDENCIA} sem evidência nas observações (mín. ${SATF_EVIDENCIA_MIN_CHARS} caracteres).`
+      );
+      return;
+    }
 
     setSaving(true);
     try {
@@ -400,6 +412,11 @@ export default function AvaliacaoForm() {
     const pendentes = areasResumo.reduce((acc, area) => acc + area.pendentes, 0);
     const recusadas = areasResumo.filter((area) => area.recusada).length;
     const semInformacao = areasResumo.reduce((acc, area) => acc + area.semInformacao, 0);
+    const frameworkMaturidade = areas[0]?.frameworkMaturidade;
+    const isSatf = frameworkExigeEvidenciaSatf(frameworkMaturidade);
+    const pendentesEvidencia = isSatf
+      ? coletarPendentesEvidenciaSatf(areas, areasRecusadas, getRespostaByPergunta, respostas)
+      : [];
     return {
       areasResumo,
       total,
@@ -408,6 +425,9 @@ export default function AvaliacaoForm() {
       recusadas,
       semInformacao,
       percentual: total > 0 ? Math.round((respondidas / total) * 100) : 0,
+      isSatf,
+      pendentesEvidencia,
+      evidenciasPendentes: pendentesEvidencia.length,
     };
   }
 
@@ -502,6 +522,7 @@ export default function AvaliacaoForm() {
   const isDesejosTab = currentAreaIndex >= areas.length;
   const progresso = getProgressoTotal();
   const resumoRevisao = getResumoRevisao();
+  const isSatf = resumoRevisao.isSatf;
 
   function desejosTabTemConteudo() {
     const d = desejosIA;
@@ -568,6 +589,19 @@ export default function AvaliacaoForm() {
           />
         </div>
       </div>
+
+      {isSatf && (
+        <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-100">
+          <Info className="mt-0.5 h-5 w-5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold">Instrumento SATF TI v3</p>
+            <p className="mt-1">
+              Notas {SATF_NOTA_MINIMA_COM_EVIDENCIA} ou 5 exigem evidência documentada nas observações (mínimo{' '}
+              {SATF_EVIDENCIA_MIN_CHARS} caracteres). Consulte o bloco &quot;Evidência esperada&quot; em cada pergunta.
+            </p>
+          </div>
+        </div>
+      )}
 
       {!onboardingFechado && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-900/60 dark:bg-blue-950/30">
@@ -715,6 +749,8 @@ export default function AvaliacaoForm() {
                 
                 const respostaAtual = respostas[resposta.id] || {};
                 const criterios = pergunta.criterios.split('\n');
+                const exigeEvid = isSatf && exigeEvidenciaSatf(respostaAtual);
+                const evidOk = !exigeEvid || evidenciaPreenchida(respostaAtual.observacoes);
 
                 const explicacao = gerarExplicacaoPergunta(pergunta, currentArea);
 
@@ -784,6 +820,20 @@ export default function AvaliacaoForm() {
                         </div>
                       </div>
 
+                      {isSatf && pergunta.evidenciaEsperada && (
+                        <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 mb-4 dark:border-indigo-800 dark:bg-indigo-950/30">
+                          <div className="flex items-center gap-2 text-sm text-indigo-800 dark:text-indigo-200 mb-2">
+                            <Info className="w-4 h-4" />
+                            <span className="font-medium">
+                              Evidência esperada (obrigatória para nota ≥ {SATF_NOTA_MINIMA_COM_EVIDENCIA})
+                            </span>
+                          </div>
+                          <p className="text-sm text-indigo-900 dark:text-indigo-100 whitespace-pre-wrap">
+                            {pergunta.evidenciaEsperada}
+                          </p>
+                        </div>
+                      )}
+
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pontuação:</label>
                         <div className="flex gap-2">
@@ -820,14 +870,32 @@ export default function AvaliacaoForm() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observações:</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Observações
+                          {exigeEvid && (
+                            <span className="text-red-600 dark:text-red-400">
+                              {' '}
+                              (obrigatório — evidência, mín. {SATF_EVIDENCIA_MIN_CHARS} caracteres)
+                            </span>
+                          )}
+                          :
+                        </label>
                         <textarea
-                          className="input"
+                          className={`input ${exigeEvid && !evidOk ? 'border-red-400 ring-1 ring-red-300 dark:border-red-600' : ''}`}
                           rows={2}
-                          placeholder="Adicione observações ou evidências..."
+                          placeholder={
+                            exigeEvid
+                              ? 'Descreva a evidência que sustenta esta nota...'
+                              : 'Adicione observações ou evidências...'
+                          }
                           value={respostaAtual.observacoes || ''}
                           onChange={(e) => handleObservacaoChange(resposta.id, e.target.value)}
                         />
+                        {exigeEvid && !evidOk && (
+                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                            Nota {respostaAtual.pontuacao} exige evidência documentada nas observações.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -943,6 +1011,30 @@ export default function AvaliacaoForm() {
               </div>
             )}
 
+            {resumoRevisao.evidenciasPendentes > 0 && (
+              <div className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100">
+                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-semibold">
+                    {resumoRevisao.evidenciasPendentes} pergunta(s) com nota ≥ {SATF_NOTA_MINIMA_COM_EVIDENCIA} sem
+                    evidência nas observações.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {resumoRevisao.pendentesEvidencia.slice(0, 8).map((p) => (
+                      <li key={p.perguntaId}>
+                        <span className="font-medium">{p.area}</span>
+                        {p.numero != null ? ` — pergunta ${p.numero}` : ''} (nota {p.pontuacao})
+                      </li>
+                    ))}
+                  </ul>
+                  {resumoRevisao.evidenciasPendentes > 8 && (
+                    <p className="mt-1 text-xs">… e mais {resumoRevisao.evidenciasPendentes - 8}.</p>
+                  )}
+                  <p className="mt-2">Complete as observações antes de confirmar a finalização.</p>
+                </div>
+              </div>
+            )}
+
             <div className="mt-5 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
               {resumoRevisao.areasResumo.map((area) => (
                 <div
@@ -990,8 +1082,8 @@ export default function AvaliacaoForm() {
               <button
                 type="button"
                 onClick={handleConfirmarFinalizacao}
-                disabled={saving}
-                className="btn btn-success flex items-center justify-center gap-2"
+                disabled={saving || resumoRevisao.evidenciasPendentes > 0}
+                className="btn btn-success flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <CheckCircle className="h-4 w-4" />
                 {saving ? 'Finalizando...' : 'Confirmar finalização'}

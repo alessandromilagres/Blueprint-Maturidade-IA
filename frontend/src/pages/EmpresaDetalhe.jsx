@@ -6,6 +6,9 @@ import Modal from '../components/Modal';
 import { VERTICAIS, AUDIENCIAS_PRIMARIAS, LENTES_PRIORITARIAS } from './Projetos';
 import { OPCOES_PERFIL_USUARIO, labelPerfilUsuario } from '../constants/perfilUsuario.js';
 import { labelPorteComFaixa } from '../constants/porteEmpresa';
+import { FRAMEWORK_BLUEPRINT_16 } from '../constants/frameworkMaturidade';
+import FrameworkMaturidadeSelector from '../components/FrameworkMaturidadeSelector';
+import FrameworkMaturidadeBadge from '../components/FrameworkMaturidadeBadge';
 
 export default function EmpresaDetalhe() {
   const { id } = useParams();
@@ -60,6 +63,9 @@ export default function EmpresaDetalhe() {
           item?.faturamentoAnualProjeto != null && item?.faturamentoAnualProjeto !== ''
             ? String(item.faturamentoAnualProjeto)
             : '',
+        frameworkMaturidade: item?.frameworkMaturidade || FRAMEWORK_BLUEPRINT_16,
+        setorRegulado: item?.setorRegulado === true,
+        frameworkTravado: item?.frameworkTravado === true,
         status: item?.status || 'ativo',
         empresaId: parseInt(id),
       });
@@ -308,10 +314,13 @@ export default function EmpresaDetalhe() {
             <div className="space-y-2">
               {empresa.projetos.map((projeto) => (
                 <div key={projeto.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div>
-                    <Link to={`/projetos/${projeto.id}`} className="font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400">
-                      {projeto.nome}
-                    </Link>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link to={`/projetos/${projeto.id}`} className="font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400">
+                        {projeto.nome}
+                      </Link>
+                      <FrameworkMaturidadeBadge projeto={projeto} />
+                    </div>
                     {projeto.descricao && <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{projeto.descricao}</p>}
                     <p className="text-xs text-gray-400 dark:text-gray-500">{projeto._count.avaliacoes} avaliações</p>
                   </div>
@@ -428,6 +437,14 @@ export default function EmpresaDetalhe() {
         title={editingItem ? 'Editar Projeto' : 'Novo Projeto'}
       >
         <form onSubmit={handleSubmitProjeto} className="space-y-4">
+          <FrameworkMaturidadeSelector
+            value={formData.frameworkMaturidade || FRAMEWORK_BLUEPRINT_16}
+            onChange={(frameworkMaturidade) => setFormData({ ...formData, frameworkMaturidade })}
+            locked={formData.frameworkTravado === true}
+            setorRegulado={formData.setorRegulado === true}
+            onSetorReguladoChange={(setorRegulado) => setFormData({ ...formData, setorRegulado })}
+            showSetorRegulado
+          />
           <div>
             <label className="label">Nome *</label>
             <input

@@ -20,6 +20,12 @@ import {
 import { desejosIaParaRespostasEmail, desejosIaTemRespostasGuardadas } from '../utils/desejosIaAvaliacaoMaturidade.js';
 import { isMissingAvaliacaoDesejosIaTableError } from '../utils/avaliacaoDesejosIaMerge.js';
 import { gerarSecao14RegulatorioBookMarkdown, montarDashboardRegulatorioProjeto } from '../utils/regulatorioDashboard.js';
+import { montarExecutiveDashboard } from '../utils/executiveDashboard.js';
+import { montarProdutosCommandCenter } from '../utils/produtosCommandCenter.js';
+import {
+  gerarMarkdownExecutiveDashboard,
+  gerarMarkdownProdutosCommandCenter
+} from '../utils/exportModulosExecutivos.js';
 import {
   nivelNumericoDeScore,
   faixaNivelPorScore,
@@ -4095,6 +4101,57 @@ router.get('/executive/:projetoId', async (req, res) => {
   } catch (error) {
     console.error('Erro ao exportar relatório executivo:', error);
     res.status(500).json({ error: 'Erro ao exportar relatório executivo', details: error.message });
+  }
+});
+
+/**
+ * GET /api/exportar/executive-dashboard/:projetoId
+ * Exporta o Executive Dashboard (single pane of glass) em Markdown.
+ */
+router.get('/executive-dashboard/:projetoId', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.projetoId, 10);
+    if (!Number.isFinite(projetoId) || projetoId <= 0) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+
+    const data = await montarExecutiveDashboard(prisma, projetoId, {
+      projetoVersaoId: req.query?.projetoVersaoId ?? req.query?.versaoId,
+      incluirLogo: false
+    });
+    const md = gerarMarkdownExecutiveDashboard(data);
+    const slug = String(data.projeto?.nome || 'projeto').replace(/\s+/g, '-');
+
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="executive-dashboard-${slug}.md"`);
+    res.send('\uFEFF' + md);
+  } catch (error) {
+    console.error('Erro ao exportar executive dashboard:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/exportar/produtos-command-center/:projetoId
+ * Exporta o Command Center de Produtos IA-First em Markdown.
+ */
+router.get('/produtos-command-center/:projetoId', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.projetoId, 10);
+    if (!Number.isFinite(projetoId) || projetoId <= 0) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+
+    const data = await montarProdutosCommandCenter(prisma, projetoId);
+    const md = gerarMarkdownProdutosCommandCenter(data);
+    const slug = String(data.projeto?.nome || 'projeto').replace(/\s+/g, '-');
+
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="produtos-command-center-${slug}.md"`);
+    res.send('\uFEFF' + md);
+  } catch (error) {
+    console.error('Erro ao exportar command center de produtos:', error);
+    res.status(error.status || 500).json({ error: error.message });
   }
 });
 

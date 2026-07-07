@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FolderKanban, ClipboardCheck, Plus, ArrowLeft, Trash2, FileText, BarChart3, CheckSquare, Download, Archive, ClipboardList, Sparkles, Lightbulb, TrendingUp, GitBranch, AlertTriangle, CheckCircle, RotateCcw } from 'lucide-react';
+import { FolderKanban, ClipboardCheck, Plus, ArrowLeft, Trash2, FileText, BarChart3, CheckSquare, Download, Archive, ClipboardList, Sparkles, Lightbulb, TrendingUp, GitBranch, AlertTriangle, CheckCircle, RotateCcw, ShieldCheck } from 'lucide-react';
 import { projetosApi, avaliacoesApi, usuariosApi, areasApi, exportarApi } from '../services/api';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
 import ScoreBadge from '../components/ScoreBadge';
+import DimensoesProjetoConfig from '../components/DimensoesProjetoConfig';
+import ProjetoContextoConfig from '../components/ProjetoContextoConfig';
+import FrameworkMaturidadeBadge from '../components/FrameworkMaturidadeBadge';
+import { FRAMEWORK_SATF_TI_V3 } from '../constants/frameworkMaturidade';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { formatDatePtBr } from '../utils/formatDate';
@@ -49,21 +53,23 @@ export default function ProjetoDetalhe() {
   }, [projeto?.id]);
 
   async function loadProjeto() {
+    setLoading(true);
     try {
-      const [projetoData, areasData, versoesData] = await Promise.all([
-        projetosApi.buscar(id),
-        areasApi.listar(),
-        projetosApi.versoes(id)
-      ]);
-      
+      const projetoData = await projetosApi.buscar(id);
       setProjeto(projetoData);
-      setAreas(areasData);
+
+      const [areasData, versoesData] = await Promise.all([
+        areasApi.listar(id, null, { apenasAtivas: true }).catch(() => []),
+        projetosApi.versoes(id).catch(() => null),
+      ]);
+      setAreas(areasData || []);
       setVersoesInfo(versoesData);
-      
+
       const usuariosData = await usuariosApi.listar(projetoData.empresaId);
       setUsuarios(usuariosData);
     } catch (error) {
       console.error('Erro ao carregar projeto:', error);
+      setProjeto(null);
     } finally {
       setLoading(false);
     }
@@ -216,10 +222,18 @@ export default function ProjetoDetalhe() {
             <FolderKanban className="w-8 h-8 text-purple-600 dark:text-purple-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{projeto.nome}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{projeto.nome}</h1>
+              <FrameworkMaturidadeBadge projeto={projeto} />
+            </div>
             <Link to={`/empresas/${projeto.empresa.id}`} className="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
               {projeto.empresa.nome}
             </Link>
+            {projeto.frameworkTravado && (
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                Framework travado — definido na criação do projeto e após o início das avaliações.
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -301,6 +315,10 @@ export default function ProjetoDetalhe() {
           <p className="text-gray-600 dark:text-gray-400">{projeto.descricao}</p>
         </div>
       )}
+
+      <DimensoesProjetoConfig projetoId={projeto.id} editable={isGestor() && !isAvaliador()} />
+
+      <ProjetoContextoConfig projetoId={projeto.id} editable={isGestor() && !isAvaliador()} />
 
       {versoesInfo && (
         <div className="card border border-blue-200 bg-blue-50/40 dark:border-blue-900/50 dark:bg-blue-950/20">
@@ -479,6 +497,15 @@ export default function ProjetoDetalhe() {
                 <BarChart3 className="w-5 h-5" />
                 Ver Dashboard
               </Link>
+              {projeto.frameworkMaturidade === FRAMEWORK_SATF_TI_V3 && (
+                <Link
+                  to={`/projetos/${projeto.id}/certificacao`}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                  Certificação SATF
+                </Link>
+              )}
             </div>
           </div>
         </div>

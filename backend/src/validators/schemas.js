@@ -127,6 +127,11 @@ const optionalFaturamento = z.preprocess(
     .optional()
 );
 
+const frameworkMaturidadeField = z
+  .enum(['BLUEPRINT_16', 'SATF_TI_V3'])
+  .optional()
+  .default('BLUEPRINT_16');
+
 export const projetoSchemas = {
   criar: z.object({
     nome: safeString(2, 200),
@@ -135,6 +140,8 @@ export const projetoSchemas = {
     audienciaPrimaria: safeString(0, 500).optional().nullable(),
     lentesPrioritarias: safeString(0, 1000).optional().nullable(),
     faturamentoAnualProjeto: optionalFaturamento,
+    frameworkMaturidade: frameworkMaturidadeField,
+    setorRegulado: z.boolean().optional().default(false),
     status: z.enum(['ativo', 'inativo', 'concluido']).default('ativo'),
     empresaId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)])
   }),
@@ -146,6 +153,8 @@ export const projetoSchemas = {
     audienciaPrimaria: safeString(0, 500).optional().nullable(),
     lentesPrioritarias: safeString(0, 1000).optional().nullable(),
     faturamentoAnualProjeto: optionalFaturamento,
+    frameworkMaturidade: z.enum(['BLUEPRINT_16', 'SATF_TI_V3']).optional(),
+    setorRegulado: z.boolean().optional(),
     status: z.enum(['ativo', 'inativo', 'concluido']).optional(),
     empresaId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]).optional()
   })

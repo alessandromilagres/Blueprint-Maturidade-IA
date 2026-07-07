@@ -122,6 +122,56 @@ Causa provável: nomes das áreas em produção **diferentes** dos esperados (ac
 
 ---
 
+## Roadmap de Iniciativas, Executive Dashboard e Command Center
+
+Módulo do Produto IA-First (roadmap visual multi-contexto + painel executivo C-Level + command center de produtos).
+
+- **Tabela `Iniciativa`**: criada via migration `20260625160000_roadmap_iniciativas` **e** garantida em runtime por `ensureIniciativaSchema()` no startup do backend. Deploy é seguro mesmo se a migration ainda não rodou (mesmo padrão de `ProjetoVersao`).
+- `projetoVersaoId` é coluna `Int` simples (sem FK Prisma para `ProjetoVersao`, que é raw SQL). **Não** transformar em relation.
+- **Não recalcula scores nem altera avaliações.** Iniciativas apenas referenciam gaps/score-alvo do diagnóstico.
+- Mutação em `/api/iniciativas` usa os mesmos perfis do módulo regulatório: `admin`, `gestor`, `sysmap`, `negocios`, `ti`, `executivo` (via `podeValidarRegulatorio`).
+- Exportação para reunião de board: Markdown (`GET /api/exportar/executive-dashboard/:id`, `GET /api/exportar/produtos-command-center/:id`) + PDF via impressão do navegador na UI.
+- Link público assinado do Executive Dashboard foi **adiado**; entrega atual é só com login.
+- Arquivos: `backend/src/routes/iniciativas.js`, `backend/src/utils/{executiveDashboard,produtosCommandCenter,exportModulosExecutivos}.js`, `frontend/src/pages/{RoadmapTimeline,ExecutiveDashboard,ProdutosCommandCenter}.jsx`.
+
+### Validador obrigatório (somente leitura)
+
+```bash
+cd backend
+API_BASE_URL="https://SEU-DOMINIO/api" \
+VALIDATOR_EMAIL="usuario-admin@empresa.com" \
+VALIDATOR_PASSWORD="senha" \
+npm run validate:roadmap-executive
+```
+
+### Validador recomendado (teste mutável — CRUD de iniciativa)
+
+```bash
+cd backend
+API_BASE_URL="https://SEU-DOMINIO/api" \
+VALIDATOR_EMAIL="usuario-admin@empresa.com" \
+VALIDATOR_PASSWORD="senha" \
+npm run validate:roadmap-executive -- --mutate
+```
+
+### Critério de aceite
+
+- O JSON final deve ter `"ok": true`.
+- Se `"ok": false`, **não faça deploy** até corrigir os checks com falha.
+- Warnings não bloqueiam sozinhos; leia o campo `warnings` no JSON.
+
+### O que o validador cobre
+
+- Tabela `Iniciativa` e colunas essenciais
+- Login na API
+- `GET /api/iniciativas`, export CSV, executive-dashboard, produtos-command-center
+- Export Markdown dos dois painéis
+- Com `--mutate`: criar/atualizar/remover iniciativa temporária
+
+Script: `backend/scripts/validate-roadmap-executive-production.js`
+
+---
+
 ## Relatórios IA — atribuição SysMap (não MIT)
 
 Nos books e relatórios executivos gerados por IA:

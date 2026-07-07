@@ -192,6 +192,28 @@ export default function DashboardRegulatorioProjeto() {
           </div>
         </div>
 
+        {dashboard.dimensoesForaEscopo?.length > 0 && (
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+              Dimensões fora do escopo (excluídas do regulatório)
+            </h2>
+            <p className="text-xs text-gray-500 mb-3">
+              Desativadas na configuração do projeto — não entram no crosswalk PL/ISO/LGPD nem nos gaps regulatórios.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {dashboard.dimensoesForaEscopo.map((d) => (
+                <span
+                  key={d.areaId || d.area}
+                  className="rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-xs text-gray-600 dark:text-gray-300"
+                >
+                  {d.area}
+                  {d.score > 0 ? ` (${Number(d.score).toFixed(2)})` : ''}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
             Plano de ação 30 / 60 / 90 dias

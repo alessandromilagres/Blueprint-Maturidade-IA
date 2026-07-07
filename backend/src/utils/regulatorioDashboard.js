@@ -14,6 +14,11 @@ import { listarNotificacoesRegulatorias } from './regulatorioNotificacoes.js';
 
 import { ordenarAreasPorFramework } from './ordemDimensoesFramework.js';
 import { calcularScoresConsolidadoMaturidade } from './scoresConsolidadoProjetoMaturidade.js';
+import {
+  mapaApresentacaoDimensoes,
+  filtrarScoresNoEscopo,
+  nomesDimensoesForaEscopo
+} from './projetoDimensoesConfig.js';
 
 const PL_LABELS = {
   INACEITAVEL: 'Inaceitável',
@@ -53,7 +58,10 @@ async function carregarScoresProjeto(prisma, projetoId, versaoId = null) {
     avaliacoes = avaliacoes.filter((a) => ids.has(a.id));
   }
 
-  const { scoresPorArea } = calcularScoresConsolidadoMaturidade(avaliacoes, areas);
+  const { porAreaId: dimensoesConfig } = await mapaApresentacaoDimensoes(prisma, projetoId);
+  const { scoresPorArea } = calcularScoresConsolidadoMaturidade(avaliacoes, areas, {
+    dimensoesConfig
+  });
   return scoresPorArea || [];
 }
 
@@ -243,10 +251,26 @@ export async function montarDashboardRegulatorioProjeto(prisma, projetoId, opts 
   }
 
   let scoresPorArea = [];
+  let dimensoesForaEscopo = [];
+  const areasCadastro = ordenarAreasPorFramework(
+    await prisma.area.findMany({ orderBy: { ordem: 'asc' } })
+  );
+  const { porAreaId: dimensoesConfig, configurado: dimensoesConfigurado } =
+    await mapaApresentacaoDimensoes(prisma, projetoId);
+
   if (opts.scoresPorArea?.length) {
-    scoresPorArea = opts.scoresPorArea;
+    scoresPorArea = filtrarScoresNoEscopo(opts.scoresPorArea);
+    dimensoesForaEscopo = (opts.scoresPorArea || [])
+      .filter((s) => s.foraDeEscopo === true)
+      .map((s) => ({ areaId: s.areaId, area: s.area, score: s.score }));
   } else {
     scoresPorArea = await carregarScoresProjeto(prisma, projetoId, opts.versaoId || null);
+    if (dimensoesConfigurado) {
+      dimensoesForaEscopo = nomesDimensoesForaEscopo(dimensoesConfig, areasCadastro).map((nome) => {
+        const area = areasCadastro.find((a) => a.nome === nome);
+        return { areaId: area?.id, area: nome };
+      });
+    }
   }
 
   const resumoProjeto = resumoRegulatorioProjeto(scoresPorArea);
@@ -280,6 +304,7 @@ export async function montarDashboardRegulatorioProjeto(prisma, projetoId, opts 
       empresa: projeto.empresa?.nome
     },
     resumoProjeto,
+    dimensoesForaEscopo,
     kpis: {
       totalProdutos: produtosResumo.length,
       comSnapshot: comSnapshot.length,
@@ -311,7 +336,7 @@ export async function montarDashboardRegulatorioProjeto(prisma, projetoId, opts 
 export function gerarSecao14RegulatorioBookMarkdown(dashboard) {
   if (!dashboard) return '';
 
-  const { projeto, kpis, produtos, plano30_60_90: plano, resumoProjeto } = dashboard;
+  const { projeto, kpis, produtos, plano30_60_90: plano, resumoProjeto, dimensoesForaEscopo } = dashboard;
   const linhas = [];
 
   linhas.push('# 14. CONFORMIDADE REGULATÓRIA (PL 2338 / ISO 42001 / LGPD)');
@@ -332,6 +357,11 @@ export function gerarSecao14RegulatorioBookMarkdown(dashboard) {
   linhas.push(`| Dimensões do projeto em gap regulatório | ${kpis.dimensoesEmGap} (${kpis.dimensoesCriticas} críticas) |`);
   linhas.push('');
 
+  if ((dimensoesForaEscopo || []).length > 0) {
+    linhas.push('> **Dimensões fora do escopo deste projeto** (desativadas na configuração do Blueprint): não entram no crosswalk regulatório nem nos gaps abaixo.');
+    linhas.push('>');
+  }
+
   if (produtos.length > 0) {
     linhas.push('## 14.2 Status por produto');
     linhas.push('');
@@ -349,10 +379,19 @@ export function gerarSecao14RegulatorioBookMarkdown(dashboard) {
   }
 
   if (resumoProjeto?.dimensoesEmGap?.length > 0) {
-    linhas.push('## 14.3 Gaps regulatórios por dimensão (projeto)');
+    linhas.push('## 14.3 Gaps regulatórios por dimensão (projeto — apenas dimensões no escopo)');
     linhas.push('');
     for (const g of resumoProjeto.dimensoesEmGap.slice(0, 8)) {
       linhas.push(`- **${g.nome}** (${g.codigo}) — score ${g.score}, risco ${g.nivelRisco}`);
+    }
+    linhas.push('');
+  }
+
+  if ((dimensoesForaEscopo || []).length > 0) {
+    linhas.push('## 14.3.1 Dimensões fora do escopo (excluídas do regulatório)');
+    linhas.push('');
+    for (const d of dimensoesForaEscopo) {
+      linhas.push(`- ${d.area}${d.score > 0 ? ` — nota histórica ${Number(d.score).toFixed(2)} (ignorada)` : ''}`);
     }
     linhas.push('');
   }

@@ -27,6 +27,11 @@ export function mapRelatorioIASalvoToViewShape(row) {
     tipoRelatorio: row.tipo ?? null,
     modoGeracao:
       row.dadosUsados?.modoGeracao ??
-      (row.tipo === 'completo_rapido' ? 'rapido' : row.tipo === 'completo' ? 'completo' : null),
+      (row.tipo === 'completo_rapido' || row.tipo === 'completo_satf_rapido'
+        ? 'rapido'
+        : row.tipo === 'completo' || row.tipo === 'completo_satf'
+          ? 'completo'
+          : null),
+    frameworkMaturidade: row.dadosUsados?.frameworkMaturidade ?? null,
   };
 }

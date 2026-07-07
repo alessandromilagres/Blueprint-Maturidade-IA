@@ -1,5 +1,31 @@
 # Instruções para agentes — Blueprint IA
 
+## Publicar em produção (PRD) — fluxo obrigatório
+
+Quando o usuário pedir **publicar**, **subir para produção**, **deploy PRD** ou equivalente:
+
+1. Garantir que mudanças de app estejam **commitadas** na branch de release (`release/prd-*`).
+2. Rodar `./scripts/publish-prd-release.sh` (Azure DevOps + pipeline + smoke test).
+3. O script **já espelha** no GitHub pessoal via `./scripts/sync-github-main.sh`.
+4. Se publicar manualmente (sem o script), **sempre** rodar também:
+   ```bash
+   ./scripts/sync-github-main.sh HEAD
+   ```
+5. Confirmar nos dois destinos:
+   - PRD: `curl -sS https://agentica.sysmap.com.br/api/release-info`
+   - GitHub: `git ls-remote github refs/heads/main` — deve refletir o código publicado
+
+| Remote | Destino |
+|--------|---------|
+| Azure DevOps (`origin` / API) | Deploy em https://agentica.sysmap.com.br |
+| `github` | https://github.com/alessandromilagres/Blueprint-Maturidade-IA (`main`) |
+
+**Nunca** considerar a publicação concluída só com Azure — o GitHub pessoal faz parte do critério de aceite.
+
+Autenticação: Azure = `az devops login`; GitHub = credential helper / token do usuário no Mac (não pedir PAT no chat).
+
+---
+
 ## Deploy de versionamento de projetos
 
 Antes de liberar produção com as mudanças de **versionamento de projetos** (checklist de fechamento, resumo por versão, comparativo visual, reabrir versão, export ZIP), rode o validador obrigatório.

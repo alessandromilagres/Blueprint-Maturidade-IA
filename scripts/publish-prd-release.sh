@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Publica release/prd-* no Azure DevOps e dispara pipeline de produção.
+# Publica release/prd-* no Azure DevOps, dispara pipeline de produção
+# e espelha o mesmo código no GitHub pessoal (remote github → main).
 set -euo pipefail
 
 ORG="https://dev.azure.com/sysmap-devops"
@@ -11,7 +12,7 @@ PIPELINE="app-agentica"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo ">>> Testando acesso ao Azure DevOps (somente Azure — não envia para GitHub)..."
+echo ">>> Testando acesso ao Azure DevOps..."
 if ! az devops project list --organization "$ORG" -o table | head -5; then
   echo ">>> Falha na autenticação. Rode:"
   echo "    az devops login --organization $ORG"
@@ -109,7 +110,13 @@ done
 
 echo ""
 echo ">>> Smoke test produção"
-curl -sS https://agentica.sysmap.com.br/api/release-info
-echo ""
+RELEASE_INFO=$(curl -sS https://agentica.sysmap.com.br/api/release-info)
+echo "$RELEASE_INFO"
 curl -sS https://agentica.sysmap.com.br/api/health
+echo ""
+
+PRD_RELEASE_ID=$(echo "$RELEASE_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('releaseId',''))" 2>/dev/null || true)
+echo ""
+echo ">>> Espelhando no GitHub pessoal (obrigatório após publicar PRD)..."
+"$ROOT/scripts/sync-github-main.sh" HEAD "${PRD_RELEASE_ID:-$NEW_COMMIT}"
 echo ""

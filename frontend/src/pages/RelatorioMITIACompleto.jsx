@@ -183,6 +183,9 @@ export default function RelatorioMITIACompleto() {
         backgroundRunningRef.current = true;
         geracaoIniciadaRef.current = true;
         setJobBg((prev) => (prev?.id === ativo.id ? prev : ativo));
+        setProgresso(Math.min(99, Math.max(10, Number(ativo.progresso) || 10)));
+        setMensagemProgresso(ativo.etapa || 'Gerando book em background...');
+        setLoading(false);
       } catch (_) {}
     })();
     return () => {
@@ -212,6 +215,7 @@ export default function RelatorioMITIACompleto() {
     setJobBg(ativo);
     setProgresso(Math.min(99, Math.max(10, Number(ativo.progresso) || 10)));
     setMensagemProgresso(ativo.etapa || 'Gerando book em background...');
+    setLoading(false);
     return true;
   }
 
@@ -257,6 +261,11 @@ export default function RelatorioMITIACompleto() {
     }, 600);
 
     try {
+      if (!relatorioSalvoId && (await anexarJobAtivoSeExistir())) {
+        clearInterval(intervalo);
+        return;
+      }
+
       if (relatorioSalvoId) {
         const salvoId = parseInt(relatorioSalvoId, 10);
         if (Number.isNaN(salvoId)) throw new Error('Identificador de relatório inválido.');
@@ -497,7 +506,7 @@ export default function RelatorioMITIACompleto() {
     );
   }
 
-  if (loading || (!relatorioSalvoId && frameworkCarregando)) {
+  if ((loading || (!relatorioSalvoId && frameworkCarregando)) && !jobBg) {
     const carregandoBiblioteca = Boolean(relatorioSalvoId);
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-emerald-950/20 to-slate-950 flex items-center justify-center p-6 print:hidden">
@@ -623,6 +632,44 @@ export default function RelatorioMITIACompleto() {
             >
               Voltar ao Dashboard
             </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data && jobBg) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
+            <Link
+              to={`/dashboard/projeto/${id}`}
+              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Dashboard</span>
+            </Link>
+            <div className="h-6 w-px bg-slate-300" />
+            <p className="text-sm font-medium text-slate-700">Book em geração — projeto {id}</p>
+          </div>
+        </header>
+        <div className="border-b border-cyan-200 bg-gradient-to-r from-cyan-50 to-teal-50">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-4 text-sm text-cyan-950">
+            <div className="flex items-center gap-2 font-semibold">
+              <Loader2 className="h-5 w-5 animate-spin text-cyan-700" />
+              Book IA em background · {labelStatusJob(jobBg.status)}
+            </div>
+            <p>{jobBg.etapa || mensagemProgresso || 'Gerando...'}</p>
+            <div className="w-full max-w-xl bg-cyan-100 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-cyan-600 transition-all duration-500"
+                style={{ width: `${Math.min(99, Number(jobBg.progresso) || progresso || 5)}%` }}
+              />
+            </div>
+            <p className="text-xs text-cyan-800">
+              Você pode fechar esta aba e voltar depois — o job continua no servidor. Ao reabrir esta URL, o progresso reaparece aqui.
+            </p>
           </div>
         </div>
       </div>
@@ -1141,6 +1188,15 @@ export default function RelatorioMITIACompleto() {
                       Possível contaminação de taxonomia
                     </p>
                     <p className="mt-1 text-xs text-amber-800">{data.avisoTaxonomia}</p>
+                  </div>
+                )}
+                {data?.avisoSecoesDuplicadas && (
+                  <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 print:hidden">
+                    <p className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      Seções duplicadas no book
+                    </p>
+                    <p className="mt-1 text-xs text-amber-800">{data.avisoSecoesDuplicadas}</p>
                   </div>
                 )}
                 {data?.dadosUsados?.comparativoVersoes?.disponivel && (

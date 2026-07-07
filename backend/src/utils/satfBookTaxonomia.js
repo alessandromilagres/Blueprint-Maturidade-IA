@@ -112,7 +112,119 @@ REGRAS DE TAXONOMIA SATF (CRÍTICO — NUNCA VIOLAR):
 - **Proibido** MIT CISR / SysMap Blueprint IA como metodologia ou estrutura principal — o instrumento é **SATF TI v3**.
 - Ao referenciar dimensão: **Dn — Nome oficial SATF** (ex.: **D5 — Plataforma, Arquitetura & Escala**).
 - Book SATF tem seções **1–8**; não duplique numeração nem gere capítulos 9–13.
+- **Uma seção por chunk:** se o prompt pede só a seção 4, **pare** antes de "# 5."; nunca antecipe seções 5–8 dentro de chunks anteriores.
 `;
+}
+
+/** Última seção permitida por id de chunk (recorte pós-IA). */
+const SECAO_MAX_POR_CHUNK_SATF = {
+  sec_1_2: 2,
+  sec_4: 4,
+  sec_5: 5,
+  sec_6: 6,
+  sec_7: 7,
+  sec_8: 8
+};
+
+/**
+ * Recorta spillover: chunks que pedem só seção N não devem incluir # N+1 em diante.
+ * Também corta `## N+1` quando a IA usa h2 como nova seção principal.
+ */
+export function recortarConteudoChunkBookSatf(conteudo, chunkId) {
+  const maxSec = SECAO_MAX_POR_CHUNK_SATF[String(chunkId || '')];
+  if (!maxSec) return String(conteudo || '').trim();
+
+  const texto = String(conteudo || '').trim();
+  if (!texto) return texto;
+
+  const linhas = texto.split('\n');
+  const saida = [];
+  let cortou = false;
+
+  for (const linha of linhas) {
+    if (cortou) continue;
+    const m = linha.match(/^#{1,2}\s+(\d+)\.\s+/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > maxSec) {
+        cortou = true;
+        continue;
+      }
+    }
+    saida.push(linha);
+  }
+
+  return saida.join('\n').trim();
+}
+
+/**
+ * Remove blocos duplicados de seções 5–8 (h1 `# N.`).
+ * Mantém a primeira ocorrência de cada número.
+ */
+export function deduplicarSecoesFinaisBookSatf(markdown) {
+  const linhas = String(markdown || '').split('\n');
+  const blocos = [];
+  let blocoAtual = { sec: null, linhas: [] };
+
+  const flush = () => {
+    if (blocoAtual.linhas.length) blocos.push(blocoAtual);
+    blocoAtual = { sec: null, linhas: [] };
+  };
+
+  for (const linha of linhas) {
+    const m = linha.match(/^#\s+(\d+)\.\s+/);
+    if (m) {
+      flush();
+      blocoAtual = { sec: parseInt(m[1], 10), linhas: [linha] };
+    } else {
+      blocoAtual.linhas.push(linha);
+    }
+  }
+  flush();
+
+  const vistos = new Set();
+  const saida = [];
+  for (const b of blocos) {
+    if (b.sec != null && b.sec >= 5 && b.sec <= 8) {
+      if (vistos.has(b.sec)) continue;
+      vistos.add(b.sec);
+    }
+    saida.push(...b.linhas);
+  }
+
+  return saida.join('\n').trim();
+}
+
+/**
+ * Detecta seções 5–8 repetidas no índice/corpo (h1 `# N.`).
+ */
+export function validarSecoesDuplicadasBookSatf(markdown) {
+  const contagem = { 5: 0, 6: 0, 7: 0, 8: 0 };
+  const titulos = { 5: [], 6: [], 7: [], 8: [] };
+  const h1Re = /^#\s+(\d+)\.\s+(.+)$/gm;
+
+  for (const m of String(markdown || '').matchAll(h1Re)) {
+    const n = parseInt(m[1], 10);
+    if (n >= 5 && n <= 8) {
+      contagem[n] += 1;
+      titulos[n].push(String(m[2]).trim().slice(0, 80));
+    }
+  }
+
+  const duplicadas = Object.entries(contagem)
+    .filter(([, c]) => c > 1)
+    .map(([n, c]) => ({ secao: parseInt(n, 10), count: c, titulos: titulos[n] }));
+
+  return {
+    ok: duplicadas.length === 0,
+    duplicadas,
+    total: duplicadas.reduce((acc, d) => acc + d.count - 1, 0)
+  };
+}
+
+/** Aplica recorte por chunk + deduplicação global das seções finais. */
+export function normalizarSecoesBookSatf(markdown) {
+  return deduplicarSecoesFinaisBookSatf(String(markdown || '').trim());
 }
 
 export function introducaoSecao3SatfBookMarkdown(totalDimensoes, ordemNomes) {

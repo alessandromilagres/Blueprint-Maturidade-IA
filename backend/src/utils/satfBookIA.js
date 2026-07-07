@@ -59,7 +59,11 @@ import {
   blocoDimensaoScoreZeroSecao3Satf,
   capaConfidencialBookSatfMarkdown,
   introducaoSecao3SatfBookMarkdown,
-  validarTaxonomiaBookSatf
+  validarTaxonomiaBookSatf,
+  recortarConteudoChunkBookSatf,
+  deduplicarSecoesFinaisBookSatf,
+  normalizarSecoesBookSatf,
+  validarSecoesDuplicadasBookSatf
 } from './satfBookTaxonomia.js';
 
 function mediaSetorTiBenchmark(setor) {
@@ -469,7 +473,9 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
     prompt: `${regrasTaxonomia}
 # 4. ROADMAP ENGENHARIA & PLATAFORMA (30-60-90 dias)
 
-Gere em Markdown: visão por horizonte (30/60/90), foco SDLC agêntico, plataforma, dados e governança técnica. Tabela resumo.
+Gere **SOMENTE** a Seção 4 em Markdown (subseções 4.1–4.5). **PARE** antes de "# 5." — não gere Fábrica Agêntica, Conformidade, Capacitação nem Próximos Passos aqui (há chunks dedicados).
+
+Conteúdo: visão por horizonte (30/60/90), foco SDLC agêntico, plataforma, dados e governança técnica. Tabela resumo.
 Ao referenciar gaps e iniciativas, use **somente** dimensões SATF D1–D11 com nomes oficiais do bloco DADOS.
 
 DADOS:\n${dados}`,
@@ -480,10 +486,12 @@ DADOS:\n${dados}`,
     id: 'sec_5',
     label: 'Fábrica Agêntica (D10)',
     prompt: `${regrasTaxonomia}
-# 5. FÁBRICA AGÊNTICA E SDLC (dimensão D10 — Fábrica Agêntica de Software)
+# 5. Fábrica Agêntica de Software (D10)
+
+Gere **SOMENTE** a Seção 5 (subseções 5.1–5.5). **PARE** antes de "# 6." — não antecipe Conformidade Regulatória.
 
 Se D10 estiver nos dados com score > 0, analise maturidade de fábrica agêntica. Senão, nota curta "fora de escopo ou sem dados".
-Ao citar entregáveis do escopo use **rótulos canônicos**: E = Roteiro de Pilotos (não "Mapa de Jornadas"); H = Diagnóstico de Clientes (não "Business Case"); G = Capacitação e Gestão de Mudança.
+Ao citar entregáveis do escopo use **rótulos canônicos**: E = Roteiro de Pilotos; H = Diagnóstico de Clientes; G = Capacitação e Gestão de Mudança.
 **Não** introduza outras dimensões além das SATF D1–D11.
 
 DADOS:\n${dados}`,
@@ -494,7 +502,9 @@ DADOS:\n${dados}`,
     id: 'sec_6',
     label: 'Conformidade TI (D11)',
     prompt: `${regrasTaxonomia}
-# 6. CONFORMIDADE E REGULATÓRIO EM TI (D11 — Conformidade Regulatória de IA)
+# 6. Conformidade Regulatória de IA (D11)
+
+Gere **SOMENTE** a Seção 6 (subseções 6.1–6.4). **PARE** antes de "# 7." — não antecipe Capacitação nem Próximos Passos.
 
 Governança de IA em TI, LGPD técnico, auditoria de modelos. Se setor regulado ou D11 ativa, aprofunde.
 Referencie **D11** e, se pertinente, **D2 Governança, Risco & Conformidade** — nomes SATF oficiais.
@@ -507,7 +517,9 @@ DADOS:\n${dados}`,
     id: 'sec_7',
     label: 'Capacitação e governança',
     prompt: `${regrasTaxonomia}
-# 7. CAPACITAÇÃO, PAPÉIS E GOVERNANÇA DE TIMES
+# 7. Capacitação, Papéis e Governança de Times
+
+Gere **SOMENTE** a Seção 7 (subseções 7.1–7.5). **PARE** antes de "# 8." — não antecipe Próximos Passos.
 
 Skills, chapter leads, guildas de IA, operating model de engenharia.
 Ancorar em **D3 Pessoas, Cultura & Capacitação** e **D2 Governança, Risco & Conformidade** (SATF) — não use taxonomia Blueprint.
@@ -520,7 +532,9 @@ DADOS:\n${dados}`,
     id: 'sec_8',
     label: 'Próximos passos 30 dias',
     prompt: `${regrasTaxonomia}
-# 8. PRÓXIMOS PASSOS IMEDIATOS (30 DIAS)
+# 8. Próximos Passos e Encerramento
+
+Gere **SOMENTE** a Seção 8 (subseções 8.1–8.4). **Não** gere seção 9+ nem Apêndice numerado como seção principal.
 
 7–10 ações numeradas com responsável, entregável e prazo. Foco TI.
 Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).
@@ -559,7 +573,7 @@ ${temContexto ? blocoInstrucoesSistemaSecao3ComContexto() : ''}
 Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
 
   const registrar = (chunk, conteudo) => {
-    const texto = String(conteudo || '').trim();
+    const texto = recortarConteudoChunkBookSatf(conteudo, chunk.id);
     if (!texto) return;
     const m = String(chunk.id || '').match(/^sec_3_(\d+)$/);
     if (m) {
@@ -685,7 +699,9 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
     });
   });
   return {
-    markdown: [...partesPreSec3, ...blocosSec3, ...partesPosSec3].join('\n\n'),
+    markdown: normalizarSecoesBookSatf(
+      [...partesPreSec3, ...blocosSec3, ...partesPosSec3].join('\n\n')
+    ),
     totalTokensEntrada,
     totalTokensSaida,
     providerUsado,
@@ -725,12 +741,14 @@ export async function executarGeracaoBookSatf(req, res, deps) {
       const dadosSnap = ultimoSalvo.dadosSnapshot ? JSON.parse(ultimoSalvo.dadosSnapshot) : null;
       const sec3 = relatorioBookSecao3Completo(ultimoSalvo.conteudoMd || '', TOTAL_DIMENSOES_SATF);
       const taxonomia = validarTaxonomiaBookSatf(ultimoSalvo.conteudoMd || '');
+      const secoesDup = validarSecoesDuplicadasBookSatf(ultimoSalvo.conteudoMd || '');
       if (
         filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax) &&
         Number(dadosSnap?.projetoVersao?.id || 0) === Number(projetoVersao?.id || 0) &&
         dadosSnap?.frameworkMaturidade === FRAMEWORK_SATF_TI_V3 &&
         sec3.ok &&
-        taxonomia.ok
+        taxonomia.ok &&
+        secoesDup.ok
       ) {
         const empresaAtual = await prisma.projeto.findUnique({
           where: { id: projetoId },
@@ -945,6 +963,13 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     );
   }
 
+  const validacaoSecoes = validarSecoesDuplicadasBookSatf(markdown);
+  if (!validacaoSecoes.ok) {
+    console.warn(
+      `[Book SATF] Seções duplicadas: ${validacaoSecoes.duplicadas.map((d) => `${d.secao}×${d.count}`).join(', ')}`
+    );
+  }
+
   const markdownFinal =
     inventarioDocumentos.entregaveis.length > 0
       ? normalizarRotulosEntregaveisEscopo(markdown, inventarioDocumentos)
@@ -1040,6 +1065,10 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     validacaoTaxonomia,
     avisoTaxonomia: validacaoTaxonomia.ok
       ? null
-      : `Book gerado com ${validacaoTaxonomia.total} possível(is) referência(s) a outra taxonomia — regenere com reuse=false antes de entregar.`
+      : `Book gerado com ${validacaoTaxonomia.total} possível(is) referência(s) a outra taxonomia — regenere com reuse=false antes de entregar.`,
+    validacaoSecoes,
+    avisoSecoesDuplicadas: validacaoSecoes.ok
+      ? null
+      : `Seções ${validacaoSecoes.duplicadas.map((d) => d.secao).join(', ')} aparecem duplicadas no documento — regenere com reuse=false.`
   });
 }

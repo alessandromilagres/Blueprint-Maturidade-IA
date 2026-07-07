@@ -65,6 +65,8 @@ function BannerAvisosProvedor({ avisos, className = '' }) {
     </div>
   );
 }
+
+function formatDurationMs(ms) {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
   const s = Math.round(ms / 1000);
   if (s < 60) return `${s} s`;

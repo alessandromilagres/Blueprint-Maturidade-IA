@@ -39,6 +39,7 @@ import EngenhariaValorProduto from './pages/EngenhariaValorProduto';
 import RoadmapProdutos from './pages/RoadmapProdutos';
 import RoadmapTimeline from './pages/RoadmapTimeline';
 import ExecutiveDashboard from './pages/ExecutiveDashboard';
+import ComparativoUnidadesProjeto from './pages/ComparativoUnidadesProjeto';
 import DashboardProjetosRanking from './pages/DashboardProjetosRanking';
 import DashboardProjetoProdutos from './pages/DashboardProjetoProdutos';
 import ProdutosCommandCenter from './pages/ProdutosCommandCenter';
@@ -90,6 +91,7 @@ function App() {
           <Route path="/dashboard/projeto/:id/roadmap" element={<PrivateRoute><RoadmapTimeline /></PrivateRoute>} />
           <Route path="/dashboard/projeto/:id/roadmap-produtos" element={<PrivateRoute><RoadmapProdutos /></PrivateRoute>} />
           <Route path="/dashboard/projeto/:id/executive-dashboard" element={<PrivateRoute><ExecutiveDashboard /></PrivateRoute>} />
+          <Route path="/dashboard/projeto/:id/comparativo-unidades" element={<PrivateRoute><ComparativoUnidadesProjeto /></PrivateRoute>} />
           <Route path="/dashboard/empresa/:id" element={<PrivateRoute><DashboardEmpresa /></PrivateRoute>} />
           <Route path="/dashboard/produto/:id" element={<PrivateRoute><DashboardProduto /></PrivateRoute>} />
           <Route path="/dashboard/produto/:id/regulatorio" element={<PrivateRoute><ValidacaoRegulatoriaProduto /></PrivateRoute>} />

@@ -83,7 +83,12 @@ export function nomeArquivoBookIaExport(tipo) {
     completo_rapido: '08-relatorio-ia-completo-rapido.md',
     completo_satf: '08-relatorio-ia-book-satf.md',
     completo_satf_rapido: '08-relatorio-ia-book-satf-rapido.md',
-    executivo: '07-relatorio-ia-executivo.md'
+    executivo: '07-relatorio-ia-executivo.md',
+    executivo_unidade: '07-relatorio-ia-executivo-unidade.md',
+    book_unidade: '08-relatorio-ia-book-unidade-blueprint.md',
+    book_unidade_rapido: '08-relatorio-ia-book-unidade-blueprint-rapido.md',
+    book_unidade_satf: '08-relatorio-ia-book-unidade-satf.md',
+    book_unidade_satf_rapido: '08-relatorio-ia-book-unidade-satf-rapido.md'
   };
   return map[tipo] || `08-relatorio-ia-${tipo}.md`;
 }

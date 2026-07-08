@@ -101,6 +101,19 @@ export const empresasApi = {
     request(`/empresas/${empresaId}/logo`, { method: 'DELETE' })
 };
 
+export const empresaUnidadesApi = {
+  listar: (empresaId) => request(`/empresas/${empresaId}/unidades`),
+  criar: (empresaId, data) =>
+    request(`/empresas/${empresaId}/unidades`, { method: 'POST', body: JSON.stringify(data) }),
+  atualizar: (empresaId, unidadeId, data) =>
+    request(`/empresas/${empresaId}/unidades/${unidadeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  excluir: (empresaId, unidadeId) =>
+    request(`/empresas/${empresaId}/unidades/${unidadeId}`, { method: 'DELETE' })
+};
+
 export const usuariosApi = {
   listar: (empresaId) => request(`/usuarios${empresaId ? `?empresaId=${empresaId}` : ''}`),
   buscar: (id) => request(`/usuarios/${id}`),
@@ -277,6 +290,9 @@ function appendNivelPrioridadeMapeamentoParams(params, opts = {}) {
   }
   if (opts.projetoVersaoId) params.set('projetoVersaoId', String(opts.projetoVersaoId));
   else if (opts.versaoId) params.set('projetoVersaoId', String(opts.versaoId));
+  if (opts.empresaUnidadeId != null && opts.empresaUnidadeId !== '') {
+    params.set('empresaUnidadeId', String(opts.empresaUnidadeId));
+  }
 }
 
 export const dashboardApi = {
@@ -286,6 +302,9 @@ export const dashboardApi = {
     if (n >= 1 && n <= 3) params.set('nivelPrioridadeMapeamentoMaturidade', String(n));
     if (opts.projetoVersaoId) params.set('projetoVersaoId', String(opts.projetoVersaoId));
     else if (opts.versaoId) params.set('projetoVersaoId', String(opts.versaoId));
+    if (opts.empresaUnidadeId != null && opts.empresaUnidadeId !== '') {
+      params.set('empresaUnidadeId', String(opts.empresaUnidadeId));
+    }
     const q = params.toString();
     return request(`/dashboard/projeto/${projetoId}${q ? `?${q}` : ''}`);
   },
@@ -304,15 +323,13 @@ export const dashboardApi = {
   projetoFinanceiro: (projetoId) => request(`/dashboard/projeto-financeiro/${projetoId}`),
   empresaFinanceiro: (empresaId) => request(`/dashboard/empresa-financeiro/${empresaId}`),
   relatorioIA: (projetoId, opts = {}) => {
-    const params = new URLSearchParams();
-    if (opts.regenerate) params.set('reuse', 'false');
+    const params = new URLSearchParams({ reuse: 'false' });
     appendNivelPrioridadeMapeamentoParams(params, opts);
     const qs = params.toString();
     return request(`/dashboard/projeto/${projetoId}/relatorio-ia?${qs}`, { method: 'POST' });
   },
   relatorioIACompleto: (projetoId, opts = {}) => {
-    const params = new URLSearchParams();
-    if (opts.regenerate) params.set('reuse', 'false');
+    const params = new URLSearchParams({ reuse: 'false' });
     if (opts.modoRapido) params.set('mode', 'rapido');
     appendNivelPrioridadeMapeamentoParams(params, opts);
     const qs = params.toString();
@@ -321,9 +338,25 @@ export const dashboardApi = {
       { method: 'POST' }
     );
   },
+  relatorioIAUnidade: (projetoId, opts = {}) => {
+    const params = new URLSearchParams({ reuse: 'false' });
+    appendNivelPrioridadeMapeamentoParams(params, opts);
+    const qs = params.toString();
+    return request(`/dashboard/projeto/${projetoId}/relatorio-ia-unidade?${qs}`, { method: 'POST' });
+  },
+  relatorioIABookUnidade: (projetoId, opts = {}) => {
+    const params = new URLSearchParams({ reuse: 'false' });
+    if (opts.modoRapido) params.set('mode', 'rapido');
+    appendNivelPrioridadeMapeamentoParams(params, opts);
+    const qs = params.toString();
+    return request(`/dashboard/projeto/${projetoId}/relatorio-ia-book-unidade?${qs}`, { method: 'POST' });
+  },
   iniciarRelatorioIABackground: (projetoId, tipo, opts = {}) => {
     const body = { projetoId, tipo };
     if (opts.versaoId) body.versaoId = opts.versaoId;
+    if (opts.empresaUnidadeId != null && opts.empresaUnidadeId !== '') {
+      body.empresaUnidadeId = opts.empresaUnidadeId;
+    }
     const n = opts.nivelPrioridadeMapeamentoMaturidade;
     if (n === 0 || n === '0') body.nivelPrioridadeMapeamentoMaturidade = 0;
     else if (n >= 1 && n <= 3) body.nivelPrioridadeMapeamentoMaturidade = n;
@@ -336,6 +369,12 @@ export const dashboardApi = {
   statusRelatorioIABackground: (jobId) => request(`/relatorios-ia-jobs/${jobId}`),
   cancelarRelatorioIABackground: (jobId) =>
     request(`/relatorios-ia-jobs/${jobId}/cancel`, { method: 'POST' }),
+  comparativoUnidades: (projetoId, opts = {}) => {
+    const params = new URLSearchParams();
+    appendNivelPrioridadeMapeamentoParams(params, opts);
+    const q = params.toString();
+    return request(`/dashboard/projeto/${projetoId}/comparativo-unidades${q ? `?${q}` : ''}`);
+  },
   /** Lista jobs (ex.: acompanhar geração em background do book) */
   listarRelatoriosIaJobs: (params = {}) => {
     const p = new URLSearchParams();
@@ -355,6 +394,9 @@ export const iniciativasApi = {
     if (params.contextoTipo) p.set('contextoTipo', params.contextoTipo);
     if (params.contextoId) p.set('contextoId', params.contextoId);
     if (params.status) p.set('status', params.status);
+    if (params.empresaUnidadeId != null && params.empresaUnidadeId !== '') {
+      p.set('empresaUnidadeId', String(params.empresaUnidadeId));
+    }
     const qs = p.toString();
     return request(`/iniciativas${qs ? `?${qs}` : ''}`);
   },
@@ -366,11 +408,19 @@ export const iniciativasApi = {
       method: 'POST',
       body: JSON.stringify(data)
     }),
+  importarGapsUnidade: (data) =>
+    request('/iniciativas/importar-gaps-unidade', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
   exportarCsv: async (params = {}) => {
     const p = new URLSearchParams();
     if (params.projetoId != null) p.set('projetoId', String(params.projetoId));
     if (params.projetoVersaoId) p.set('projetoVersaoId', String(params.projetoVersaoId));
     if (params.contextoTipo) p.set('contextoTipo', params.contextoTipo);
+    if (params.empresaUnidadeId != null && params.empresaUnidadeId !== '') {
+      p.set('empresaUnidadeId', String(params.empresaUnidadeId));
+    }
     const resp = await fetch(`${API_URL}/iniciativas/export?${p.toString()}`, {
       headers: { ...getAuthHeaders() }
     });

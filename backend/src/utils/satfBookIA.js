@@ -3,6 +3,7 @@
  * Score oficial = certificado ou teto por evidência; declarado visível para auditoria.
  */
 import { prisma } from '../lib/prisma.js';
+import { deveReutilizarRelatorioIASalvo } from './reutilizarRelatorioIA.js';
 import { salvarRelatorioIA } from '../routes/relatorios-ia.js';
 import { callAIWithContinuation, getProvider, loadPersistedAIConfig } from '../services/ai-provider.js';
 import {
@@ -18,6 +19,23 @@ import {
 import { SYSTEM_PROMPT_PERSONA_BOOK_SATF } from '../constants/consultorRelatorioIA.js';
 import { FRAMEWORK_SATF_TI_V3 } from '../constants/frameworkMaturidadePolicy.js';
 import { carregarFrameworkProjeto } from './projetoFramework.js';
+import {
+  filtrarAvaliacoesRelatorioProjeto,
+  metadadosUnidadeDadosUsados,
+  prependCapaUnidadeAoRelatorio,
+  relatorioUnidadeCacheCompativel,
+  resolverContextoUnidadeRelatorioObrigatorio
+} from './relatorioUnidadeIA.js';
+import { garantirUnidadeGeralEmpresa } from './empresaUnidade.js';
+import {
+  gerarPlanoAcaoPorDimensao,
+  instrucoesSistemaBookUnidade,
+  montarBlocoPlanoAcaoDimensaoPrompt,
+  montarBlocoPlanoAcaoUnidadeMarkdown,
+  montarSecaoDashboardUnidadeMarkdown,
+  planoAcaoPorNomeDimensao,
+  prependSecaoDashboardUnidadeAoRelatorio
+} from './bookUnidadeContexto.js';
 import { listarAreasDoProjeto } from './areaFrameworkCatalog.js';
 import { mapaApresentacaoDimensoes } from './projetoDimensoesConfig.js';
 import { calcularScoresConsolidadoMaturidade, nivelNumericoDeScore } from './scoresConsolidadoProjetoMaturidade.js';
@@ -132,7 +150,10 @@ function montarPromptSecao3DimensaoSatf({
   blocoContextoClienteBook,
   inventarioDocumentos,
   dados,
-  tabelaDim
+  tabelaDim,
+  exigeUnidade = false,
+  unidadeMeta = null,
+  planoDim = null
 }) {
   const detalheDim = detalhePerguntasDimensaoMarkdown(dim);
   const instrucoesContexto = blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBook);
@@ -153,6 +174,8 @@ OBRIGATÓRIO — EVITE REPETIÇÃO, GENERICIDADE E CONTAMINAÇÃO DE TAXONOMIA:
 - **Evidências Críticas:** separe fatores que elevaram vs puxaram o score; cite [Qn] e documentos do contexto (Entregáveis A–H) quando existirem.
 - **Risco:** específico desta dimensão — **proibido** repetir a mesma frase entre dimensões.
 - **Recomendações:** cada ação com título, descrição, entregável/sistema do projeto (A–H), owner sugerido e prazo (30/45/60/90 dias).${temDesejosIa ? ' **≥1 ação** deve citar Desejos IA dos DADOS quando pertinente.' : ''}
+${exigeUnidade ? `- **Unidade organizacional:** recomendações **exclusivas** para "${unidadeMeta?.nome || 'esta unidade'}" — o que **esta unidade** deve fazer, com owners da unidade.` : ''}
+${exigeUnidade && planoDim ? `\n${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}` : ''}
 ${regrasEntregaveis}
 ${temContexto ? '- **Contexto cadastrado:** cite ≥2 elementos concretos do bloco "Contexto do cliente" em Análise, Risco e Recomendações. **Proibido** "empresa de tecnologia de médio porte" como narrativa principal.' : `- Contextualize ao setor **${setor}** e porte **${porte}** com exemplos de engenharia/plataforma reais.`}
 - Numere **exatamente** as subseções pedidas com ### (três #). **Não** gere "## ${numSecao}" nem "# 3.".
@@ -285,7 +308,10 @@ function montarDadosBlockSatf({
   blocoEvolucao,
   metodologiaScore,
   top5,
-  bottom5
+  bottom5,
+  exigeUnidade = false,
+  unidadeMeta = null,
+  planoAcao = null
 }) {
   const nivel = nivelNumericoDeScore(scoreGeral);
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
@@ -378,7 +404,8 @@ ${top5.map((a, i) => `${i + 1}. **${a.area}**: ${a.score.toFixed(2)}`).join('\n'
 ${bottom5.map((a, i) => `${i + 1}. **${a.area}**: ${a.score.toFixed(2)}`).join('\n')}
 
 ## Detalhamento por pergunta
-${detalhePerguntasTxt}`;
+${detalhePerguntasTxt}
+${exigeUnidade && unidadeMeta ? `\n## Escopo unidade organizacional\n- **Unidade:** ${unidadeMeta.nome}\n- **Descrição:** ${String(unidadeMeta.descricao || '').trim() || '—'}\n\n${montarBlocoPlanoAcaoUnidadeMarkdown(planoAcao)}` : ''}`;
 }
 
 function montarChunksSatf({
@@ -396,7 +423,10 @@ function montarChunksSatf({
   inventarioDocumentos,
   mediaSetor,
   ordemNomes,
-  modoRapido
+  modoRapido,
+  exigeUnidade = false,
+  unidadeMeta = null,
+  planoAcao = null
 }) {
   const chunks = [];
   const dados = modoRapido ? dadosBlockRapido : dadosBlock;
@@ -421,6 +451,7 @@ Gere SOMENTE as Seções 1 e 2 do book SATF TI v3, em Markdown condensado:
 - Subseção **Evolução entre rodadas** se dados disponíveis
 
 Público: CTO / engenharia. Metodologia = **SATF TI v3** exclusivamente.
+${exigeUnidade ? `\nEste book é **exclusivo da unidade "${unidadeMeta?.nome}"** — score e recomendações refletem somente avaliadores desta unidade. A Seção 0 (Dashboard) será inserida automaticamente — não duplique.` : ''}
 
 DADOS:
 ${dados}
@@ -471,7 +502,10 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
         blocoContextoClienteBook,
         inventarioDocumentos,
         dados,
-        tabelaDim: tabelaPerguntasDimensaoMarkdown(dim)
+        tabelaDim: tabelaPerguntasDimensaoMarkdown(dim),
+        exigeUnidade,
+        unidadeMeta,
+        planoDim: exigeUnidade ? planoAcaoPorNomeDimensao(planoAcao, dim.area) : null
       }),
       maxTokens: modoRapido ? 3600 : 6000
     });
@@ -565,7 +599,8 @@ async function executarChunksLoop({
   inventarioDocumentos,
   relatorioJobId,
   bookClienteDesconectou,
-  atualizarProgressoJobBook
+  atualizarProgressoJobBook,
+  instrucoesUnidadeExtra = ''
 }) {
   const partesPreSec3 = [];
   const blocosSec3PorIndice = Array(dimensoesDiagnostico.length).fill(null);
@@ -579,6 +614,7 @@ async function executarChunksLoop({
 
   const systemPrompt = `${SYSTEM_PROMPT_PERSONA_BOOK_SATF}
 ${blocoRegrasTaxonomiaSatfPrompt()}
+${instrucoesUnidadeExtra}
 ${modoRapido ? '\nMODO RÁPIDO: textos mais curtos, mas mantenha especificidade por dimensão, [Qn], contexto do projeto e recomendações acionáveis (não resuma em bullets genéricos).' : ''}
 ${temContexto ? blocoInstrucoesSistemaSecao3ComContexto() : ''}
 Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
@@ -769,19 +805,43 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
 /**
  * Handler completo do POST relatorio-ia-completo para projetos SATF.
  */
-export async function executarGeracaoBookSatf(req, res, deps) {
+export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   const {
     atualizarProgressoJobBook,
     obterVersaoSelecionadaProjeto,
     idsAvaliacoesDaVersao
   } = deps;
 
+  const exigeUnidade = opts.exigeUnidade === true;
   const projetoId = parseInt(req.params.id, 10);
-  const reuse = req.query.reuse !== 'false';
+  const reuse = deveReutilizarRelatorioIASalvo(req);
   const modoRapido = req.query.mode === 'rapido' || req.query.modo === 'rapido';
-  const tipoRelatorio = modoRapido ? 'completo_satf_rapido' : 'completo_satf';
+  const tipoRelatorio = exigeUnidade
+    ? modoRapido
+      ? 'book_unidade_satf_rapido'
+      : 'book_unidade_satf'
+    : modoRapido
+      ? 'completo_satf_rapido'
+      : 'completo_satf';
   const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
   const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
+
+  let filtroUnidadeId = null;
+  let unidadeMeta = null;
+  let unidadeGeral = null;
+
+  if (exigeUnidade) {
+    const projetoEmp = await prisma.projeto.findUnique({
+      where: { id: projetoId },
+      select: { empresaId: true }
+    });
+    if (!projetoEmp) return res.status(404).json({ error: 'Projeto não encontrado' });
+    const ctx = await resolverContextoUnidadeRelatorioObrigatorio(req, projetoEmp.empresaId);
+    if (!ctx.ok) return res.status(ctx.status).json({ error: ctx.error });
+    filtroUnidadeId = ctx.filtroUnidadeId;
+    unidadeMeta = ctx.unidadeMeta;
+    unidadeGeral = ctx.unidadeGeral;
+  }
 
   let bookClienteDesconectou = false;
   let relatorioJobId = null;
@@ -799,9 +859,16 @@ export async function executarGeracaoBookSatf(req, res, deps) {
       const sec3 = relatorioBookSecao3Completo(ultimoSalvo.conteudoMd || '', TOTAL_DIMENSOES_SATF);
       const taxonomia = validarTaxonomiaBookSatf(ultimoSalvo.conteudoMd || '');
       const secoesDup = validarSecoesDuplicadasBookSatf(ultimoSalvo.conteudoMd || '');
+      const cacheOk = exigeUnidade
+        ? relatorioUnidadeCacheCompativel(dadosSnap, {
+            filtroNivelMax,
+            filtroUnidadeId,
+            projetoVersaoId: projetoVersao?.id
+          })
+        : filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax) &&
+          Number(dadosSnap?.projetoVersao?.id || 0) === Number(projetoVersao?.id || 0);
       if (
-        filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax) &&
-        Number(dadosSnap?.projetoVersao?.id || 0) === Number(projetoVersao?.id || 0) &&
+        cacheOk &&
         dadosSnap?.frameworkMaturidade === FRAMEWORK_SATF_TI_V3 &&
         sec3.ok &&
         taxonomia.ok &&
@@ -851,16 +918,30 @@ export async function executarGeracaoBookSatf(req, res, deps) {
   });
   if (!projeto) return res.status(404).json({ error: 'Projeto não encontrado' });
 
+  if (exigeUnidade && !unidadeGeral) {
+    unidadeGeral = await garantirUnidadeGeralEmpresa(projeto.empresaId);
+  }
+
   const idsAval = await idsAvaliacoesDaVersao(projetoId, projetoVersao.id);
-  const avaliacoesFiltradas = projeto.avaliacoes.filter(
-    (av) =>
-      idsAval.has(Number(av.id)) &&
-      usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax)
-  );
+  const avaliacoesFiltradas = exigeUnidade
+    ? filtrarAvaliacoesRelatorioProjeto(projeto.avaliacoes, {
+        idsVersao: idsAval,
+        filtroNivelMax,
+        filtroUnidadeId,
+        unidadeGeralId: unidadeGeral?.id
+      })
+    : projeto.avaliacoes.filter(
+        (av) =>
+          idsAval.has(Number(av.id)) &&
+          usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax)
+      );
   if (!avaliacoesFiltradas.length) {
     return res.status(400).json({
-      error: 'Não há avaliações finalizadas para gerar o book SATF',
-      projetoVersao
+      error: exigeUnidade
+        ? 'Não há avaliações finalizadas de avaliadores desta unidade para gerar o book SATF'
+        : 'Não há avaliações finalizadas para gerar o book SATF',
+      projetoVersao,
+      filtroEmpresaUnidade: unidadeMeta
     });
   }
 
@@ -914,6 +995,24 @@ export async function executarGeracaoBookSatf(req, res, deps) {
   const ordenados = [...consolidado.scoresPorArea].sort((a, b) => b.score - a.score);
   const top5 = ordenados.slice(0, 5);
   const bottom5 = ordenados.slice(-5).reverse();
+  const planoAcaoUnidade = exigeUnidade ? gerarPlanoAcaoPorDimensao(consolidado.scoresPorArea) : null;
+  const secaoDashboardUnidade =
+    exigeUnidade && unidadeMeta
+      ? montarSecaoDashboardUnidadeMarkdown({
+          unidadeMeta,
+          frameworkMaturidade: FRAMEWORK_SATF_TI_V3,
+          scoreGeral,
+          scoreGeralDeclarado,
+          certificacaoSatf,
+          scoresPorArea: dimensoesDiagnostico,
+          avaliacoesFiltradas,
+          planoAcao: planoAcaoUnidade,
+          filtroNivelMax
+        })
+      : null;
+  const instrucoesUnidadeExtra = exigeUnidade
+    ? instrucoesSistemaBookUnidade({ unidadeMeta, frameworkMaturidade: FRAMEWORK_SATF_TI_V3 })
+    : '';
   const setor = projeto.vertical || projeto.empresa.setor || 'Tecnologia';
   const porte = projeto.empresa.porte || 'Não informado';
   const blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
@@ -960,7 +1059,10 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     blocoEvolucao,
     metodologiaScore,
     top5,
-    bottom5
+    bottom5,
+    exigeUnidade,
+    unidadeMeta,
+    planoAcao: planoAcaoUnidade
   });
 
   const dadosBlockRapido = `${dadosBlock}\n\n${blocoDadosExtrasBookRapidoSatf({
@@ -985,7 +1087,10 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     inventarioDocumentos,
     mediaSetor,
     ordemNomes,
-    modoRapido
+    modoRapido,
+    exigeUnidade,
+    unidadeMeta,
+    planoAcao: planoAcaoUnidade
   });
 
   await loadPersistedAIConfig();
@@ -1004,7 +1109,8 @@ export async function executarGeracaoBookSatf(req, res, deps) {
       inventarioDocumentos,
       relatorioJobId,
       bookClienteDesconectou: () => bookClienteDesconectou,
-      atualizarProgressoJobBook
+      atualizarProgressoJobBook,
+      instrucoesUnidadeExtra
     });
 
   const validacao = relatorioBookSecao3Completo(markdown, TOTAL_DIMENSOES_SATF);
@@ -1034,12 +1140,22 @@ export async function executarGeracaoBookSatf(req, res, deps) {
 
   const comIndice = adicionarIndiceAoBookMarkdown(markdownFinal);
   const comConfidencial = `${capaConfidencialBookSatfMarkdown(projeto.empresa.nome, projeto.nome)}${comIndice}`;
-  const relatorioFinal = prependCapaNivelAvaliadoresAoRelatorio(comConfidencial, {
+  const comUnidade = exigeUnidade
+    ? prependCapaUnidadeAoRelatorio(comConfidencial, unidadeMeta)
+    : comConfidencial;
+  let relatorioComCapas = prependCapaNivelAvaliadoresAoRelatorio(comUnidade, {
     filtroMax: filtroNivelMax,
     avaliacoesFiltradas,
     empresaNome: projeto.empresa.nome,
     projetoNome: projeto.nome
   });
+  if (exigeUnidade && secaoDashboardUnidade) {
+    relatorioComCapas = prependSecaoDashboardUnidadeAoRelatorio(
+      relatorioComCapas,
+      secaoDashboardUnidade
+    );
+  }
+  const relatorioFinal = relatorioComCapas;
 
   const tempoTotal = Date.now() - startTime;
   const logoMeta = await resolverLogoEmpresa(projeto.empresa);
@@ -1064,9 +1180,21 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     totalDimensoesFramework: TOTAL_DIMENSOES_SATF,
     totalAvaliadores: avaliacoesFiltradas.length,
     filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+    ...(exigeUnidade
+      ? {
+          ...metadadosUnidadeDadosUsados(unidadeMeta, filtroUnidadeId),
+          planoAcaoUnidade: planoAcaoUnidade
+        }
+      : {}),
     projetoVersao,
     comparativoVersoes,
-    modoGeracao: modoRapido ? 'rapido' : 'completo_satf',
+    modoGeracao: exigeUnidade
+      ? modoRapido
+        ? 'book_unidade_satf_rapido'
+        : 'book_unidade_satf'
+      : modoRapido
+        ? 'rapido'
+        : 'completo_satf',
     temDesejosIa,
     totalAvaliadoresComDesejosIa: temDesejosIa
       ? avaliacoesFiltradas.filter((av) =>
@@ -1076,14 +1204,19 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined
   };
 
+  const tituloUnidade = unidadeMeta ? ` — ${unidadeMeta.nome}` : '';
   let salvo = null;
   try {
     salvo = await salvarRelatorioIA({
       projetoId,
       tipo: tipoRelatorio,
-      titulo: modoRapido
-        ? `Book SATF TI (rápido) — ${projeto.empresa.nome}`
-        : `Book SATF TI v3 — ${projeto.empresa.nome}`,
+      titulo: exigeUnidade
+        ? modoRapido
+          ? `Book SATF por unidade (rápido)${tituloUnidade} — ${projeto.empresa.nome}`
+          : `Book SATF por unidade${tituloUnidade} — ${projeto.empresa.nome}`
+        : modoRapido
+          ? `Book SATF TI (rápido) — ${projeto.empresa.nome}`
+          : `Book SATF TI v3 — ${projeto.empresa.nome}`,
       conteudoMd: relatorioFinal,
       provider: providerUsado,
       modelo: modelUsado,
@@ -1124,10 +1257,10 @@ export async function executarGeracaoBookSatf(req, res, deps) {
     validacaoTaxonomia,
     avisoTaxonomia: validacaoTaxonomia.ok
       ? null
-      : `Book gerado com ${validacaoTaxonomia.total} possível(is) referência(s) a outra taxonomia — regenere com reuse=false antes de entregar.`,
+      : `Book gerado com ${validacaoTaxonomia.total} possível(is) referência(s) a outra taxonomia — regenere uma nova versão antes de entregar.`,
     validacaoSecoes,
     avisoSecoesDuplicadas: validacaoSecoes.ok
       ? null
-      : `Seções ${validacaoSecoes.duplicadas.map((d) => d.secao).join(', ')} aparecem duplicadas no documento — regenere com reuse=false.`
+      : `Seções ${validacaoSecoes.duplicadas.map((d) => d.secao).join(', ')} aparecem duplicadas no documento — regenere uma nova versão.`,
   });
 }

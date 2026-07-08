@@ -21,7 +21,7 @@ import {
   Loader2,
   ExternalLink
 } from 'lucide-react';
-import { usuariosApi, empresasApi, projetosApi, produtosApi, convitesApi, areasApi } from '../services/api';
+import { usuariosApi, empresasApi, projetosApi, produtosApi, convitesApi, areasApi, empresaUnidadesApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import Modal from '../components/Modal';
 import { OPCOES_PERFIL_USUARIO } from '../constants/perfilUsuario.js';
@@ -64,10 +64,12 @@ export default function Usuarios() {
     cargo: '',
     telefone: '',
     empresaId: '',
+    empresaUnidadeId: '',
     role: 'avaliador',
     ativo: true,
     nivelPrioridadeMapeamentoMaturidade: 1
   });
+  const [unidadesEmpresa, setUnidadesEmpresa] = useState([]);
 
   const [formSenha, setFormSenha] = useState({
     novaSenha: '',
@@ -93,6 +95,18 @@ export default function Usuarios() {
   useEffect(() => {
     carregarDados();
   }, []);
+
+  useEffect(() => {
+    const eid = parseInt(form.empresaId, 10);
+    if (!Number.isFinite(eid) || eid <= 0) {
+      setUnidadesEmpresa([]);
+      return;
+    }
+    empresaUnidadesApi
+      .listar(eid)
+      .then(setUnidadesEmpresa)
+      .catch(() => setUnidadesEmpresa([]));
+  }, [form.empresaId, modalAberto]);
 
   useEffect(() => {
     const link = resultadoConvite?.email?.linkAvaliacao;
@@ -156,6 +170,7 @@ export default function Usuarios() {
       cargo: '',
       telefone: '',
       empresaId: empresas[0]?.id || '',
+      empresaUnidadeId: '',
       role: 'avaliador',
       ativo: true,
       nivelPrioridadeMapeamentoMaturidade: 1
@@ -173,6 +188,7 @@ export default function Usuarios() {
       cargo: usuario.cargo || '',
       telefone: usuario.telefone || '',
       empresaId: usuario.empresaId,
+      empresaUnidadeId: usuario.empresaUnidadeId ? String(usuario.empresaUnidadeId) : '',
       role: usuario.role || 'avaliador',
       ativo: usuario.ativo !== false,
       nivelPrioridadeMapeamentoMaturidade:
@@ -198,8 +214,17 @@ export default function Usuarios() {
     setSalvando(true);
 
     try {
+      const normalizarPayload = (raw) => {
+        const p = { ...raw };
+        if (p.empresaUnidadeId === '' || p.empresaUnidadeId == null) {
+          p.empresaUnidadeId = null;
+        } else {
+          p.empresaUnidadeId = parseInt(p.empresaUnidadeId, 10);
+        }
+        return p;
+      };
       if (usuarioEditando) {
-        const dadosAtualizar = { ...form };
+        const dadosAtualizar = normalizarPayload({ ...form });
         delete dadosAtualizar.senha;
         const atualizado = await usuariosApi.atualizar(usuarioEditando.id, dadosAtualizar);
         if (atualizado?.avisoCompatibilidade) {
@@ -218,7 +243,7 @@ export default function Usuarios() {
           setSalvando(false);
           return;
         }
-        const payload = { ...form };
+        const payload = normalizarPayload({ ...form });
         if (!payload.senha) delete payload.senha;
         const criado = await usuariosApi.criar(payload);
         if (criado?.avisoCompatibilidade) {
@@ -619,9 +644,14 @@ export default function Usuarios() {
                     <td className="py-4">
                       <div className="flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-700 dark:text-gray-300">
-                          {usuario.empresa?.nome || '-'}
-                        </span>
+                        <div>
+                          <span className="text-gray-700 dark:text-gray-300">
+                            {usuario.empresa?.nome || '-'}
+                          </span>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {usuario.empresaUnidade?.nome || 'Geral'}
+                          </p>
+                        </div>
                       </div>
                     </td>
                     <td className="py-4">
@@ -825,7 +855,9 @@ export default function Usuarios() {
               </label>
               <select
                 value={form.empresaId}
-                onChange={(e) => setForm({ ...form, empresaId: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, empresaId: e.target.value, empresaUnidadeId: '' })
+                }
                 required
                 className="input"
               >
@@ -834,6 +866,30 @@ export default function Usuarios() {
                   <option key={e.id} value={e.id}>{e.nome}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Unidade organizacional
+              </label>
+              <select
+                value={form.empresaUnidadeId || ''}
+                onChange={(e) => setForm({ ...form, empresaUnidadeId: e.target.value })}
+                className="input"
+                disabled={!form.empresaId}
+              >
+                <option value="">Geral (padrão)</option>
+                {unidadesEmpresa
+                  .filter((u) => u.ativo !== false)
+                  .map((u) => (
+                    <option key={u.id} value={String(u.id)}>
+                      {u.nome}
+                    </option>
+                  ))}
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Para relatórios IA por área. Vazio = unidade Geral.
+              </p>
             </div>
 
             <div>

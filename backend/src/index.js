@@ -6,7 +6,9 @@ import {
   prisma,
   initPrismaUsuarioColumnProbe,
   isUsuarioNivelPrioridadeColumnPresentInDb,
+  isUsuarioEmpresaUnidadeColumnPresentInDb,
   refreshUsuarioNivelPrioridadeColumnFlag,
+  refreshUsuarioEmpresaUnidadeColumnFlag,
   usuarioCreateCompat
 } from './lib/prisma.js';
 import authRoutes from './routes/auth.js';
@@ -20,6 +22,7 @@ import relatoriosIAJobsRoutes from './routes/relatorios-ia-jobs.js';
 import empresaLogoRoutes from './routes/empresa-logo.js';
 import regulatorioRoutes from './routes/regulatorio.js';
 import iniciativasRoutes from './routes/iniciativas.js';
+import empresaUnidadesRoutes from './routes/empresa-unidades.js';
 import engenhariaValorRoutes from './routes/engenhariaValor.js';
 import projetoDimensoesRoutes from './routes/projetoDimensoes.js';
 import projetoCertificacaoRoutes from './routes/projetoCertificacao.js';
@@ -75,6 +78,7 @@ import {
 } from './services/produto-cadastro-workflow.js';
 import { gerarApoioEspecificacaoDaIdealizacao } from './services/idealizacaoApoioEspecificacaoIA.js';
 import { adicionarIndiceAoBookMarkdown } from './utils/bookMarkdownIndice.js';
+import { deveReutilizarRelatorioIASalvo } from './utils/reutilizarRelatorioIA.js';
 import { percentualReferenciaRoi, projecaoFinanceiraRelatorio } from './utils/roiPorFaturamento.js';
 import {
   blocoParametrosFinanceirosMarkdown,
@@ -178,6 +182,19 @@ import {
 import { enriquecerScoresDashboardSatf } from './utils/projetoDimensaoCertificacao.js';
 import { executarGeracaoBookSatf } from './utils/satfBookIA.js';
 import { executarGeracaoRelatorioExecutivoSatf } from './utils/satfRelatorioExecutivoIA.js';
+import { executarGeracaoRelatorioExecutivoUnidadeBlueprint } from './utils/relatorioExecutivoUnidadeBlueprint.js';
+import { executarGeracaoBookUnidadeBlueprint } from './utils/bookUnidadeOrganizacionalIA.js';
+import { montarComparativoUnidadesOrganizacionais } from './utils/comparativoUnidadesOrganizacionais.js';
+import { recuperarJobsRelatorioIAOrfaos } from './utils/relatorioIAJobStale.js';
+import {
+  ensureUnidadeEmpresaSchema,
+  garantirUnidadeGeralEmpresa,
+  garantirUnidadeGeralTodasEmpresas,
+  validarUnidadeParaEmpresa,
+  mapUnidadeEmpresaResponse,
+  parseFiltroEmpresaUnidadeId,
+  usuarioIncluidoNoFiltroUnidadeEmpresa
+} from './utils/empresaUnidade.js';
 import { FRAMEWORK_SATF_TI_V3 } from './constants/frameworkMaturidadePolicy.js';
 import { NOMES_NIVEL_BLUEPRINT, faixaNivelPorScore } from './utils/nivelMaturidadeRubrica.js';
 import { blocoGuiaProgressaoDimensao } from './utils/guiasProgressaoFramework.js';
@@ -1450,6 +1467,7 @@ app.use('/api/exportar', exportacaoRoutes);
 
 // Logo da empresa (GET/POST/DELETE /api/empresas/:id/logo)
 app.use('/api/empresas', empresaLogoRoutes);
+app.use('/api/empresas/:empresaId/unidades', empresaUnidadesRoutes);
 
 // Módulo regulatório — crosswalk dimensões × ISO 42001 / PL 2338 / LGPD (Semana 1)
 app.use('/api/regulatorio', regulatorioRoutes);
@@ -1494,11 +1512,17 @@ app.get('/api/empresas/:id', async (req, res) => {
     if (isNaN(id) || id <= 0) {
       return res.status(400).json({ error: 'ID inválido' });
     }
+
+    await garantirUnidadeGeralEmpresa(id);
     
     const empresa = await prisma.empresa.findUnique({
       where: { id },
       include: {
-        usuarios: true,
+        usuarios: { include: { empresaUnidade: true } },
+        unidadesEmpresa: {
+          orderBy: [{ ehPadrao: 'desc' }, { ordem: 'asc' }, { nome: 'asc' }],
+          include: { _count: { select: { usuarios: true } } }
+        },
         projetos: {
           include: {
             _count: { select: { avaliacoes: true } }
@@ -1510,6 +1534,10 @@ app.get('/api/empresas/:id', async (req, res) => {
       return res.status(404).json({ error: 'Empresa não encontrada' });
     }
     const empresaComLogo = await enriquecerEmpresaComLogo(empresa);
+    empresaComLogo.unidadesEmpresa = (empresa.unidadesEmpresa || []).map((u) => ({
+      ...mapUnidadeEmpresaResponse(u),
+      _count: u._count
+    }));
     empresaComLogo.projetos = await enriquecerProjetosComFramework(prisma, empresaComLogo.projetos || []);
     res.json(empresaComLogo);
   } catch (error) {
@@ -1522,6 +1550,7 @@ app.post('/api/empresas', validate(empresaSchemas.criar), async (req, res) => {
     const empresa = await prisma.empresa.create({
       data: req.body
     });
+    await garantirUnidadeGeralEmpresa(empresa.id);
     res.status(201).json(empresa);
   } catch (error) {
     if (error.code === 'P2002') {
@@ -1580,6 +1609,9 @@ app.delete('/api/empresas/:id', async (req, res) => {
 const AVISO_NIVEL_PRIORIDADE_SEM_COLUNA_NO_BD =
   'O nível de prioridade (1–3) não foi gravado: a coluna "nivelPrioridadeMapeamentoMaturidade" ainda não existe na tabela Usuario no PostgreSQL. O administrador do banco deve executar backend/scripts/fix-usuario-nivel-prioridade.sql (como superusuário) ou aplicar as migrações Prisma e reiniciar o backend.';
 
+const AVISO_EMPRESA_UNIDADE_SEM_COLUNA_NO_BD =
+  'A unidade organizacional do usuário não foi gravada: a coluna "empresaUnidadeId" ainda não existe na tabela Usuario. Execute backend/scripts/fix-usuario-empresa-unidade-id.sql como owner do banco e reinicie o backend.';
+
 app.get('/api/usuarios', async (req, res) => {
   try {
     const { empresaId } = req.query;
@@ -1595,7 +1627,7 @@ app.get('/api/usuarios', async (req, res) => {
     
     const usuarios = await prisma.usuario.findMany({
       where,
-      include: { empresa: true },
+      include: { empresa: true, empresaUnidade: true },
       orderBy: { createdAt: 'desc' }
     });
     const usuariosSemSenha = usuarios.map(({ senha, ...u }) => u);
@@ -1614,7 +1646,7 @@ app.get('/api/usuarios/:id', async (req, res) => {
     
     const usuario = await prisma.usuario.findUnique({
       where: { id },
-      include: { empresa: true, avaliacoes: true }
+      include: { empresa: true, empresaUnidade: true, avaliacoes: true }
     });
     if (!usuario) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -1629,7 +1661,8 @@ app.get('/api/usuarios/:id', async (req, res) => {
 app.post('/api/usuarios', validate(usuarioSchemas.criar), async (req, res) => {
   try {
     await refreshUsuarioNivelPrioridadeColumnFlag();
-    const { nome, email, senha, cargo, telefone, empresaId, role, ativo, nivelPrioridadeMapeamentoMaturidade } =
+    await refreshUsuarioEmpresaUnidadeColumnFlag();
+    const { nome, email, senha, cargo, telefone, empresaId, role, ativo, nivelPrioridadeMapeamentoMaturidade, empresaUnidadeId } =
       req.body;
 
     const usuarioExistente = await prisma.usuario.findUnique({ where: { email } });
@@ -1640,6 +1673,11 @@ app.post('/api/usuarios', validate(usuarioSchemas.criar), async (req, res) => {
     const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
     if (!empresa) {
       return res.status(400).json({ error: 'Empresa não encontrada' });
+    }
+
+    const valUnidade = await validarUnidadeParaEmpresa(empresaUnidadeId, empresaId);
+    if (!valUnidade.ok) {
+      return res.status(400).json({ error: valUnidade.error });
     }
     
     let senhaCriptografada = null;
@@ -1655,11 +1693,12 @@ app.post('/api/usuarios', validate(usuarioSchemas.criar), async (req, res) => {
         cargo,
         telefone,
         empresaId,
+        empresaUnidadeId: valUnidade.unidade?.id ?? null,
         role: role || 'avaliador',
         ativo: ativo !== false,
         nivelPrioridadeMapeamentoMaturidade: nivelPrioridadeMapeamentoMaturidade ?? 1
       },
-      include: { empresa: true }
+      include: { empresa: true, empresaUnidade: true }
     });
 
     const { senha: _, ...usuarioSemSenha } = usuario;
@@ -1670,6 +1709,12 @@ app.post('/api/usuarios', validate(usuarioSchemas.criar), async (req, res) => {
       Number(nivelPrioridadeMapeamentoMaturidade) !== 1
     ) {
       avisoCompatibilidade = AVISO_NIVEL_PRIORIDADE_SEM_COLUNA_NO_BD;
+    }
+    if (!isUsuarioEmpresaUnidadeColumnPresentInDb() && empresaUnidadeId) {
+      const avisoUnidade = AVISO_EMPRESA_UNIDADE_SEM_COLUNA_NO_BD;
+      avisoCompatibilidade = avisoCompatibilidade
+        ? `${avisoCompatibilidade} ${avisoUnidade}`
+        : avisoUnidade;
     }
     res
       .status(201)
@@ -1685,6 +1730,7 @@ app.post('/api/usuarios', validate(usuarioSchemas.criar), async (req, res) => {
 app.put('/api/usuarios/:id', validate(usuarioSchemas.atualizar), async (req, res) => {
   try {
     await refreshUsuarioNivelPrioridadeColumnFlag();
+    await refreshUsuarioEmpresaUnidadeColumnFlag();
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {
       return res.status(400).json({ error: 'ID inválido' });
@@ -1700,6 +1746,17 @@ app.put('/api/usuarios/:id', validate(usuarioSchemas.atualizar), async (req, res
       avisoCompatibilidade = AVISO_NIVEL_PRIORIDADE_SEM_COLUNA_NO_BD;
       delete dadosAtualizar.nivelPrioridadeMapeamentoMaturidade;
     }
+    if (
+      !isUsuarioEmpresaUnidadeColumnPresentInDb() &&
+      dadosAtualizar.empresaUnidadeId !== undefined &&
+      dadosAtualizar.empresaUnidadeId != null
+    ) {
+      const avisoUnidade = AVISO_EMPRESA_UNIDADE_SEM_COLUNA_NO_BD;
+      avisoCompatibilidade = avisoCompatibilidade
+        ? `${avisoCompatibilidade} ${avisoUnidade}`
+        : avisoUnidade;
+      delete dadosAtualizar.empresaUnidadeId;
+    }
 
     if (dadosAtualizar.empresaId) {
       const empresa = await prisma.empresa.findUnique({ where: { id: dadosAtualizar.empresaId } });
@@ -1707,11 +1764,26 @@ app.put('/api/usuarios/:id', validate(usuarioSchemas.atualizar), async (req, res
         return res.status(400).json({ error: 'Empresa não encontrada' });
       }
     }
+
+    const empresaIdEfetivo =
+      dadosAtualizar.empresaId ??
+      (await prisma.usuario.findUnique({ where: { id }, select: { empresaId: true } }))?.empresaId;
+
+    if (dadosAtualizar.empresaUnidadeId !== undefined && empresaIdEfetivo) {
+      const valUnidade = await validarUnidadeParaEmpresa(
+        dadosAtualizar.empresaUnidadeId,
+        empresaIdEfetivo
+      );
+      if (!valUnidade.ok) {
+        return res.status(400).json({ error: valUnidade.error });
+      }
+      dadosAtualizar.empresaUnidadeId = valUnidade.unidade?.id ?? null;
+    }
     
     const usuario = await prisma.usuario.update({
       where: { id },
       data: dadosAtualizar,
-      include: { empresa: true }
+      include: { empresa: true, empresaUnidade: true }
     });
     
     const { senha: _, ...usuarioSemSenha } = usuario;
@@ -4188,6 +4260,7 @@ app.get('/api/relatorios/avaliacao/:id', async (req, res) => {
 app.get('/api/dashboard/projeto/:id', async (req, res) => {
   try {
     const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
+    const filtroUnidadeId = parseFiltroEmpresaUnidadeId(req);
     const projeto = await prisma.projeto.findUnique({
       where: { id: parseInt(req.params.id) },
       include: {
@@ -4195,7 +4268,7 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
         avaliacoes: {
           where: { status: 'finalizada' },
           include: {
-            usuario: true,
+            usuario: { include: { empresaUnidade: true } },
             respostas: {
               include: {
                 pergunta: { include: { area: true } }
@@ -4209,24 +4282,57 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
     if (!projeto) {
       return res.status(404).json({ error: 'Projeto não encontrado' });
     }
+
+    const unidadeGeral = await garantirUnidadeGeralEmpresa(projeto.empresaId);
+    let filtroUnidadeAplicada = null;
+    if (filtroUnidadeId != null) {
+      const unidadeFiltro = await prisma.unidadeEmpresa.findFirst({
+        where: { id: filtroUnidadeId, empresaId: projeto.empresaId, ativo: true }
+      });
+      if (!unidadeFiltro) {
+        return res.status(400).json({ error: 'Unidade organizacional não encontrada nesta empresa' });
+      }
+      filtroUnidadeAplicada = mapUnidadeEmpresaResponse(unidadeFiltro);
+    }
+
+    const unidadesEmpresaRows = await prisma.unidadeEmpresa.findMany({
+      where: { empresaId: projeto.empresaId, ativo: true },
+      orderBy: [{ ehPadrao: 'desc' }, { ordem: 'asc' }, { nome: 'asc' }]
+    });
+    const unidadesEmpresa = unidadesEmpresaRows.map(mapUnidadeEmpresaResponse);
+    const nomesUnidadePorId = new Map(unidadesEmpresa.map((u) => [u.id, u.nome]));
     
     const areas = ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projeto.id));
     const todasAreaIds = areas.map((a) => a.id);
     const projetoVersao = await obterVersaoSelecionadaProjeto(req, projeto.id);
     const idsAvaliacaoVersao = await idsAvaliacoesDaVersao(projeto.id, projetoVersao.id);
 
-    const avaliacoesFinalizadas = projeto.avaliacoes.filter((av) =>
-      idsAvaliacaoVersao.has(Number(av.id)) &&
-      usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax)
+    const avaliacoesNaVersao = projeto.avaliacoes.filter((av) =>
+      idsAvaliacaoVersao.has(Number(av.id))
+    );
+    const totalAvaliadoresVersao = avaliacoesNaVersao.length;
+
+    const avaliacoesFinalizadas = avaliacoesNaVersao.filter(
+      (av) =>
+        usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax) &&
+        usuarioIncluidoNoFiltroUnidadeEmpresa(av.usuario, filtroUnidadeId, unidadeGeral?.id)
     );
     const totalAvaliadores = avaliacoesFinalizadas.length;
+
+    const metaFiltrosVazio = {
+      filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+      filtroEmpresaUnidadeIdAplicado: filtroUnidadeId,
+      filtroEmpresaUnidade: filtroUnidadeAplicada,
+      unidadesEmpresa,
+      totalAvaliadoresVersao
+    };
 
     if (totalAvaliadores === 0) {
       return res.json({
         projeto,
         projetoVersao,
         empresa: projeto.empresa,
-        filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+        ...metaFiltrosVazio,
         totalAvaliadores: 0,
         scoreGeral: 0,
         nivelGeral: 'Não avaliado',
@@ -4237,7 +4343,10 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
         resumoComentarios: { totalComentarios: 0, areas: [] },
         comparativoAvaliacoes: {
           disponivel: false,
-          mensagem: 'É necessário ter ao menos duas avaliações finalizadas no projeto.'
+          mensagem:
+            filtroUnidadeId != null
+              ? 'Nenhuma avaliação finalizada nesta versão com avaliadores da unidade selecionada.'
+              : 'É necessário ter ao menos uma avaliação finalizada no projeto.'
         },
         scoresPorArea: [],
         dimensoesForaEscopo: [],
@@ -4386,6 +4495,10 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
       projetoVersao,
       empresa: projeto.empresa,
       filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+      filtroEmpresaUnidadeIdAplicado: filtroUnidadeId,
+      filtroEmpresaUnidade: filtroUnidadeAplicada,
+      unidadesEmpresa,
+      totalAvaliadoresVersao,
       totalAvaliadores,
       scoreGeral: parseFloat(scoreGeral.toFixed(2)),
       scoreGeralDeclarado:
@@ -4415,12 +4528,20 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
       resumoRegulatorio: resumoRegulatorioProjeto(scoresPorArea),
       resumoComentarios: gerarResumoComentariosAvaliacoes(avaliacoesFinalizadas),
       comparativoAvaliacoes: gerarComparativoAvaliacoesProjeto(avaliacoesFinalizadas, areas),
-      avaliadores: avaliacoesFinalizadas.map((a) => ({
+      avaliadores: avaliacoesFinalizadas.map((a) => {
+        const unidadeIdEfetiva =
+          a.usuario.empresaUnidadeId ?? unidadeGeral?.id ?? null;
+        return {
         id: a.usuario.id,
         nome: a.usuario.nome,
         email: a.usuario.email,
         nivelPrioridadeMapeamentoMaturidade:
           nivelPrioridadeMapeamentoMaturidadeDoUsuario(a.usuario),
+        empresaUnidadeId: unidadeIdEfetiva,
+        empresaUnidadeNome:
+          a.usuario.empresaUnidade?.nome ||
+          nomesUnidadePorId.get(unidadeIdEfetiva) ||
+          (unidadeIdEfetiva === unidadeGeral?.id ? unidadeGeral?.nome : null),
         avaliacaoId: a.id,
         dataAvaliacao: a.updatedAt,
         areasSelecionadas: a.areasSelecionadas ? JSON.parse(a.areasSelecionadas) : areas.map((ar) => ar.id),
@@ -4431,7 +4552,8 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
           pontuacao: r.pontuacao,
           observacoes: r.observacoes
         }))
-      })),
+      };
+      }),
       areas,
       ...logoMetaProjeto
     };
@@ -4458,6 +4580,28 @@ app.get('/api/projetos/:id/executive-dashboard', async (req, res) => {
     res.json(data);
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
+// Comparativo entre unidades organizacionais (Fase 4)
+app.get('/api/dashboard/projeto/:id/comparativo-unidades', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
+    const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
+    const resultado = await montarComparativoUnidadesOrganizacionais({
+      projetoId,
+      projetoVersao,
+      filtroNivelMax,
+      idsAvaliacoesDaVersao
+    });
+    if (!resultado.ok) {
+      return res.status(resultado.status || 500).json({ error: resultado.error });
+    }
+    res.json(resultado);
+  } catch (error) {
+    console.error('Erro comparativo unidades:', error);
+    res.status(500).json({ error: 'Erro ao montar comparativo entre unidades', details: error.message });
   }
 });
 
@@ -5977,7 +6121,7 @@ app.get('/api/dashboard/produtos-projeto/:id', async (req, res) => {
 
 // ==================== RELATÓRIO EXECUTIVO IA (MIT) ====================
 // Gera relatório executivo usando IA com prompt validado por professor do MIT
-// Por padrão, retorna a última versão SALVA se existir (?reuse=false força nova geração)
+// Por padrão, sempre gera uma nova versão (?reuse=true permite reaproveitar versão salva)
 app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
   try {
     const projetoId = parseInt(req.params.id);
@@ -5989,7 +6133,7 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia', async (req, res) => {
       });
     }
 
-    const reuse = req.query.reuse !== 'false'; // default: true
+    const reuse = deveReutilizarRelatorioIASalvo(req);
     const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
     const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
     
@@ -6338,6 +6482,56 @@ Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a
   }
 });
 
+// ==================== RELATÓRIOS IA POR UNIDADE ORGANIZACIONAL (Fase 3) ====================
+app.post('/api/dashboard/projeto/:id/relatorio-ia-unidade', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    const { frameworkMaturidade: fw } = await carregarFrameworkProjeto(prisma, projetoId);
+    if (fw === FRAMEWORK_SATF_TI_V3) {
+      return executarGeracaoRelatorioExecutivoSatf(
+        req,
+        res,
+        { obterVersaoSelecionadaProjeto, idsAvaliacoesDaVersao },
+        { tipoRelatorio: 'executivo_unidade', exigeUnidade: true }
+      );
+    }
+    return executarGeracaoRelatorioExecutivoUnidadeBlueprint(req, res, {
+      obterVersaoSelecionadaProjeto,
+      idsAvaliacoesDaVersao
+    });
+  } catch (error) {
+    console.error('Erro relatório IA por unidade:', error);
+    res.status(500).json({ error: 'Erro ao gerar relatório por unidade', details: error.message });
+  }
+});
+
+app.post('/api/dashboard/projeto/:id/relatorio-ia-book-unidade', async (req, res) => {
+  try {
+    const projetoId = parseInt(req.params.id, 10);
+    const { frameworkMaturidade: fw } = await carregarFrameworkProjeto(prisma, projetoId);
+    if (fw === FRAMEWORK_SATF_TI_V3) {
+      return executarGeracaoBookSatf(
+        req,
+        res,
+        {
+          atualizarProgressoJobBook,
+          obterVersaoSelecionadaProjeto,
+          idsAvaliacoesDaVersao
+        },
+        { exigeUnidade: true }
+      );
+    }
+    return executarGeracaoBookUnidadeBlueprint(req, res, {
+      atualizarProgressoJobBook,
+      obterVersaoSelecionadaProjeto,
+      idsAvaliacoesDaVersao
+    });
+  } catch (error) {
+    console.error('Erro book IA por unidade:', error);
+    res.status(500).json({ error: 'Erro ao gerar book por unidade', details: error.message });
+  }
+});
+
 // ==================== RELATÓRIO COMPLETO IA - BOOK DE TRABALHO (MIT) ====================
 // Gera relatório COMPLETO de maturidade (book de trabalho aprofundado) usando IA
 // Usa estratégia MULTI-CHUNK: várias chamadas à IA, uma por bloco de seções,
@@ -6354,7 +6548,7 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
       });
     }
 
-    const reuse = req.query.reuse !== 'false'; // default: true
+    const reuse = deveReutilizarRelatorioIASalvo(req);
     const modoRapido = req.query.mode === 'rapido' || req.query.modo === 'rapido';
     const tipoRelatorio = modoRapido ? 'completo_rapido' : 'completo';
     const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
@@ -9238,6 +9432,7 @@ async function ensureIniciativaSchema() {
         "scoreAlvo" DOUBLE PRECISION,
         "roiEstimado" DOUBLE PRECISION,
         "origemRelatorioId" INTEGER,
+        "empresaUnidadeId" INTEGER,
         "criadoPorId" INTEGER,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -9248,6 +9443,12 @@ async function ensureIniciativaSchema() {
     );
     await prisma.$executeRawUnsafe(
       'CREATE INDEX IF NOT EXISTS "Iniciativa_projetoVersaoId_idx" ON "Iniciativa" ("projetoVersaoId")'
+    );
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "Iniciativa" ADD COLUMN IF NOT EXISTS "empresaUnidadeId" INTEGER'
+    );
+    await prisma.$executeRawUnsafe(
+      'CREATE INDEX IF NOT EXISTS "Iniciativa_projetoId_empresaUnidadeId_idx" ON "Iniciativa" ("projetoId", "empresaUnidadeId")'
     );
     console.log('[schema] Iniciativa verificada.');
   } catch (e) {
@@ -9263,6 +9464,8 @@ initPrismaUsuarioColumnProbe()
   .then(() => probeEmpresaLogoPathColumn(prisma))
   .then(() => ensureProjetoVersaoSchema())
   .then(() => ensureIniciativaSchema())
+  .then(() => ensureUnidadeEmpresaSchema())
+  .then(() => garantirUnidadeGeralTodasEmpresas())
   .then(() => ensureProjetoDimensaoConfigSchema(prisma))
   .then(() => ensureProjetoContextoSchema(prisma))
   .then(() => ensureProjetoFrameworkSchema(prisma))
@@ -9280,6 +9483,9 @@ initPrismaUsuarioColumnProbe()
     }
   })
   .then(() => refreshUsuarioNivelPrioridadeColumnFlag())
+  .then(() => recuperarJobsRelatorioIAOrfaos().catch((e) => {
+    console.warn('[relatorios-ia-jobs] recuperação de jobs órfãos:', e?.message || e);
+  }))
   .finally(() => {
     app.listen(PORT, () => {
       console.log(`Servidor rodando em http://localhost:${PORT}`);

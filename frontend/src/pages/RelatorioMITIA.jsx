@@ -3,6 +3,12 @@ import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Brain, Sparkles, Download, Printer, FileText, Loader2, AlertCircle, CheckCircle2, Cpu, Zap, File, RefreshCw, History, Library, AlertTriangle } from 'lucide-react';
 import { dashboardApi, relatoriosIAApi, projetosApi } from '../services/api';
 import { mapRelatorioIASalvoToViewShape } from '../utils/relatorioIAViewModel';
+import {
+  carregarRelatorioSalvoPorId,
+  relatorioIdFromJobStatus,
+  resolverJobRelatorioIaAtivo,
+  resetEstadoGeracaoRelatorioIA
+} from '../utils/relatorioIAGeracao';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { downloadMarkdownAsDoc } from '../utils/markdownToDoc';
 import {
@@ -10,9 +16,13 @@ import {
   queryNivelMapeamentoMaturidade,
   labelFiltroNivelMapeamento,
   filtroNivelFromDadosUsados,
-  carregarRelatorioSalvoSeCompativel,
-  relatorioSalvoIdFromSearchParams
+  relatorioSalvoIdFromSearchParams,
+  filtroUnidadeFromSearchParams,
+  queryEmpresaUnidadeId,
+  labelFiltroUnidade,
+  filtroUnidadeFromDadosUsados
 } from '../utils/filtroNivelMaturidade';
+import { executivoIaTipoProjeto } from '../constants/frameworkMaturidade';
 import {
   AUTOR_RELATORIO_IA,
   LABEL_CONSULTOR_CABECALHO,
@@ -34,11 +44,18 @@ export default function RelatorioMITIA() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const filtroNivelUrl = filtroNivelMapeamentoFromSearchParams(searchParams);
+  const filtroUnidadeUrl = filtroUnidadeFromSearchParams(searchParams);
+  const tipoExecutivo = executivoIaTipoProjeto(filtroUnidadeUrl);
   const navigate = useNavigate();
   const relatorioSalvoId = relatorioSalvoIdFromSearchParams(searchParams);
   const projetoVersaoId = searchParams.get('projetoVersaoId');
-  const buildQueryComProjetoVersao = (nivel) =>
-    `${queryNivelMapeamentoMaturidade(nivel)}${projetoVersaoId ? `&projetoVersaoId=${projetoVersaoId}` : ''}`;
+  const buildQueryComProjetoVersao = (nivel) => {
+    const parts = [queryNivelMapeamentoMaturidade(nivel)];
+    if (projetoVersaoId) parts.push(`projetoVersaoId=${projetoVersaoId}`);
+    const uq = queryEmpresaUnidadeId(filtroUnidadeUrl);
+    if (uq) parts.push(uq);
+    return parts.join('&');
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
@@ -46,6 +63,11 @@ export default function RelatorioMITIA() {
     data?.dadosUsados != null
       ? filtroNivelFromDadosUsados(data.dadosUsados)
       : filtroNivelUrl;
+  const filtroUnidadeExibicao =
+    data?.dadosUsados != null
+      ? filtroUnidadeFromDadosUsados(data.dadosUsados)
+      : filtroUnidadeUrl;
+  const labelUnidadeExibicao = labelFiltroUnidade(data?.dadosUsados);
   const [progresso, setProgresso] = useState(0);
   const [mensagemProgresso, setMensagemProgresso] = useState('Iniciando análise...');
   const [jobBg, setJobBg] = useState(null);
@@ -77,12 +99,10 @@ export default function RelatorioMITIA() {
     try {
       const jobs = await dashboardApi.listarRelatoriosIaJobs({
         projetoId: parseInt(id, 10),
-        tipo: 'executivo',
+        tipo: tipoExecutivo,
         limit: 20
       });
-      return (Array.isArray(jobs) ? jobs : []).find((j) =>
-        ['queued', 'running'].includes(j.status)
-      );
+      return await resolverJobRelatorioIaAtivo(jobs, dashboardApi);
     } catch {
       return null;
     }
@@ -105,7 +125,7 @@ export default function RelatorioMITIA() {
     }
     geracaoIniciadaRef.current = false;
     gerarRelatorio();
-  }, [id, relatorioSalvoId, projetoVersaoId, filtroNivelUrl]);
+  }, [id, relatorioSalvoId, projetoVersaoId, filtroNivelUrl, filtroUnidadeUrl]);
 
   useEffect(() => {
     return () => {
@@ -139,10 +159,36 @@ export default function RelatorioMITIA() {
 
           if (status.status === 'completed') {
             backgroundRunningRef.current = false;
-            setMensagemProgresso('Geração concluída. Carregando versão salva...');
-            await gerarRelatorio(false);
+            const relatorioGeradoId = relatorioIdFromJobStatus(status);
+            if (relatorioGeradoId > 0) {
+              const mapped = await carregarRelatorioSalvoPorId(
+                relatoriosIAApi,
+                relatorioGeradoId,
+                (row) => {
+                  if (row.projetoId !== parseInt(id, 10)) {
+                    throw new Error('O relatório gerado não pertence a este projeto.');
+                  }
+                  if (row.tipo !== tipoExecutivo) {
+                    throw new Error(
+                      filtroUnidadeUrl
+                        ? 'O relatório gerado não é o executivo por unidade esperado.'
+                        : 'O relatório gerado não é o executivo esperado.'
+                    );
+                  }
+                }
+              );
+              setData(mapped);
+              setProgresso(100);
+              setMensagemProgresso('Nova versão gerada e carregada.');
+              setLoading(false);
+            } else {
+              setError(
+                'O job concluiu, mas não retornou um relatório salvo. Gere novamente para criar uma nova versão.'
+              );
+              setLoading(false);
+            }
           } else {
-            backgroundRunningRef.current = false;
+            resetEstadoGeracaoRelatorioIA({ geracaoIniciadaRef, backgroundRunningRef });
             setError(
               status.status === 'cancelled'
                 ? 'Geração cancelada.'
@@ -164,13 +210,17 @@ export default function RelatorioMITIA() {
         pollingRef.current = null;
       }
     };
-  }, [jobBg?.id, jobBg?.status]);
+  }, [jobBg?.id, jobBg?.status, id, tipoExecutivo, filtroUnidadeUrl]);
 
   async function gerarRelatorio(forceRegenerate = false) {
+    if (forceRegenerate) {
+      resetEstadoGeracaoRelatorioIA({ geracaoIniciadaRef, backgroundRunningRef });
+      setJobBg(null);
+    }
     setLoading(true);
     setError(null);
     setProgresso(5);
-    setMensagemProgresso(forceRegenerate ? 'Iniciando nova geração...' : 'Procurando versão salva...');
+    setMensagemProgresso('Iniciando nova geração...');
 
     const mensagens = forceRegenerate ? [
       { p: 10, m: 'Coletando dados do projeto...' },
@@ -180,8 +230,8 @@ export default function RelatorioMITIA() {
       { p: 80, m: 'Construindo roadmap estratégico contextualizado...' },
       { p: 92, m: 'Salvando nova versão na biblioteca...' },
     ] : [
-      { p: 30, m: 'Buscando versão mais recente...' },
-      { p: 70, m: 'Carregando relatório...' },
+      { p: 30, m: 'Verificando jobs em andamento...' },
+      { p: 70, m: 'Enfileirando nova geração...' },
     ];
 
     let idx = 0;
@@ -201,31 +251,18 @@ export default function RelatorioMITIA() {
         if (row.projetoId !== parseInt(id, 10)) {
           throw new Error('Este relatório não pertence a este projeto.');
         }
-        if (row.tipo !== 'executivo') {
-          throw new Error('Este item não é o relatório estratégico (C-Level).');
+        if (row.tipo !== tipoExecutivo) {
+          throw new Error(
+            filtroUnidadeUrl
+              ? 'Este item não é o relatório executivo por unidade.'
+              : 'Este item não é o relatório estratégico (C-Level).'
+          );
         }
         clearInterval(intervalo);
         setProgresso(100);
         setMensagemProgresso('Versão da biblioteca carregada.');
         setData(mapRelatorioIASalvoToViewShape(row));
         return;
-      }
-
-      if (!forceRegenerate) {
-        const salvo = await carregarRelatorioSalvoSeCompativel({
-          relatoriosIAApi,
-          projetoId: id,
-          tipo: 'executivo',
-          filtroNivel: filtroNivelUrl,
-          projetoVersaoId
-        });
-        if (salvo) {
-          clearInterval(intervalo);
-          setProgresso(100);
-          setMensagemProgresso('Versão salva carregada!');
-          setData(mapRelatorioIASalvoToViewShape(salvo));
-          return;
-        }
       }
 
       clearInterval(intervalo);
@@ -239,6 +276,7 @@ export default function RelatorioMITIA() {
       await iniciarGeracaoBackground(filtroNivelUrl);
     } catch (err) {
       clearInterval(intervalo);
+      resetEstadoGeracaoRelatorioIA({ geracaoIniciadaRef, backgroundRunningRef });
       setError(err.message || 'Erro ao gerar relatório com IA');
     } finally {
       if (!backgroundRunningRef.current || relatorioSalvoId) {
@@ -252,17 +290,22 @@ export default function RelatorioMITIA() {
       setIniciandoBg(true);
       setLoading(true);
       setError(null);
+      setData(null);
       setProgresso(8);
       setMensagemProgresso('Enfileirando geração em background...');
-      const res = await dashboardApi.iniciarRelatorioIABackground(id, 'executivo', {
+      const res = await dashboardApi.iniciarRelatorioIABackground(id, tipoExecutivo, {
         nivelPrioridadeMapeamentoMaturidade: filtroNivel,
-        versaoId: projetoVersaoId
+        versaoId: projetoVersaoId,
+        empresaUnidadeId: filtroUnidadeUrl
       });
       const job = res?.job;
       if (!job?.id) throw new Error('Não foi possível iniciar job em background');
       backgroundRunningRef.current = true;
       setJobBg(job);
       setMensagemProgresso(job.etapa || 'Relatório enfileirado em background...');
+    } catch (err) {
+      resetEstadoGeracaoRelatorioIA({ geracaoIniciadaRef, backgroundRunningRef });
+      throw err;
     } finally {
       setIniciandoBg(false);
     }
@@ -277,6 +320,7 @@ export default function RelatorioMITIA() {
       return;
     }
     geracaoIniciadaRef.current = false;
+    setData(null);
     if (relatorioSalvoId) {
       skipVersaoEffectRef.current = true;
       navigate(`/relatorios/${id}/mit-ia?${buildQueryComProjetoVersao(filtroNivelUrl)}`, { replace: true });
@@ -395,7 +439,7 @@ export default function RelatorioMITIA() {
           <p className="text-slate-400 text-sm mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={gerarRelatorio}
+              onClick={() => gerarRelatorio(true)}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition"
             >
               Tentar novamente
@@ -438,6 +482,9 @@ export default function RelatorioMITIA() {
                 <p className="text-sm text-slate-700 font-medium">{data?.dadosUsados?.projeto}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   {labelFiltroNivelMapeamento(filtroNivelExibicao)}
+                  {(labelUnidadeExibicao || filtroUnidadeExibicao)
+                    ? ` · Unidade: ${labelUnidadeExibicao || `#${filtroUnidadeExibicao}`}`
+                    : ''}
                   {data?.dadosUsados?.projetoVersao?.titulo
                     ? ` · ${data.dadosUsados.projetoVersao.titulo}`
                     : ''}
@@ -525,7 +572,7 @@ export default function RelatorioMITIA() {
               }
               className={`${headerBtnMini} shrink-0 border border-indigo-300 bg-white text-indigo-900 hover:bg-indigo-100`}
             >
-              Ver versão mais recente
+              Gerar nova versão
             </button>
           </div>
         </div>

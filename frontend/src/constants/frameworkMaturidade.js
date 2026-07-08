@@ -39,7 +39,18 @@ export function isSatfFramework(frameworkMaturidade) {
 }
 
 /** Tipo gravado na biblioteca IA / job de background. */
-export function bookIaTipoProjeto(frameworkMaturidade, modoRapido = false) {
+export function executivoIaTipoProjeto(empresaUnidadeId = null) {
+  return empresaUnidadeId ? 'executivo_unidade' : 'executivo';
+}
+
+/** Tipo gravado na biblioteca IA / job de background. */
+export function bookIaTipoProjeto(frameworkMaturidade, modoRapido = false, empresaUnidadeId = null) {
+  if (empresaUnidadeId) {
+    if (isSatfFramework(frameworkMaturidade)) {
+      return modoRapido ? 'book_unidade_satf_rapido' : 'book_unidade_satf';
+    }
+    return modoRapido ? 'book_unidade_rapido' : 'book_unidade';
+  }
   if (isSatfFramework(frameworkMaturidade)) {
     return modoRapido ? 'completo_satf_rapido' : 'completo_satf';
   }
@@ -51,7 +62,29 @@ export function totalDimensoesBookFramework(frameworkMaturidade) {
 }
 
 export function isTipoBookCompleto(tipo) {
-  return ['completo', 'completo_rapido', 'completo_satf', 'completo_satf_rapido'].includes(tipo);
+  return [
+    'completo',
+    'completo_rapido',
+    'completo_satf',
+    'completo_satf_rapido',
+    'book_unidade',
+    'book_unidade_rapido',
+    'book_unidade_satf',
+    'book_unidade_satf_rapido'
+  ].includes(tipo);
+}
+
+export function isTipoBookUnidade(tipo) {
+  return [
+    'book_unidade',
+    'book_unidade_rapido',
+    'book_unidade_satf',
+    'book_unidade_satf_rapido'
+  ].includes(tipo);
+}
+
+export function isTipoExecutivoIA(tipo) {
+  return tipo === 'executivo' || tipo === 'executivo_unidade';
 }
 
 /** Textos de capa, escala e rodapé do relatório técnico por framework. */

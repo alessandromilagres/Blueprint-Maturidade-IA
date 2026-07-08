@@ -7,6 +7,9 @@ import {
   ordenarAreasPorFramework
 } from '../utils/ordemDimensoesFramework.js';
 import { listarAreasDoProjeto } from '../utils/areaFrameworkCatalog.js';
+import { garantirUnidadeGeralEmpresa } from '../utils/empresaUnidade.js';
+import { filtrarAvaliacoesRelatorioProjeto } from '../utils/relatorioUnidadeIA.js';
+import { filtroNivelPrioridadeFromRaw } from '../utils/nivelPrioridadeMapeamentoMaturidade.js';
 
 const router = express.Router();
 
@@ -121,8 +124,120 @@ function sanitizarPayloadIniciativa(body = {}, { parcial = false } = {}) {
   if (body.origemRelatorioId !== undefined) {
     data.origemRelatorioId = body.origemRelatorioId ? parseId(body.origemRelatorioId) : null;
   }
+  if (body.empresaUnidadeId !== undefined) {
+    data.empresaUnidadeId =
+      body.empresaUnidadeId === null || body.empresaUnidadeId === ''
+        ? null
+        : parseId(body.empresaUnidadeId);
+    if (body.empresaUnidadeId != null && body.empresaUnidadeId !== '' && !data.empresaUnidadeId) {
+      erros.push('empresaUnidadeId inválido');
+    }
+  }
 
   return { data, erros };
+}
+
+async function validarUnidadeIniciativa(projetoId, empresaUnidadeId) {
+  if (empresaUnidadeId == null) return { ok: true };
+  const projeto = await prisma.projeto.findUnique({
+    where: { id: projetoId },
+    select: { empresaId: true }
+  });
+  if (!projeto) return { ok: false, status: 404, error: 'Projeto não encontrado' };
+  const unidade = await prisma.unidadeEmpresa.findFirst({
+    where: { id: empresaUnidadeId, empresaId: projeto.empresaId, ativo: true }
+  });
+  if (!unidade) {
+    return { ok: false, status: 400, error: 'Unidade organizacional inválida para este projeto' };
+  }
+  return { ok: true, unidade };
+}
+
+async function idsAvaliacoesDaVersaoLocal(projetoId, projetoVersaoId) {
+  if (!projetoVersaoId) return null;
+  const rows = await prisma.$queryRaw`
+    SELECT a."id"
+    FROM "Avaliacao" a
+    JOIN "ProjetoVersaoAvaliacao" pva ON pva."avaliacaoId" = a."id"
+    WHERE a."projetoId" = ${projetoId} AND pva."projetoVersaoId" = ${projetoVersaoId}
+  `;
+  return new Set(rows.map((row) => Number(row.id)));
+}
+
+async function criarIniciativasDeGaps({
+  projetoId,
+  projetoVersaoId,
+  scoreAlvoPadrao,
+  avaliacoesFiltradas,
+  relatorioId,
+  criadoPorId,
+  empresaUnidadeId = null,
+  unidadeNome = null
+}) {
+  const areas = ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projetoId));
+  const { scoresPorArea } = calcularScoresConsolidadoMaturidade(avaliacoesFiltradas, areas);
+  const gaps = (scoresPorArea || [])
+    .filter((a) => Number(a.score) > 0 && Number(a.score) < scoreAlvoPadrao)
+    .sort((a, b) => Number(a.score) - Number(b.score))
+    .slice(0, 12);
+
+  if (gaps.length === 0) {
+    return {
+      criadas: 0,
+      ignoradas: 0,
+      iniciativas: [],
+      mensagem: 'Nenhum gap abaixo do score-alvo.'
+    };
+  }
+
+  const existentes = await prisma.iniciativa.findMany({
+    where: {
+      projetoId,
+      contextoTipo: 'dimensao',
+      projetoVersaoId: projetoVersaoId ?? undefined,
+      empresaUnidadeId: empresaUnidadeId ?? null
+    },
+    select: { contextoId: true }
+  });
+  const jaImportadas = new Set(existentes.map((e) => e.contextoId));
+
+  const criadas = [];
+  let ignoradas = 0;
+  const prefixoUnidade = unidadeNome ? `[${unidadeNome}] ` : '';
+
+  for (const gap of gaps) {
+    const codigo = codigoDimensaoPorNome(gap.area);
+    const contextoId = codigo || gap.area;
+    if (jaImportadas.has(contextoId)) {
+      ignoradas++;
+      continue;
+    }
+    const gapValor = parseFloat((scoreAlvoPadrao - Number(gap.score)).toFixed(2));
+    const iniciativa = await prisma.iniciativa.create({
+      data: {
+        projetoId,
+        projetoVersaoId,
+        empresaUnidadeId,
+        contextoTipo: 'dimensao',
+        contextoId,
+        contextoRotulo: gap.area,
+        titulo: `${prefixoUnidade}Evoluir maturidade: ${gap.area}`,
+        descricao: unidadeNome
+          ? `Iniciativa da unidade ${unidadeNome}. Score atual ${Number(gap.score).toFixed(2)} → alvo ${scoreAlvoPadrao.toFixed(1)}.`
+          : `Iniciativa derivada do diagnóstico. Score atual ${Number(gap.score).toFixed(2)} → alvo ${scoreAlvoPadrao.toFixed(1)}.`,
+        status: 'backlog',
+        prioridade: Number(gap.score) < 2 ? 'alta' : Number(gap.score) < 3 ? 'media' : 'baixa',
+        progresso: 0,
+        gapVinculado: gapValor,
+        scoreAlvo: scoreAlvoPadrao,
+        origemRelatorioId: relatorioId || null,
+        criadoPorId: criadoPorId || null
+      }
+    });
+    criadas.push(iniciativa);
+  }
+
+  return { criadas: criadas.length, ignoradas, iniciativas: criadas };
 }
 
 // GET /api/iniciativas?projetoId=&projetoVersaoId=&contextoTipo=&contextoId=&status=
@@ -141,6 +256,12 @@ router.get('/', async (req, res) => {
     if (req.query.status) {
       const st = String(req.query.status).toLowerCase();
       if (STATUS_VALIDOS.includes(st)) where.status = st;
+    }
+    if (req.query.empresaUnidadeId !== undefined && req.query.empresaUnidadeId !== '') {
+      const uid = parseId(req.query.empresaUnidadeId);
+      if (uid) where.empresaUnidadeId = uid;
+    } else if (req.query.empresaUnidadeId === 'null' || req.query.empresaUnidadeId === '0') {
+      where.empresaUnidadeId = null;
     }
 
     const iniciativas = await prisma.iniciativa.findMany({
@@ -167,6 +288,10 @@ router.get('/export', async (req, res) => {
       const ct = String(req.query.contextoTipo).toLowerCase();
       if (CONTEXTOS_VALIDOS.includes(ct)) where.contextoTipo = ct;
     }
+    if (req.query.empresaUnidadeId !== undefined && req.query.empresaUnidadeId !== '') {
+      const uid = parseId(req.query.empresaUnidadeId);
+      if (uid) where.empresaUnidadeId = uid;
+    }
 
     const iniciativas = await prisma.iniciativa.findMany({
       where,
@@ -177,7 +302,7 @@ router.get('/export', async (req, res) => {
       'id', 'contextoTipo', 'contextoId', 'contextoRotulo', 'titulo', 'descricao',
       'responsavel', 'status', 'prioridade', 'progresso',
       'dataInicio', 'dataFimPrevista', 'dataFimReal',
-      'gapVinculado', 'scoreAlvo', 'roiEstimado'
+      'gapVinculado', 'scoreAlvo', 'roiEstimado', 'empresaUnidadeId'
     ];
     const escapar = (v) => {
       if (v === null || v === undefined) return '';
@@ -214,6 +339,11 @@ router.post('/', gestaoExecucaoMiddleware, async (req, res) => {
       data.contextoRotulo = rotuloDimensaoPorCodigo(data.contextoId) || data.contextoRotulo;
     }
 
+    if (data.empresaUnidadeId) {
+      const valUnidade = await validarUnidadeIniciativa(projetoId, data.empresaUnidadeId);
+      if (!valUnidade.ok) return res.status(valUnidade.status).json({ error: valUnidade.error });
+    }
+
     const iniciativa = await prisma.iniciativa.create({
       data: {
         projetoId,
@@ -238,6 +368,11 @@ router.put('/:id', gestaoExecucaoMiddleware, async (req, res) => {
 
     const { data, erros } = sanitizarPayloadIniciativa(req.body, { parcial: true });
     if (erros.length) return res.status(400).json({ error: 'Dados inválidos', detalhes: erros.map((m) => ({ mensagem: m })) });
+
+    if (data.empresaUnidadeId) {
+      const valUnidade = await validarUnidadeIniciativa(existente.projetoId, data.empresaUnidadeId);
+      if (!valUnidade.ok) return res.status(valUnidade.status).json({ error: valUnidade.error });
+    }
 
     const iniciativa = await prisma.iniciativa.update({ where: { id }, data });
     res.json(iniciativa);
@@ -288,57 +423,81 @@ router.post('/importar-roadmap-ia/:relatorioId', gestaoExecucaoMiddleware, async
       return res.status(400).json({ error: 'Não há avaliações finalizadas para derivar o roadmap.' });
     }
 
-    const areas = ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projetoId));
-
-    const { scoresPorArea } = calcularScoresConsolidadoMaturidade(projeto.avaliacoes, areas);
-    const gaps = (scoresPorArea || [])
-      .filter((a) => Number(a.score) > 0 && Number(a.score) < scoreAlvoPadrao)
-      .sort((a, b) => Number(a.score) - Number(b.score))
-      .slice(0, 12);
-
-    if (gaps.length === 0) {
-      return res.json({ criadas: 0, ignoradas: 0, iniciativas: [], mensagem: 'Nenhum gap abaixo do score-alvo.' });
-    }
-
-    // Evitar duplicar dimensões já presentes na mesma versão.
-    const existentes = await prisma.iniciativa.findMany({
-      where: { projetoId, contextoTipo: 'dimensao', projetoVersaoId: projetoVersaoId ?? undefined },
-      select: { contextoId: true }
+    const resultado = await criarIniciativasDeGaps({
+      projetoId,
+      projetoVersaoId,
+      scoreAlvoPadrao,
+      avaliacoesFiltradas: projeto.avaliacoes,
+      relatorioId,
+      criadoPorId: req.usuario?.id || null,
+      empresaUnidadeId: null
     });
-    const jaImportadas = new Set(existentes.map((e) => e.contextoId));
 
-    const criadas = [];
-    let ignoradas = 0;
-    for (const gap of gaps) {
-      const codigo = codigoDimensaoPorNome(gap.area);
-      const contextoId = codigo || gap.area;
-      if (jaImportadas.has(contextoId)) {
-        ignoradas++;
-        continue;
-      }
-      const gapValor = parseFloat((scoreAlvoPadrao - Number(gap.score)).toFixed(2));
-      const iniciativa = await prisma.iniciativa.create({
-        data: {
-          projetoId,
-          projetoVersaoId,
-          contextoTipo: 'dimensao',
-          contextoId,
-          contextoRotulo: gap.area,
-          titulo: `Evoluir maturidade: ${gap.area}`,
-          descricao: `Iniciativa derivada do diagnóstico. Score atual ${Number(gap.score).toFixed(2)} → alvo ${scoreAlvoPadrao.toFixed(1)}. Validar ações com o responsável da dimensão.`,
-          status: 'backlog',
-          prioridade: Number(gap.score) < 2 ? 'alta' : Number(gap.score) < 3 ? 'media' : 'baixa',
-          progresso: 0,
-          gapVinculado: gapValor,
-          scoreAlvo: scoreAlvoPadrao,
-          origemRelatorioId: relatorioId || null,
-          criadoPorId: req.usuario?.id || null
+    res.status(201).json(resultado);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/iniciativas/importar-gaps-unidade
+router.post('/importar-gaps-unidade', gestaoExecucaoMiddleware, async (req, res) => {
+  try {
+    const projetoId = parseId(req.body.projetoId);
+    const empresaUnidadeId = parseId(req.body.empresaUnidadeId);
+    if (!projetoId) return res.status(400).json({ error: 'projetoId é obrigatório' });
+    if (!empresaUnidadeId) return res.status(400).json({ error: 'empresaUnidadeId é obrigatório' });
+
+    const valUnidade = await validarUnidadeIniciativa(projetoId, empresaUnidadeId);
+    if (!valUnidade.ok) return res.status(valUnidade.status).json({ error: valUnidade.error });
+
+    const projetoVersaoId = req.body.projetoVersaoId ? parseId(req.body.projetoVersaoId) : null;
+    const scoreAlvoPadrao = Number(req.body.scoreAlvo) > 0 ? Number(req.body.scoreAlvo) : 3.5;
+    const filtroNivelMax = filtroNivelPrioridadeFromRaw(req.body.nivelPrioridadeMapeamentoMaturidade);
+
+    const projeto = await prisma.projeto.findUnique({
+      where: { id: projetoId },
+      include: {
+        avaliacoes: {
+          where: { status: 'finalizada' },
+          include: {
+            usuario: { include: { empresaUnidade: true } },
+            respostas: { include: { pergunta: { include: { area: true } } } }
+          }
         }
+      }
+    });
+    if (!projeto) return res.status(404).json({ error: 'Projeto não encontrado' });
+
+    const unidadeGeral = await garantirUnidadeGeralEmpresa(projeto.empresaId);
+    const idsVersao = await idsAvaliacoesDaVersaoLocal(projetoId, projetoVersaoId);
+    const idsSet =
+      idsVersao ||
+      new Set((projeto.avaliacoes || []).map((a) => Number(a.id)));
+    const avaliacoesFiltradas = filtrarAvaliacoesRelatorioProjeto(projeto.avaliacoes, {
+      idsVersao: idsSet,
+      filtroNivelMax,
+      filtroUnidadeId: empresaUnidadeId,
+      unidadeGeralId: unidadeGeral?.id
+    });
+
+    if (!avaliacoesFiltradas.length) {
+      return res.status(400).json({
+        error: 'Não há avaliações finalizadas de avaliadores desta unidade.'
       });
-      criadas.push(iniciativa);
     }
 
-    res.status(201).json({ criadas: criadas.length, ignoradas, iniciativas: criadas });
+    const resultado = await criarIniciativasDeGaps({
+      projetoId,
+      projetoVersaoId,
+      scoreAlvoPadrao,
+      avaliacoesFiltradas,
+      relatorioId: null,
+      criadoPorId: req.usuario?.id || null,
+      empresaUnidadeId,
+      unidadeNome: valUnidade.unidade?.nome || null
+    });
+
+    res.status(201).json(resultado);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

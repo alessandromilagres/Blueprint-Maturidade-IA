@@ -4,10 +4,11 @@ const _base = new PrismaClient();
 
 /** null = ainda não sondado; após probe, true/false */
 let usuarioTemColunaNivelPrioridade = null;
+let usuarioTemColunaEmpresaUnidadeId = null;
 let probePromise = null;
 
-async function probeUsuarioNivelColuna() {
-  if (usuarioTemColunaNivelPrioridade !== null) return;
+async function probeUsuarioColunasOpcionais() {
+  if (usuarioTemColunaNivelPrioridade !== null && usuarioTemColunaEmpresaUnidadeId !== null) return;
   if (!probePromise) {
     probePromise = (async () => {
       try {
@@ -22,12 +23,30 @@ async function probeUsuarioNivelColuna() {
           '[prisma] Falha ao sondar coluna nivelPrioridade (assumindo ausente — evita SQL com coluna inexistente):',
           e?.message || e
         );
-        /** `false` força omitir `nivelPrioridadeMapeamentoMaturidade` no Prisma; `true` aqui quebrava `usuario.create` quando a coluna não existia. */
         usuarioTemColunaNivelPrioridade = false;
+      }
+      try {
+        usuarioTemColunaEmpresaUnidadeId = await colunaEmpresaUnidadeIdExisteNoPg();
+        if (!usuarioTemColunaEmpresaUnidadeId) {
+          console.warn(
+            '[prisma] Coluna Usuario.empresaUnidadeId ausente no banco; unidades organizacionais em modo compatível (sem vínculo persistido). Aplique backend/scripts/fix-usuario-empresa-unidade-id.sql como owner do banco e reinicie.'
+          );
+        }
+      } catch (e) {
+        console.warn(
+          '[prisma] Falha ao sondar coluna empresaUnidadeId (assumindo ausente):',
+          e?.message || e
+        );
+        usuarioTemColunaEmpresaUnidadeId = false;
       }
     })();
   }
   await probePromise;
+}
+
+/** @deprecated use probeUsuarioColunasOpcionais */
+async function probeUsuarioNivelColuna() {
+  await probeUsuarioColunasOpcionais();
 }
 
 /**
@@ -65,13 +84,50 @@ export async function refreshUsuarioNivelPrioridadeColumnFlag() {
   }
 }
 
+async function colunaEmpresaUnidadeIdExisteNoPg() {
+  try {
+    await _base.$queryRawUnsafe('SELECT "empresaUnidadeId" FROM "Usuario" WHERE 1 = 0');
+    return true;
+  } catch (e) {
+    const m = String(e?.message || e || '');
+    const code = e?.code;
+    if (
+      code === '42703' ||
+      /does not exist|não existe|undefined column|column.*does not exist/i.test(m) ||
+      /The column `empresaUnidadeId`/i.test(m) ||
+      /The column `Usuario\.empresaUnidadeId`/i.test(m)
+    ) {
+      return false;
+    }
+    throw e;
+  }
+}
+
 export async function initPrismaUsuarioColumnProbe() {
-  await probeUsuarioNivelColuna();
+  await probeUsuarioColunasOpcionais();
 }
 
 /** `true` apenas se o probe já rodou e a coluna existir no PostgreSQL (PUT/POST podem persistir o nível). */
 export function isUsuarioNivelPrioridadeColumnPresentInDb() {
   return usuarioTemColunaNivelPrioridade === true;
+}
+
+/** `true` se `Usuario.empresaUnidadeId` existe no PostgreSQL. */
+export function isUsuarioEmpresaUnidadeColumnPresentInDb() {
+  return usuarioTemColunaEmpresaUnidadeId === true;
+}
+
+export async function refreshUsuarioEmpresaUnidadeColumnFlag() {
+  try {
+    usuarioTemColunaEmpresaUnidadeId = await colunaEmpresaUnidadeIdExisteNoPg();
+  } catch (e) {
+    console.warn('[prisma] refresh coluna empresaUnidadeId:', e?.message || e);
+    usuarioTemColunaEmpresaUnidadeId = false;
+  }
+}
+
+function usuarioPrecisaModoCompatExplicito() {
+  return usuarioTemColunaNivelPrioridade === false || usuarioTemColunaEmpresaUnidadeId === false;
 }
 
 const USUARIO_SELECT_BASE = {
@@ -98,19 +154,56 @@ const USUARIO_REL_KEYS = new Set([
   'solicitadoPor'
 ]);
 
+function buildUsuarioSelectExplicito(extra = {}) {
+  const sel = { ...USUARIO_SELECT_BASE };
+  if (usuarioTemColunaNivelPrioridade) sel.nivelPrioridadeMapeamentoMaturidade = true;
+  if (usuarioTemColunaEmpresaUnidadeId) sel.empresaUnidadeId = true;
+  for (const [k, v] of Object.entries(extra)) {
+    if (k === 'empresaUnidade' && !usuarioTemColunaEmpresaUnidadeId) continue;
+    if (k === 'nivelPrioridadeMapeamentoMaturidade' && !usuarioTemColunaNivelPrioridade) continue;
+    if (k === 'empresaUnidadeId' && !usuarioTemColunaEmpresaUnidadeId) continue;
+    sel[k] = v;
+  }
+  return sel;
+}
+
 function normalizeUsuarioRelForNested(v) {
-  if (v === true) return { select: { ...USUARIO_SELECT_BASE } };
+  if (v === true) return { select: buildUsuarioSelectExplicito() };
   if (!v || typeof v !== 'object') return v;
   if (v.select) {
     const stripped = { ...v.select };
-    delete stripped.nivelPrioridadeMapeamentoMaturidade;
+    if (!usuarioTemColunaNivelPrioridade) delete stripped.nivelPrioridadeMapeamentoMaturidade;
+    if (!usuarioTemColunaEmpresaUnidadeId) {
+      delete stripped.empresaUnidadeId;
+      delete stripped.empresaUnidade;
+    }
     const keys = Object.keys(stripped);
-    return { ...v, select: keys.length > 0 ? stripped : { ...USUARIO_SELECT_BASE } };
+    return { ...v, select: keys.length > 0 ? stripped : buildUsuarioSelectExplicito() };
   }
   if (v.include) {
-    return { select: { ...USUARIO_SELECT_BASE, ...v.include } };
+    const inc = { ...v.include };
+    if (!usuarioTemColunaEmpresaUnidadeId) delete inc.empresaUnidade;
+    return { select: buildUsuarioSelectExplicito(inc) };
   }
-  return { select: { ...USUARIO_SELECT_BASE } };
+  return { select: buildUsuarioSelectExplicito() };
+}
+
+function stripUnidadeEmpresaUsuarioCount(obj) {
+  if (obj == null || typeof obj !== 'object') return;
+  if (Array.isArray(obj)) {
+    for (const item of obj) stripUnidadeEmpresaUsuarioCount(item);
+    return;
+  }
+  if (obj._count?.select?.usuarios != null && !usuarioTemColunaEmpresaUnidadeId) {
+    const next = { ...obj._count, select: { ...obj._count.select } };
+    delete next.select.usuarios;
+    if (Object.keys(next.select).length === 0) delete obj._count;
+    else obj._count = next;
+  }
+  for (const k of Object.keys(obj)) {
+    const v = obj[k];
+    if (v != null && typeof v === 'object') stripUnidadeEmpresaUsuarioCount(v);
+  }
 }
 
 /** Reescreve `usuario: true` (e homólogos) em árvores include/select para não pedir coluna inexistente no SQL. */
@@ -142,6 +235,20 @@ function omitNivelFromData(data) {
   return rest;
 }
 
+function omitEmpresaUnidadeIdFromData(data) {
+  if (!data || typeof data !== 'object') return data;
+  if (!Object.prototype.hasOwnProperty.call(data, 'empresaUnidadeId')) return data;
+  const { empresaUnidadeId, ...rest } = data;
+  return rest;
+}
+
+function omitColunasUsuarioOpcionaisAusentes(data) {
+  let out = data;
+  if (!usuarioTemColunaNivelPrioridade) out = omitNivelFromData(out);
+  if (!usuarioTemColunaEmpresaUnidadeId) out = omitEmpresaUnidadeIdFromData(out);
+  return out;
+}
+
 function stripNivelFromSelect(sel) {
   if (!sel || typeof sel !== 'object') return sel;
   if (!Object.prototype.hasOwnProperty.call(sel, 'nivelPrioridadeMapeamentoMaturidade')) return sel;
@@ -162,39 +269,44 @@ const OPS_RETORNAM_USUARIO = new Set([
   'upsert'
 ]);
 
-function aplicarArgsUsuarioSemColuna(operation, args) {
-  if (usuarioTemColunaNivelPrioridade) return args;
+function aplicarArgsUsuarioCompat(operation, args) {
+  if (!usuarioPrecisaModoCompatExplicito()) return args;
   const a = args ? { ...args } : {};
 
   if (a.data) {
     if (operation === 'createManyAndReturn' && Array.isArray(a.data)) {
       a.data = a.data.map((row) =>
         row != null && typeof row === 'object' && !Array.isArray(row)
-          ? omitNivelFromData({ ...row })
+          ? omitColunasUsuarioOpcionaisAusentes({ ...row })
           : row
       );
     } else if (typeof a.data === 'object' && !Array.isArray(a.data)) {
-      a.data = omitNivelFromData(a.data);
+      a.data = omitColunasUsuarioOpcionaisAusentes(a.data);
     }
   }
   if (operation === 'upsert') {
-    if (a.create) a.create = omitNivelFromData(a.create);
-    if (a.update) a.update = omitNivelFromData(a.update);
+    if (a.create) a.create = omitColunasUsuarioOpcionaisAusentes(a.create);
+    if (a.update) a.update = omitColunasUsuarioOpcionaisAusentes(a.update);
   }
 
   if (!OPS_RETORNAM_USUARIO.has(operation)) return a;
 
   if (a.select) {
-    if (Object.prototype.hasOwnProperty.call(a.select, 'nivelPrioridadeMapeamentoMaturidade')) {
-      const stripped = stripNivelFromSelect(a.select);
-      const keys = Object.keys(stripped);
-      a.select = keys.length > 0 ? stripped : { ...USUARIO_SELECT_BASE };
+    const stripped = { ...a.select };
+    if (!usuarioTemColunaNivelPrioridade) delete stripped.nivelPrioridadeMapeamentoMaturidade;
+    if (!usuarioTemColunaEmpresaUnidadeId) {
+      delete stripped.empresaUnidadeId;
+      delete stripped.empresaUnidade;
     }
+    const keys = Object.keys(stripped);
+    a.select = keys.length > 0 ? stripped : buildUsuarioSelectExplicito();
   } else if (a.include) {
-    a.select = { ...USUARIO_SELECT_BASE, ...a.include };
+    const inc = { ...a.include };
+    if (!usuarioTemColunaEmpresaUnidadeId) delete inc.empresaUnidade;
+    a.select = buildUsuarioSelectExplicito(inc);
     delete a.include;
   } else {
-    a.select = { ...USUARIO_SELECT_BASE };
+    a.select = buildUsuarioSelectExplicito();
   }
 
   return a;
@@ -209,18 +321,32 @@ function pareceUsuarioSemNivel(obj) {
   return true;
 }
 
-function injetarNivelPadraoEmProfundidade(value) {
-  if (usuarioTemColunaNivelPrioridade) return value;
+function pareceUsuarioSemEmpresaUnidade(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+  if (obj.empresaUnidadeId !== undefined) return false;
+  if (typeof obj.id !== 'number' || typeof obj.email !== 'string') return false;
+  return true;
+}
+
+function injetarDefaultsUsuarioEmProfundidade(value) {
+  if (!usuarioPrecisaModoCompatExplicito()) return value;
   if (value == null) return value;
   /** Prisma devolve Date em campos DateTime; `{ ...date }` vira `{}` e quebra serialização JSON (ex.: createdAt some — no front). */
   if (value instanceof Date) return value;
-  if (Array.isArray(value)) return value.map((v) => injetarNivelPadraoEmProfundidade(v));
+  if (Array.isArray(value)) return value.map((v) => injetarDefaultsUsuarioEmProfundidade(v));
   if (typeof value !== 'object') return value;
-  let out = pareceUsuarioSemNivel(value) ? { ...value, nivelPrioridadeMapeamentoMaturidade: 1 } : { ...value };
+  let out = { ...value };
+  if (!usuarioTemColunaNivelPrioridade && pareceUsuarioSemNivel(out)) {
+    out.nivelPrioridadeMapeamentoMaturidade = 1;
+  }
+  if (!usuarioTemColunaEmpresaUnidadeId && pareceUsuarioSemEmpresaUnidade(out)) {
+    out.empresaUnidadeId = null;
+    out.empresaUnidade = null;
+  }
   for (const k of Object.keys(out)) {
     const v = out[k];
     if (v != null && (typeof v === 'object' || Array.isArray(v))) {
-      out = { ...out, [k]: injetarNivelPadraoEmProfundidade(v) };
+      out = { ...out, [k]: injetarDefaultsUsuarioEmProfundidade(v) };
     }
   }
   return out;
@@ -231,7 +357,7 @@ const prismaComDeepRewrite = _base.$extends({
   query: {
     $allModels: {
       async $allOperations({ model, operation, args, query }) {
-        await probeUsuarioNivelColuna();
+        await probeUsuarioColunasOpcionais();
         const modeloUsuario =
           model === 'Usuario' ||
           model === 'usuario' ||
@@ -240,22 +366,20 @@ const prismaComDeepRewrite = _base.$extends({
           return query(args);
         }
         let nextArgs = args;
-        if (
-          !usuarioTemColunaNivelPrioridade &&
-          args &&
-          typeof args === 'object' &&
-          !Array.isArray(args)
-        ) {
+        if (usuarioPrecisaModoCompatExplicito() && args && typeof args === 'object' && !Array.isArray(args)) {
           try {
             nextArgs = structuredClone(args);
             deepRewriteUsuarioRelsInArgs(nextArgs, false);
+            stripUnidadeEmpresaUsuarioCount(nextArgs);
           } catch (e) {
             console.warn('[prisma] rewrite args skip:', e?.message || e);
             nextArgs = args;
           }
         }
         const result = await query(nextArgs);
-        return usuarioTemColunaNivelPrioridade ? result : injetarNivelPadraoEmProfundidade(result);
+        return usuarioPrecisaModoCompatExplicito()
+          ? injetarDefaultsUsuarioEmProfundidade(result)
+          : result;
       }
     }
   }
@@ -271,22 +395,19 @@ export const prisma = prismaComDeepRewrite.$extends({
     usuario: {
       async $allOperations(ctx) {
         const { operation, args, query } = ctx;
-        await probeUsuarioNivelColuna();
+        await probeUsuarioColunasOpcionais();
         let nextArgs = args;
-        if (
-          !usuarioTemColunaNivelPrioridade &&
-          args &&
-          typeof args === 'object' &&
-          !Array.isArray(args)
-        ) {
+        if (usuarioPrecisaModoCompatExplicito() && args && typeof args === 'object' && !Array.isArray(args)) {
           try {
-            nextArgs = aplicarArgsUsuarioSemColuna(operation, args);
+            nextArgs = aplicarArgsUsuarioCompat(operation, args);
           } catch (e) {
             console.warn('[prisma] usuario.$allOperations rewrite:', e?.message || e);
           }
         }
         const result = await query(nextArgs);
-        return usuarioTemColunaNivelPrioridade ? result : injetarNivelPadraoEmProfundidade(result);
+        return usuarioPrecisaModoCompatExplicito()
+          ? injetarDefaultsUsuarioEmProfundidade(result)
+          : result;
       }
     }
   }

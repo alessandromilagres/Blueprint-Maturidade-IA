@@ -6,13 +6,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft, Plus, Download, LayoutGrid, List, Sparkles, Filter, Loader2, BarChart3
+  ArrowLeft, Plus, Download, LayoutGrid, List, Sparkles, Filter, Loader2, BarChart3, Building2
 } from 'lucide-react';
 import { iniciativasApi, produtosApi, dashboardApi } from '../services/api';
 import { ORDEM_DIMENSOES_FRAMEWORK } from '../constants/ordemDimensoesFramework';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { podeGerenciarExecucao } from '../constants/perfisGestaoExecucao';
+import {
+  filtroNivelMapeamentoFromSearchParams,
+  filtroUnidadeFromSearchParams
+} from '../utils/filtroNivelMaturidade';
 import GanttChart from '../components/GanttChart';
 import IniciativaForm from '../components/IniciativaForm';
 
@@ -34,8 +38,10 @@ function codigoDimensao(idx) {
 export default function RoadmapTimeline() {
   const { id } = useParams();
   const projetoId = Number(id);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const versaoId = searchParams.get('versaoId');
+  const empresaUnidadeId = filtroUnidadeFromSearchParams(searchParams);
+  const filtroNivel = filtroNivelMapeamentoFromSearchParams(searchParams);
   const toast = useToast();
   const { usuario } = useAuth();
   const podeEditar = podeGerenciarExecucao(usuario?.role);
@@ -44,6 +50,7 @@ export default function RoadmapTimeline() {
   const [iniciativas, setIniciativas] = useState([]);
   const [scoresPorArea, setScoresPorArea] = useState([]);
   const [produtos, setProdutos] = useState([]);
+  const [unidadesOpcoes, setUnidadesOpcoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [vista, setVista] = useState('gantt');
   const [filtroStatus, setFiltroStatus] = useState('');
@@ -52,23 +59,54 @@ export default function RoadmapTimeline() {
   const [painelAberto, setPainelAberto] = useState(false);
   const [iniciativaSel, setIniciativaSel] = useState(null);
   const [importando, setImportando] = useState(false);
+  const [importandoGapsUnidade, setImportandoGapsUnidade] = useState(false);
 
   useEffect(() => {
     carregar();
-  }, [projetoId, lente, versaoId]);
+  }, [projetoId, lente, versaoId, empresaUnidadeId]);
 
   useEffect(() => {
-    dashboardApi.projeto(projetoId, versaoId ? { versaoId } : {})
+    dashboardApi.projeto(projetoId, {
+      versaoId: versaoId || undefined,
+      nivelPrioridadeMapeamentoMaturidade: filtroNivel,
+      empresaUnidadeId: empresaUnidadeId || undefined
+    })
       .then((d) => setScoresPorArea(d?.scoresPorArea || []))
       .catch(() => {});
     produtosApi.listar(projetoId).then((p) => setProdutos(p || [])).catch(() => {});
-  }, [projetoId, versaoId]);
+  }, [projetoId, versaoId, filtroNivel, empresaUnidadeId]);
+
+  useEffect(() => {
+    dashboardApi
+      .comparativoUnidades(projetoId, {
+        versaoId: versaoId || undefined,
+        nivelPrioridadeMapeamentoMaturidade: filtroNivel
+      })
+      .then((d) => {
+        const lista = (d?.unidadesEmpresa || []).filter((u) => !u.ehPadrao);
+        setUnidadesOpcoes(lista);
+      })
+      .catch(() => setUnidadesOpcoes([]));
+  }, [projetoId, versaoId, filtroNivel]);
+
+  const unidadeSelecionada = useMemo(() => {
+    if (!empresaUnidadeId) return null;
+    return unidadesOpcoes.find((u) => u.id === empresaUnidadeId) || { id: empresaUnidadeId, nome: `Unidade #${empresaUnidadeId}` };
+  }, [empresaUnidadeId, unidadesOpcoes]);
+
+  function alterarUnidadeFiltro(raw) {
+    const next = new URLSearchParams(searchParams);
+    if (!raw) next.delete('empresaUnidadeId');
+    else next.set('empresaUnidadeId', String(raw));
+    setSearchParams(next, { replace: true });
+  }
 
   async function carregar() {
     setLoading(true);
     try {
       const params = { projetoId, contextoTipo: lente };
       if (versaoId) params.projetoVersaoId = versaoId;
+      if (empresaUnidadeId) params.empresaUnidadeId = empresaUnidadeId;
       const data = await iniciativasApi.listar(params);
       setIniciativas(data || []);
     } catch (e) {
@@ -196,9 +234,37 @@ export default function RoadmapTimeline() {
     }
   }
 
+  async function importarGapsUnidade() {
+    if (!empresaUnidadeId) return;
+    setImportandoGapsUnidade(true);
+    try {
+      const body = {
+        projetoId,
+        empresaUnidadeId,
+        nivelPrioridadeMapeamentoMaturidade: filtroNivel
+      };
+      if (versaoId) body.projetoVersaoId = Number(versaoId);
+      const r = await iniciativasApi.importarGapsUnidade(body);
+      toast.success(
+        `${r.criadas} iniciativa(s) importada(s) para ${unidadeSelecionada?.nome || 'unidade'}${r.ignoradas ? ` (${r.ignoradas} já existiam)` : ''}`
+      );
+      if (lente !== 'dimensao') setLente('dimensao');
+      else carregar();
+    } catch (e) {
+      toast.error(e.message || 'Erro ao importar gaps da unidade');
+    } finally {
+      setImportandoGapsUnidade(false);
+    }
+  }
+
   async function exportarCsv() {
     try {
-      await iniciativasApi.exportarCsv({ projetoId, contextoTipo: lente, projetoVersaoId: versaoId || undefined });
+      await iniciativasApi.exportarCsv({
+        projetoId,
+        contextoTipo: lente,
+        projetoVersaoId: versaoId || undefined,
+        empresaUnidadeId: empresaUnidadeId || undefined
+      });
     } catch (e) {
       toast.error(e.message || 'Erro ao exportar');
     }
@@ -213,9 +279,28 @@ export default function RoadmapTimeline() {
           </Link>
           <div className="flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-blue-600" />
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Roadmap de Iniciativas</h1>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Roadmap de Iniciativas</h1>
+              {unidadeSelecionada && (
+                <p className="text-sm text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
+                  <Building2 className="w-3.5 h-3.5" />
+                  Filtrado: {unidadeSelecionada.nome}
+                </p>
+              )}
+            </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <Link
+              to={(() => {
+                const p = new URLSearchParams();
+                if (versaoId) p.set('versaoId', versaoId);
+                p.set('nivelPrioridadeMapeamentoMaturidade', String(filtroNivel === 0 ? 0 : filtroNivel));
+                return `/dashboard/projeto/${projetoId}/comparativo-unidades?${p.toString()}`;
+              })()}
+              className="text-sm text-cyan-600 hover:underline"
+            >
+              Comparativo unidades
+            </Link>
             <Link
               to={`/dashboard/projeto/${projetoId}/executive-dashboard${versaoId ? `?versaoId=${versaoId}` : ''}`}
               className="text-sm text-blue-600 hover:underline"
@@ -264,6 +349,18 @@ export default function RoadmapTimeline() {
             <option value="media">Média</option>
             <option value="baixa">Baixa</option>
           </select>
+          {unidadesOpcoes.length > 0 && (
+            <select
+              value={empresaUnidadeId ? String(empresaUnidadeId) : ''}
+              onChange={(e) => alterarUnidadeFiltro(e.target.value)}
+              className="px-2 py-1.5 text-sm border border-cyan-200 dark:border-cyan-800 rounded-lg bg-transparent dark:text-gray-200"
+            >
+              <option value="">Unidade: todas</option>
+              {unidadesOpcoes.map((u) => (
+                <option key={u.id} value={String(u.id)}>{u.nome}</option>
+              ))}
+            </select>
+          )}
 
           <div className="ml-auto flex items-center gap-2">
             <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -279,6 +376,21 @@ export default function RoadmapTimeline() {
             </button>
             {podeEditar && (
               <>
+                {empresaUnidadeId && (
+                  <button
+                    type="button"
+                    onClick={importarGapsUnidade}
+                    disabled={importandoGapsUnidade}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-cyan-200 text-cyan-700 dark:text-cyan-300 rounded-lg disabled:opacity-50"
+                  >
+                    {importandoGapsUnidade ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Building2 className="w-4 h-4" />
+                    )}
+                    Importar gaps desta unidade
+                  </button>
+                )}
                 <button onClick={importarRoadmap} disabled={importando} className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-purple-200 text-purple-700 dark:text-purple-300 rounded-lg disabled:opacity-50">
                   {importando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Importar do diagnóstico
                 </button>

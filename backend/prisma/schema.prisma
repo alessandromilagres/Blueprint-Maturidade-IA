@@ -25,6 +25,33 @@ model Empresa {
   projetos  Projeto[]
   diagnosticosRapidos DiagnosticoRapido[]
   arquiteturasReferencia ArquiteturaReferencia[]
+  unidadesEmpresa UnidadeEmpresa[]
+}
+
+/// Área organizacional da empresa (não confundir com `Area` = dimensão do framework de maturidade).
+model UnidadeEmpresa {
+  id            Int       @id @default(autoincrement())
+  empresaId     Int
+  nome          String
+  /// Slug curto único por empresa (ex.: GERAL, ENG, RH)
+  codigo        String    @default("")
+  /// Contexto breve para relatórios IA por unidade
+  descricao     String?   @db.Text
+  /// JSON: códigos de dimensão do framework em foco (ex. ["D4","D5","D10"] SATF)
+  dimensoesFoco String?   @db.Text
+  /// Unidade padrão "Geral" — não pode ser excluída
+  ehPadrao      Boolean   @default(false)
+  ordem         Int       @default(0)
+  ativo         Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  empresa       Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuarios      Usuario[]
+
+  @@unique([empresaId, codigo])
+  @@index([empresaId, ativo])
+  @@map("UnidadeEmpresa")
 }
 
 model Usuario {
@@ -38,12 +65,15 @@ model Usuario {
   role      String    @default("avaliador")
   /// Prioridade no consolidado de maturidade do projeto (1 = mais alta). Filtro cumulativo: nível F inclui 1..F.
   nivelPrioridadeMapeamentoMaturidade Int @default(1)
+  /// Unidade organizacional (null = tratado como "Geral" da empresa)
+  empresaUnidadeId Int?
   empresaId Int
   ativo     Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   
   empresa   Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  empresaUnidade UnidadeEmpresa? @relation(fields: [empresaUnidadeId], references: [id], onDelete: SetNull)
   avaliacoes Avaliacao[]
   avaliacoesProduto AvaliacaoProduto[]
   convitesRecebidos ConviteAvaliacao[]
@@ -789,6 +819,8 @@ model Iniciativa {
   scoreAlvo         Float?    // score-alvo (quando contextoTipo = dimensao)
   roiEstimado       Float?    // ROI projetado vinculado
   origemRelatorioId Int?      // relatório IA que gerou a iniciativa
+  /// Unidade organizacional (null = iniciativa enterprise / sem unidade específica)
+  empresaUnidadeId Int?
 
   criadoPorId     Int?
   createdAt       DateTime  @default(now())
@@ -799,4 +831,5 @@ model Iniciativa {
 
   @@index([projetoId, contextoTipo])
   @@index([projetoVersaoId])
+  @@index([projetoId, empresaUnidadeId])
 }

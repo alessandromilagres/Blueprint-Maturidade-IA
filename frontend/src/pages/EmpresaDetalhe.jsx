@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Building2, Users, FolderKanban, Plus, Pencil, Trash2, ArrowLeft, BarChart3, Globe } from 'lucide-react';
-import { empresasApi, usuariosApi, projetosApi, avaliacoesApi } from '../services/api';
+import { Building2, Users, FolderKanban, Plus, Pencil, Trash2, ArrowLeft, BarChart3, Globe, Layers } from 'lucide-react';
+import { empresasApi, usuariosApi, projetosApi, avaliacoesApi, empresaUnidadesApi } from '../services/api';
 import Modal from '../components/Modal';
 import { VERTICAIS, AUDIENCIAS_PRIMARIAS, LENTES_PRIORITARIAS } from './Projetos';
 import { OPCOES_PERFIL_USUARIO, labelPerfilUsuario } from '../constants/perfilUsuario.js';
@@ -49,7 +49,18 @@ export default function EmpresaDetalhe() {
         cargo: item?.cargo || '',
         telefone: item?.telefone || '',
         empresaId: parseInt(id),
+        empresaUnidadeId: item?.empresaUnidadeId ? String(item.empresaUnidadeId) : '',
         role: item?.role || 'avaliador',
+        ativo: item?.ativo !== false,
+      });
+    } else if (type === 'unidade') {
+      const foco = Array.isArray(item?.dimensoesFoco) ? item.dimensoesFoco.join(', ') : '';
+      setFormData({
+        nome: item?.nome || '',
+        codigo: item?.codigo || '',
+        descricao: item?.descricao || '',
+        dimensoesFocoTexto: foco,
+        ordem: item?.ordem ?? 0,
         ativo: item?.ativo !== false,
       });
     } else if (type === 'projeto') {
@@ -81,6 +92,7 @@ export default function EmpresaDetalhe() {
         cargo: formData.cargo || null,
         telefone: formData.telefone || null,
         empresaId: formData.empresaId,
+        empresaUnidadeId: formData.empresaUnidadeId ? parseInt(formData.empresaUnidadeId, 10) : null,
         role: formData.role || 'avaliador',
       };
       if (editingItem) {
@@ -92,6 +104,48 @@ export default function EmpresaDetalhe() {
       loadEmpresa();
     } catch (error) {
       alert('Erro ao salvar usuário: ' + error.message);
+    }
+  }
+
+  async function handleSubmitUnidade(e) {
+    e.preventDefault();
+    try {
+      const dimensoesFoco = String(formData.dimensoesFocoTexto || '')
+        .split(/[,;\s]+/)
+        .map((x) => x.trim().toUpperCase())
+        .filter(Boolean);
+      const payload = {
+        nome: formData.nome,
+        codigo: formData.codigo || undefined,
+        descricao: formData.descricao || null,
+        dimensoesFoco: dimensoesFoco.length ? dimensoesFoco : null,
+        ordem: parseInt(formData.ordem, 10) || 0,
+        ativo: formData.ativo !== false
+      };
+      if (editingItem) {
+        await empresaUnidadesApi.atualizar(id, editingItem.id, payload);
+      } else {
+        await empresaUnidadesApi.criar(id, payload);
+      }
+      setModalType(null);
+      loadEmpresa();
+    } catch (error) {
+      alert('Erro ao salvar unidade: ' + error.message);
+    }
+  }
+
+  async function handleDeleteUnidade(unidade) {
+    if (unidade.ehPadrao) {
+      alert('A unidade Geral não pode ser excluída.');
+      return;
+    }
+    if (confirm(`Deseja excluir a unidade "${unidade.nome}"? Usuários serão movidos para Geral.`)) {
+      try {
+        await empresaUnidadesApi.excluir(id, unidade.id);
+        loadEmpresa();
+      } catch (error) {
+        alert('Erro ao excluir unidade: ' + error.message);
+      }
     }
   }
 
@@ -251,6 +305,77 @@ export default function EmpresaDetalhe() {
         </div>
       )}
 
+      <div className="card">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Layers className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <h2 className="font-semibold text-gray-900 dark:text-white">
+              Unidades organizacionais ({(empresa.unidadesEmpresa || []).length})
+            </h2>
+          </div>
+          <button onClick={() => openModal('unidade')} className="btn btn-primary text-sm py-1.5">
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+          Áreas de trabalho da empresa para relatórios IA por unidade. &quot;Geral&quot; é o padrão — usuários sem unidade
+          definida entram nela.
+        </p>
+        {(empresa.unidadesEmpresa || []).length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">Carregando unidades…</p>
+        ) : (
+          <div className="space-y-2">
+            {(empresa.unidadesEmpresa || []).map((unidade) => (
+              <div
+                key={unidade.id}
+                className="flex items-start justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg gap-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-gray-900 dark:text-white">{unidade.nome}</p>
+                    {unidade.ehPadrao && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">
+                        Padrão
+                      </span>
+                    )}
+                    {!unidade.ativo && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Inativa</span>
+                    )}
+                  </div>
+                  {unidade.descricao && (
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{unidade.descricao}</p>
+                  )}
+                  {Array.isArray(unidade.dimensoesFoco) && unidade.dimensoesFoco.length > 0 && (
+                    <p className="text-xs text-primary-600 dark:text-primary-400 mt-1">
+                      Foco: {unidade.dimensoesFoco.join(', ')}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {unidade._count?.usuarios ?? 0} usuário(s) vinculado(s)
+                  </p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => openModal('unidade', unidade)}
+                    className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-white dark:hover:bg-gray-600 rounded"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  {!unidade.ehPadrao && (
+                    <button
+                      onClick={() => handleDeleteUnidade(unidade)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white dark:hover:bg-gray-600 rounded"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
           <div className="flex items-center justify-between mb-4">
@@ -276,6 +401,12 @@ export default function EmpresaDetalhe() {
                       Perfil: {labelPerfilUsuario(usuario.role)}
                     </p>
                     {usuario.cargo && <p className="text-xs text-gray-400 dark:text-gray-500">{usuario.cargo}</p>}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Unidade:{' '}
+                      {usuario.empresaUnidade?.nome ||
+                        (empresa.unidadesEmpresa || []).find((u) => u.ehPadrao)?.nome ||
+                        'Geral'}
+                    </p>
                   </div>
                   <div className="flex gap-1">
                     <button
@@ -387,6 +518,27 @@ export default function EmpresaDetalhe() {
               Negócios, TI e SysMap são perfis da empresa; o usuário fica vinculado a esta empresa.
             </p>
           </div>
+          <div>
+            <label className="label">Unidade organizacional</label>
+            <select
+              className="input"
+              value={formData.empresaUnidadeId || ''}
+              onChange={(e) => setFormData({ ...formData, empresaUnidadeId: e.target.value })}
+            >
+              <option value="">Geral (padrão)</option>
+              {(empresa?.unidadesEmpresa || [])
+                .filter((u) => u.ativo !== false)
+                .map((u) => (
+                  <option key={u.id} value={String(u.id)}>
+                    {u.nome}
+                    {u.ehPadrao ? ' (padrão)' : ''}
+                  </option>
+                ))}
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Usado em relatórios IA por área (fase 2). Vazio = Geral.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Cargo</label>
@@ -420,6 +572,93 @@ export default function EmpresaDetalhe() {
               </label>
             </div>
           )}
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={() => setModalType(null)} className="btn btn-secondary flex-1">
+              Cancelar
+            </button>
+            <button type="submit" className="btn btn-primary flex-1">
+              {editingItem ? 'Salvar' : 'Cadastrar'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={modalType === 'unidade'}
+        onClose={() => setModalType(null)}
+        title={editingItem ? 'Editar unidade' : 'Nova unidade organizacional'}
+      >
+        <form onSubmit={handleSubmitUnidade} className="space-y-4">
+          <div>
+            <label className="label">Nome *</label>
+            <input
+              type="text"
+              className="input"
+              value={formData.nome || ''}
+              onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+              required
+              disabled={editingItem?.ehPadrao}
+            />
+          </div>
+          {!editingItem?.ehPadrao && (
+            <div>
+              <label className="label">Código (opcional)</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Ex.: ENG, RH, DELIVERY"
+                value={formData.codigo || ''}
+                onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+              />
+            </div>
+          )}
+          <div>
+            <label className="label">Descrição breve (para relatórios IA)</label>
+            <textarea
+              className="input"
+              rows={3}
+              placeholder="Missão da área, sistemas, clientes internos, dores conhecidas…"
+              value={formData.descricao || ''}
+              onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label">Dimensões em foco (SATF)</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="Ex.: D4, D5, D10"
+              value={formData.dimensoesFocoTexto || ''}
+              onChange={(e) => setFormData({ ...formData, dimensoesFocoTexto: e.target.value })}
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Códigos separados por vírgula. Usado nos relatórios por unidade (próxima fase).
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Ordem</label>
+              <input
+                type="number"
+                className="input"
+                value={formData.ordem ?? 0}
+                onChange={(e) => setFormData({ ...formData, ordem: e.target.value })}
+              />
+            </div>
+            {editingItem && !editingItem.ehPadrao && (
+              <div className="flex items-end pb-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    checked={formData.ativo !== false}
+                    onChange={(e) => setFormData({ ...formData, ativo: e.target.checked })}
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Ativa</span>
+                </label>
+              </div>
+            )}
+          </div>
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={() => setModalType(null)} className="btn btn-secondary flex-1">
               Cancelar

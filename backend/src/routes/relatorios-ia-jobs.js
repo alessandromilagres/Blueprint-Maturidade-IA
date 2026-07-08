@@ -11,18 +11,44 @@ import {
   filtroNivelRelatorioIACompativel,
   queryNivelPrioridadeMapeamentoMaturidade
 } from '../utils/nivelPrioridadeMapeamentoMaturidade.js';
-
-const TIPOS_RELATORIO_IA_VALIDOS = [
-  'executivo',
-  'completo',
-  'completo_rapido',
-  'completo_satf',
-  'completo_satf_rapido'
-];
+import { queryEmpresaUnidadeId, filtroUnidadeRelatorioIACompativel } from '../utils/relatorioUnidadeIA.js';
+import {
+  isTipoRelatorioIAValido,
+  isTipoRelatorioIAUnidade,
+  MENSAGEM_TIPOS_RELATORIO_IA_INVALIDO
+} from '../constants/tiposRelatorioIA.js';
+import {
+  jobRelatorioIAEstaObsoleto,
+  falharJobRelatorioIAObsoleto
+} from '../utils/relatorioIAJobStale.js';
 
 const router = express.Router();
 
+function labelEtapaJobRelatorioIA(tipo) {
+  if (
+    tipo === 'completo' ||
+    tipo === 'completo_satf' ||
+    tipo === 'book_unidade' ||
+    tipo === 'book_unidade_satf'
+  ) {
+    return 'Gerando book completo com IA (multi-chunk)';
+  }
+  if (
+    tipo === 'completo_rapido' ||
+    tipo === 'completo_satf_rapido' ||
+    tipo === 'book_unidade_rapido' ||
+    tipo === 'book_unidade_satf_rapido'
+  ) {
+    return 'Gerando book modo rápido (multi-chunk reduzido)';
+  }
+  if (tipo === 'executivo_unidade') {
+    return 'Gerando relatório executivo por unidade com IA';
+  }
+  return 'Gerando relatório executivo com IA';
+}
+
 function parseJsonSeguro(raw) {
+  // Parse seguro de metadata JSON dos jobs IA.
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -63,7 +89,8 @@ async function processarJobRelatorioIA({
   authHeader,
   baseUrl,
   filtroNivelMax = 3,
-  versaoId = null
+  versaoId = null,
+  empresaUnidadeId = null
 }) {
   const startedAt = new Date();
   try {
@@ -86,28 +113,38 @@ async function processarJobRelatorioIA({
     });
 
     const nivelQ = queryNivelPrioridadeMapeamentoMaturidade(filtroNivelMax);
+    const unidadeQ = queryEmpresaUnidadeId(empresaUnidadeId);
     const versaoQ = versaoId ? `&projetoVersaoId=${encodeURIComponent(String(versaoId))}` : '';
+    const isBookUnidade =
+      tipo === 'book_unidade_satf' ||
+      tipo === 'book_unidade_satf_rapido' ||
+      tipo === 'book_unidade' ||
+      tipo === 'book_unidade_rapido';
     const isBook =
       tipo === 'completo' ||
       tipo === 'completo_rapido' ||
       tipo === 'completo_satf' ||
-      tipo === 'completo_satf_rapido';
-    const endpoint = isBook
-        ? `/api/dashboard/projeto/${projetoId}/relatorio-ia-completo?reuse=false&jobId=${jobId}&${nivelQ}${versaoQ}${
-            tipo === 'completo_rapido' || tipo === 'completo_satf_rapido' ? '&mode=rapido' : ''
-          }`
-        : `/api/dashboard/projeto/${projetoId}/relatorio-ia?reuse=false&${nivelQ}${versaoQ}`;
+      tipo === 'completo_satf_rapido' ||
+      isBookUnidade;
+    const isExecutivoUnidade = tipo === 'executivo_unidade';
+    const qExtra = [nivelQ, unidadeQ].filter(Boolean).join('&');
+    const endpoint = isBookUnidade
+      ? `/api/dashboard/projeto/${projetoId}/relatorio-ia-book-unidade?reuse=false&jobId=${jobId}&${qExtra}${versaoQ}${
+          tipo === 'book_unidade_satf_rapido' || tipo === 'book_unidade_rapido' ? '&mode=rapido' : ''
+        }`
+      : isExecutivoUnidade
+        ? `/api/dashboard/projeto/${projetoId}/relatorio-ia-unidade?reuse=false&${qExtra}${versaoQ}`
+        : isBook
+          ? `/api/dashboard/projeto/${projetoId}/relatorio-ia-completo?reuse=false&jobId=${jobId}&${qExtra}${versaoQ}${
+              tipo === 'completo_rapido' || tipo === 'completo_satf_rapido' ? '&mode=rapido' : ''
+            }`
+          : `/api/dashboard/projeto/${projetoId}/relatorio-ia?reuse=false&${qExtra}${versaoQ}`;
 
     await prisma.relatorioIAJob.update({
       where: { id: jobId },
       data: {
         progresso: 30,
-        etapa:
-          tipo === 'completo' || tipo === 'completo_satf'
-            ? 'Gerando book completo com IA (multi-chunk)'
-            : tipo === 'completo_rapido' || tipo === 'completo_satf_rapido'
-              ? 'Gerando book modo rápido (multi-chunk reduzido)'
-              : 'Gerando relatório executivo com IA'
+        etapa: labelEtapaJobRelatorioIA(tipo)
       }
     });
 
@@ -214,6 +251,12 @@ async function processarJobRelatorioIA({
       throw httpError || new Error('Geração não concluída e sem relatório salvo');
     }
 
+    if (payload?.fromCache === true) {
+      throw new Error(
+        'A geração retornou versão em cache. Nova versão não foi produzida — tente novamente.'
+      );
+    }
+
     await prisma.relatorioIAJob.update({
       where: { id: jobId },
       data: {
@@ -297,17 +340,25 @@ router.post('/:id/cancel', async (req, res) => {
 // POST /api/relatorios-ia-jobs/start
 router.post('/start', async (req, res) => {
   try {
-    const { projetoId, tipo, nivelPrioridadeMapeamentoMaturidade, versaoId } = req.body || {};
+    const { projetoId, tipo, nivelPrioridadeMapeamentoMaturidade, versaoId, empresaUnidadeId } =
+      req.body || {};
     const projetoIdNum = Number(projetoId);
     const versaoIdNum = versaoId ? Number(versaoId) : null;
+    const unidadeIdNum =
+      empresaUnidadeId != null && empresaUnidadeId !== ''
+        ? Number(empresaUnidadeId)
+        : null;
     const filtroNivelMax = filtroNivelPrioridadeFromRaw(nivelPrioridadeMapeamentoMaturidade);
     if (!projetoIdNum || Number.isNaN(projetoIdNum)) {
       return res.status(400).json({ error: 'projetoId inválido' });
     }
-    if (!TIPOS_RELATORIO_IA_VALIDOS.includes(tipo)) {
+    if (!isTipoRelatorioIAValido(tipo)) {
+      return res.status(400).json({ error: MENSAGEM_TIPOS_RELATORIO_IA_INVALIDO });
+    }
+
+    if (isTipoRelatorioIAUnidade(tipo) && !unidadeIdNum) {
       return res.status(400).json({
-        error:
-          'tipo inválido. Use executivo, completo, completo_rapido, completo_satf ou completo_satf_rapido'
+        error: 'empresaUnidadeId é obrigatório para relatórios por unidade organizacional'
       });
     }
 
@@ -319,10 +370,21 @@ router.post('/start', async (req, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-    const existente = jobsAtivos.find((j) => {
+    for (const j of jobsAtivos) {
+      if (jobRelatorioIAEstaObsoleto(j)) {
+        await falharJobRelatorioIAObsoleto(
+          j.id,
+          'Job interrompido (sem progresso por tempo prolongado). Gere novamente.'
+        );
+      }
+    }
+
+    const jobsVivos = jobsAtivos.filter((j) => !jobRelatorioIAEstaObsoleto(j));
+    const existente = jobsVivos.find((j) => {
       const meta = parseJsonSeguro(j.metadata);
       return (
         filtroNivelRelatorioIACompativel(meta, filtroNivelMax) &&
+        filtroUnidadeRelatorioIACompativel(meta, unidadeIdNum) &&
         Number(meta?.versaoId || 0) === Number(versaoIdNum || 0)
       );
     });
@@ -343,7 +405,8 @@ router.post('/start', async (req, res) => {
         etapa: 'Na fila',
         metadata: JSON.stringify({
           filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
-          versaoId: versaoIdNum
+          versaoId: versaoIdNum,
+          empresaUnidadeId: unidadeIdNum
         }),
         solicitadoPorId: req.usuarioId || null
       }
@@ -359,7 +422,8 @@ router.post('/start', async (req, res) => {
         authHeader,
         baseUrl,
         filtroNivelMax,
-        versaoId: versaoIdNum
+        versaoId: versaoIdNum,
+        empresaUnidadeId: unidadeIdNum
       });
     }, 50);
 

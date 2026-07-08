@@ -54,6 +54,56 @@ const TIPO_CONFIG = {
     accentColor: 'text-cyan-600',
     badgeColor: 'bg-cyan-100 text-cyan-900 border-cyan-200',
     chipColor: 'bg-gradient-to-br from-cyan-400 to-teal-600'
+  },
+  book_unidade: {
+    label: 'Book Blueprint por unidade',
+    icon: BookOpen,
+    bgColor: 'bg-indigo-500/10',
+    borderColor: 'border-indigo-500/30',
+    textColor: 'text-indigo-800',
+    accentColor: 'text-indigo-600',
+    badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    chipColor: 'bg-gradient-to-br from-indigo-500 to-purple-600'
+  },
+  book_unidade_rapido: {
+    label: 'Book Blueprint unidade (rápido)',
+    icon: Zap,
+    bgColor: 'bg-fuchsia-500/10',
+    borderColor: 'border-fuchsia-500/30',
+    textColor: 'text-fuchsia-800',
+    accentColor: 'text-fuchsia-600',
+    badgeColor: 'bg-fuchsia-100 text-fuchsia-900 border-fuchsia-200',
+    chipColor: 'bg-gradient-to-br from-fuchsia-500 to-indigo-600'
+  },
+  executivo_unidade: {
+    label: 'Executivo por unidade',
+    icon: Sparkles,
+    bgColor: 'bg-violet-500/10',
+    borderColor: 'border-violet-500/30',
+    textColor: 'text-violet-800',
+    accentColor: 'text-violet-600',
+    badgeColor: 'bg-violet-100 text-violet-800 border-violet-200',
+    chipColor: 'bg-gradient-to-br from-violet-500 to-purple-600'
+  },
+  book_unidade_satf: {
+    label: 'Book SATF por unidade',
+    icon: BookOpen,
+    bgColor: 'bg-teal-500/10',
+    borderColor: 'border-teal-500/30',
+    textColor: 'text-teal-800',
+    accentColor: 'text-teal-600',
+    badgeColor: 'bg-teal-100 text-teal-800 border-teal-200',
+    chipColor: 'bg-gradient-to-br from-teal-500 to-cyan-600'
+  },
+  book_unidade_satf_rapido: {
+    label: 'Book SATF unidade (rápido)',
+    icon: Zap,
+    bgColor: 'bg-orange-500/10',
+    borderColor: 'border-orange-500/30',
+    textColor: 'text-orange-800',
+    accentColor: 'text-orange-600',
+    badgeColor: 'bg-orange-100 text-orange-900 border-orange-200',
+    chipColor: 'bg-gradient-to-br from-orange-500 to-teal-600'
   }
 };
 
@@ -131,7 +181,8 @@ export default function RelatoriosIABiblioteca() {
   }
 
   function visualizar(r) {
-    const path = r.tipo === 'executivo'
+    const isExec = r.tipo === 'executivo' || r.tipo === 'executivo_unidade';
+    const path = isExec
       ? `/relatorios/${r.projetoId}/mit-ia`
       : `/relatorios/${r.projetoId}/mit-ia-completo`;
     navigate(`${path}?${queryVersaoBibliotecaRelatorioIA(r)}`);
@@ -241,8 +292,15 @@ export default function RelatoriosIABiblioteca() {
           >
             <option value="todos">Todos os tipos</option>
             <option value="executivo">Estratégico C-Level</option>
+            <option value="executivo_unidade">Executivo por unidade</option>
             <option value="completo">Book completo</option>
             <option value="completo_rapido">Book modo rápido</option>
+            <option value="completo_satf">Book SATF</option>
+            <option value="completo_satf_rapido">Book SATF (rápido)</option>
+            <option value="book_unidade">Book Blueprint por unidade</option>
+            <option value="book_unidade_rapido">Book Blueprint unidade (rápido)</option>
+            <option value="book_unidade_satf">Book SATF por unidade</option>
+            <option value="book_unidade_satf_rapido">Book SATF unidade (rápido)</option>
           </select>
 
           <select

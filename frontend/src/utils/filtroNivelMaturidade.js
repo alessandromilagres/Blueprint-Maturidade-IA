@@ -1,6 +1,3 @@
-import { relatorioBookSecao3Completo } from '../constants/ordemDimensoesFramework.js';
-import { totalDimensoesBookFramework } from '../constants/frameworkMaturidade.js';
-
 /** Lê o filtro de prioridade da URL (alinhado ao dashboard). Padrão: 3. */
 export function filtroNivelMapeamentoFromSearchParams(searchParams) {
   const raw = searchParams.get('nivelPrioridadeMapeamentoMaturidade');
@@ -13,6 +10,33 @@ export function filtroNivelMapeamentoFromSearchParams(searchParams) {
 export function queryNivelMapeamentoMaturidade(filtro) {
   const n = filtro === 0 ? 0 : filtro >= 1 && filtro <= 3 ? filtro : 3;
   return `nivelPrioridadeMapeamentoMaturidade=${n}`;
+}
+
+/** Lê unidade organizacional da URL (Fase 3). */
+export function filtroUnidadeFromSearchParams(searchParams) {
+  const raw = searchParams.get('empresaUnidadeId');
+  if (!raw) return null;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export function queryEmpresaUnidadeId(filtroUnidadeId) {
+  if (filtroUnidadeId == null || filtroUnidadeId === '') return '';
+  return `empresaUnidadeId=${encodeURIComponent(String(filtroUnidadeId))}`;
+}
+
+export function filtroUnidadeFromDadosUsados(dadosUsados) {
+  const salvo = dadosUsados?.filtroEmpresaUnidadeIdAplicado;
+  if (salvo == null) return null;
+  const n = Number(salvo);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export function labelFiltroUnidade(dadosUsados) {
+  const nome = dadosUsados?.filtroEmpresaUnidade?.nome;
+  if (nome) return nome;
+  const id = filtroUnidadeFromDadosUsados(dadosUsados);
+  return id ? `Unidade #${id}` : null;
 }
 
 export function labelFiltroNivelMapeamento(filtro) {
@@ -32,7 +56,9 @@ export function filtroNivelFromDadosUsados(dadosUsados) {
 
 export function queryVersaoBibliotecaRelatorioIA(r) {
   const qs = new URLSearchParams();
-  if (r.tipo === 'completo_rapido' || r.tipo === 'completo_satf_rapido') qs.set('modo', 'rapido');
+  if (r.tipo === 'completo_rapido' || r.tipo === 'completo_satf_rapido' || r.tipo === 'book_unidade_satf_rapido' || r.tipo === 'book_unidade_rapido') {
+    qs.set('modo', 'rapido');
+  }
   const filtro =
     r.dadosUsados?.filtroNivelPrioridadeMapeamentoMaturidadeAplicado ??
     (typeof r.dadosSnapshot === 'string'
@@ -50,6 +76,20 @@ export function queryVersaoBibliotecaRelatorioIA(r) {
   } else {
     qs.set('nivelPrioridadeMapeamentoMaturidade', '3');
   }
+  const unidadeId =
+    r.dadosUsados?.filtroEmpresaUnidadeIdAplicado ??
+    (typeof r.dadosSnapshot === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(r.dadosSnapshot)?.filtroEmpresaUnidadeIdAplicado;
+          } catch {
+            return undefined;
+          }
+        })()
+      : r.dadosSnapshot?.filtroEmpresaUnidadeIdAplicado);
+  if (unidadeId != null && Number(unidadeId) > 0) {
+    qs.set('empresaUnidadeId', String(unidadeId));
+  }
   qs.set('relatorioSalvoId', String(r.id));
   return qs.toString();
 }
@@ -62,50 +102,16 @@ export function relatorioSalvoIdFromSearchParams(searchParams) {
   return searchParams.get('versaoId');
 }
 
-export function pathRelatorioMitIaCompleto(projetoId, { modoRapido = false, filtroNivel = 3 } = {}) {
+export function pathRelatorioMitIaCompleto(
+  projetoId,
+  { modoRapido = false, filtroNivel = 3, empresaUnidadeId = null } = {}
+) {
   const p = new URLSearchParams();
   if (modoRapido) p.set('modo', 'rapido');
   const n = filtroNivel === 0 ? 0 : filtroNivel >= 1 && filtroNivel <= 3 ? filtroNivel : 3;
   p.set('nivelPrioridadeMapeamentoMaturidade', String(n));
-  return `/relatorios/${projetoId}/mit-ia-completo?${p.toString()}`;
-}
-
-/** Carrega relatório salvo se o filtro e a versão da pesquisa forem compatíveis. */
-export async function carregarRelatorioSalvoSeCompativel({
-  relatoriosIAApi,
-  projetoId,
-  tipo,
-  filtroNivel,
-  projetoVersaoId = null
-}) {
-  try {
-    const row = await relatoriosIAApi.ultimaVersao(projetoId, tipo, {
-      nivelPrioridadeMapeamentoMaturidade: filtroNivel
-    });
-    const dados = row.dadosUsados;
-    if (
-      projetoVersaoId &&
-      Number(dados?.projetoVersao?.id || 0) !== Number(projetoVersaoId)
-    ) {
-      return null;
-    }
-    if (
-      tipo === 'completo' ||
-      tipo === 'completo_rapido' ||
-      tipo === 'completo_satf' ||
-      tipo === 'completo_satf_rapido'
-    ) {
-      const fw = dados?.frameworkMaturidade;
-      const totalEsp = totalDimensoesBookFramework(fw);
-      if (
-        Number(dados?.totalDimensoesFramework || 0) !== totalEsp ||
-        !relatorioBookSecao3Completo(row.conteudoMd || '', totalEsp).ok
-      ) {
-        return null;
-      }
-    }
-    return row;
-  } catch {
-    return null;
+  if (empresaUnidadeId != null && empresaUnidadeId !== '') {
+    p.set('empresaUnidadeId', String(empresaUnidadeId));
   }
+  return `/relatorios/${projetoId}/mit-ia-completo?${p.toString()}`;
 }

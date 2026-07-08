@@ -2,6 +2,7 @@
  * Relatório executivo IA — projetos SATF TI v3.
  */
 import { prisma } from '../lib/prisma.js';
+import { deveReutilizarRelatorioIASalvo } from './reutilizarRelatorioIA.js';
 import { salvarRelatorioIA } from '../routes/relatorios-ia.js';
 import { callAIWithContinuation, getProvider, loadPersistedAIConfig } from '../services/ai-provider.js';
 import { SYSTEM_PROMPT_PERSONA_BOOK_SATF } from '../constants/consultorRelatorioIA.js';
@@ -44,6 +45,14 @@ import {
   validarTaxonomiaBookSatf
 } from './satfBookTaxonomia.js';
 import { carregarFrameworkProjeto } from './projetoFramework.js';
+import {
+  filtrarAvaliacoesRelatorioProjeto,
+  metadadosUnidadeDadosUsados,
+  prependCapaUnidadeAoRelatorio,
+  relatorioUnidadeCacheCompativel,
+  resolverContextoUnidadeRelatorioObrigatorio
+} from './relatorioUnidadeIA.js';
+import { garantirUnidadeGeralEmpresa } from './empresaUnidade.js';
 
 function mediaSetorTiBenchmark(setor) {
   const s = String(setor || '').toLowerCase();
@@ -96,7 +105,8 @@ function montarPromptExecutivoSatf({
   blocoLogicaMaturidade,
   metodologiaScore,
   temContexto,
-  temDesejosIa
+  temDesejosIa,
+  unidadeMeta
 }) {
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
   const blocoCert = certificacaoSatf
@@ -106,6 +116,7 @@ function montarPromptExecutivoSatf({
   return `${blocoRegrasTaxonomiaSatfPrompt()}
 
 Analise os dados e gere o **Relatório Executivo SATF TI v3** em Markdown.
+${unidadeMeta ? `\n**ESCOPO:** relatório exclusivo da unidade organizacional **${unidadeMeta.nome}**. Recomendações devem refletir a missão da área e dimensões em foco cadastradas.\n` : ''}
 
 ESTRUTURA OBRIGATÓRIA (5 seções):
 
@@ -181,25 +192,51 @@ ${blocoEvolucao}
 Gere o relatório completo. Metodologia = **SATF TI v3** exclusivamente.`;
 }
 
-export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps) {
+export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps, opts = {}) {
   const { obterVersaoSelecionadaProjeto, idsAvaliacoesDaVersao } = deps;
+  const tipoRelatorio = opts.tipoRelatorio || 'executivo';
+  const exigeUnidade = opts.exigeUnidade === true;
 
   const projetoId = parseInt(req.params.id, 10);
-  const reuse = req.query.reuse !== 'false';
+  const reuse = deveReutilizarRelatorioIASalvo(req);
   const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
   const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
 
+  let filtroUnidadeId = null;
+  let unidadeMeta = null;
+  let unidadeGeral = null;
+
+  if (exigeUnidade) {
+    const projetoEmp = await prisma.projeto.findUnique({
+      where: { id: projetoId },
+      select: { empresaId: true }
+    });
+    if (!projetoEmp) return res.status(404).json({ error: 'Projeto não encontrado' });
+    const ctx = await resolverContextoUnidadeRelatorioObrigatorio(req, projetoEmp.empresaId);
+    if (!ctx.ok) return res.status(ctx.status).json({ error: ctx.error });
+    filtroUnidadeId = ctx.filtroUnidadeId;
+    unidadeMeta = ctx.unidadeMeta;
+    unidadeGeral = ctx.unidadeGeral;
+  }
+
   if (reuse) {
     const ultimoSalvo = await prisma.relatorioIA.findFirst({
-      where: { projetoId, tipo: 'executivo' },
+      where: { projetoId, tipo: tipoRelatorio },
       orderBy: { createdAt: 'desc' }
     });
     if (ultimoSalvo) {
       const dadosSnap = ultimoSalvo.dadosSnapshot ? JSON.parse(ultimoSalvo.dadosSnapshot) : null;
       const taxonomia = validarTaxonomiaBookSatf(ultimoSalvo.conteudoMd || '');
+      const cacheOk = exigeUnidade
+        ? relatorioUnidadeCacheCompativel(dadosSnap, {
+            filtroNivelMax,
+            filtroUnidadeId,
+            projetoVersaoId: projetoVersao?.id
+          })
+        : filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax) &&
+          Number(dadosSnap?.projetoVersao?.id || 0) === Number(projetoVersao?.id || 0);
       if (
-        filtroNivelRelatorioIACompativel(dadosSnap, filtroNivelMax) &&
-        Number(dadosSnap?.projetoVersao?.id || 0) === Number(projetoVersao?.id || 0) &&
+        cacheOk &&
         dadosSnap?.frameworkMaturidade === FRAMEWORK_SATF_TI_V3 &&
         taxonomia.ok
       ) {
@@ -220,7 +257,7 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps) {
           dataGeracao: ultimoSalvo.createdAt,
           fromCache: true,
           frameworkMaturidade: FRAMEWORK_SATF_TI_V3,
-          tipoRelatorio: 'executivo',
+          tipoRelatorio,
           filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
           projetoVersao
         });
@@ -244,16 +281,30 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps) {
   });
   if (!projeto) return res.status(404).json({ error: 'Projeto não encontrado' });
 
+  if (exigeUnidade && !unidadeGeral) {
+    unidadeGeral = await garantirUnidadeGeralEmpresa(projeto.empresaId);
+  }
+
   const idsAval = await idsAvaliacoesDaVersao(projetoId, projetoVersao.id);
-  const avaliacoesFiltradas = projeto.avaliacoes.filter(
-    (av) =>
-      idsAval.has(Number(av.id)) &&
-      usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax)
-  );
+  const avaliacoesFiltradas = exigeUnidade
+    ? filtrarAvaliacoesRelatorioProjeto(projeto.avaliacoes, {
+        idsVersao: idsAval,
+        filtroNivelMax,
+        filtroUnidadeId,
+        unidadeGeralId: unidadeGeral?.id
+      })
+    : projeto.avaliacoes.filter(
+        (av) =>
+          idsAval.has(Number(av.id)) &&
+          usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax)
+      );
   if (!avaliacoesFiltradas.length) {
     return res.status(400).json({
-      error: 'Não há avaliações finalizadas para gerar o relatório SATF',
-      projetoVersao
+      error: exigeUnidade
+        ? 'Não há avaliações finalizadas de avaliadores desta unidade para gerar o relatório SATF'
+        : 'Não há avaliações finalizadas para gerar o relatório SATF',
+      projetoVersao,
+      filtroEmpresaUnidade: unidadeMeta
     });
   }
 
@@ -346,7 +397,8 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps) {
     blocoLogicaMaturidade,
     metodologiaScore,
     temContexto,
-    temDesejosIa
+    temDesejosIa,
+    unidadeMeta
   });
 
   await loadPersistedAIConfig();
@@ -390,6 +442,7 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps) {
     totalDimensoesFramework: TOTAL_DIMENSOES_SATF,
     totalAvaliadores: avaliacoesFiltradas.length,
     filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
+    ...(exigeUnidade ? metadadosUnidadeDadosUsados(unidadeMeta, filtroUnidadeId) : {}),
     projetoVersao,
     comparativoVersoes,
     temDesejosIa,
@@ -400,20 +453,22 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps) {
       : 0
   };
 
-  const corpo = `${capaConfidencialBookSatfMarkdown(projeto.empresa.nome, projeto.nome)}${resultado.content.trim()}`;
-  const conteudoExecutivo = prependCapaNivelAvaliadoresAoRelatorio(corpo, {
+  const corpoBase = `${capaConfidencialBookSatfMarkdown(projeto.empresa.nome, projeto.nome)}${resultado.content.trim()}`;
+  const corpoComUnidade = exigeUnidade ? prependCapaUnidadeAoRelatorio(corpoBase, unidadeMeta) : corpoBase;
+  const conteudoExecutivo = prependCapaNivelAvaliadoresAoRelatorio(corpoComUnidade, {
     filtroMax: filtroNivelMax,
     avaliacoesFiltradas,
     empresaNome: projeto.empresa.nome,
     projetoNome: projeto.nome
   });
 
+  const tituloUnidade = unidadeMeta ? ` — ${unidadeMeta.nome}` : '';
   let salvo = null;
   try {
     salvo = await salvarRelatorioIA({
       projetoId,
-      tipo: 'executivo',
-      titulo: `Relatório Executivo SATF TI — ${projeto.empresa.nome}`,
+      tipo: tipoRelatorio,
+      titulo: `Relatório Executivo SATF TI${tituloUnidade} — ${projeto.empresa.nome}`,
       conteudoMd: conteudoExecutivo,
       provider: resultado.provider,
       modelo: resultado.model,
@@ -439,7 +494,7 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps) {
     dataGeracao: salvo?.createdAt,
     fromCache: false,
     frameworkMaturidade: FRAMEWORK_SATF_TI_V3,
-    tipoRelatorio: 'executivo',
+    tipoRelatorio,
     filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
     projetoVersao,
     validacaoTaxonomia,

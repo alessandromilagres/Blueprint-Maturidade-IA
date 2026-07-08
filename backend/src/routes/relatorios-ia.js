@@ -4,17 +4,16 @@ import {
   filtroNivelPrioridadeFromRaw,
   filtroNivelRelatorioIACompativel
 } from '../utils/nivelPrioridadeMapeamentoMaturidade.js';
+import { parseFiltroEmpresaUnidadeId } from '../utils/empresaUnidade.js';
+import { filtroUnidadeRelatorioIACompativel } from '../utils/relatorioUnidadeIA.js';
 import { enriquecerDadosUsadosComLogo } from '../utils/empresaLogo.js';
+import {
+  TIPOS_RELATORIO_IA_VALIDOS,
+  isTipoRelatorioIAValido,
+  MENSAGEM_TIPOS_RELATORIO_IA_INVALIDO
+} from '../constants/tiposRelatorioIA.js';
 
 const router = express.Router();
-
-const TIPOS_RELATORIO_IA_VALIDOS = [
-  'executivo',
-  'completo',
-  'completo_rapido',
-  'completo_satf',
-  'completo_satf_rapido'
-];
 
 function parseJsonSeguro(raw) {
   if (!raw) return null;
@@ -85,11 +84,8 @@ router.get('/versoes/:projetoId/:tipo', async (req, res) => {
   try {
     const { projetoId, tipo } = req.params;
     
-    if (!TIPOS_RELATORIO_IA_VALIDOS.includes(tipo)) {
-      return res.status(400).json({
-        error:
-          'Tipo inválido. Use executivo, completo, completo_rapido, completo_satf ou completo_satf_rapido'
-      });
+    if (!isTipoRelatorioIAValido(tipo)) {
+      return res.status(400).json({ error: MENSAGEM_TIPOS_RELATORIO_IA_INVALIDO });
     }
     
     const versoes = await prisma.relatorioIA.findMany({
@@ -127,9 +123,10 @@ router.get('/latest/:projetoId/:tipo', async (req, res) => {
   try {
     const { projetoId, tipo } = req.params;
     const filtroAtual = filtroNivelPrioridadeFromRaw(req.query?.nivelPrioridadeMapeamentoMaturidade);
+    const filtroUnidadeAtual = parseFiltroEmpresaUnidadeId(req);
     
-    if (!TIPOS_RELATORIO_IA_VALIDOS.includes(tipo)) {
-      return res.status(400).json({ error: 'Tipo inválido' });
+    if (!isTipoRelatorioIAValido(tipo)) {
+      return res.status(400).json({ error: MENSAGEM_TIPOS_RELATORIO_IA_INVALIDO });
     }
     
     const candidatos = await prisma.relatorioIA.findMany({
@@ -153,7 +150,10 @@ router.get('/latest/:projetoId/:tipo', async (req, res) => {
 
     const relatorio = candidatos.find((r) => {
       const dadosUsados = parseJsonSeguro(r.dadosSnapshot);
-      return filtroNivelRelatorioIACompativel(dadosUsados, filtroAtual);
+      return (
+        filtroNivelRelatorioIACompativel(dadosUsados, filtroAtual) &&
+        filtroUnidadeRelatorioIACompativel(dadosUsados, filtroUnidadeAtual)
+      );
     });
     
     if (!relatorio) {

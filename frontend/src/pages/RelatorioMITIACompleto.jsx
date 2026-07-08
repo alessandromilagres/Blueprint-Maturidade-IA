@@ -3,6 +3,11 @@ import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Download, Printer, Loader2, AlertCircle, AlertTriangle, CheckCircle2, Cpu, Zap, File, Layers, Library, Bookmark, ChevronUp, History, Clock, Ban } from 'lucide-react';
 import { dashboardApi, relatoriosIAApi, projetosApi } from '../services/api';
 import { mapRelatorioIASalvoToViewShape } from '../utils/relatorioIAViewModel';
+import {
+  relatorioIdFromJobStatus,
+  resolverJobRelatorioIaAtivo,
+  resetEstadoGeracaoRelatorioIA
+} from '../utils/relatorioIAGeracao';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import {
   downloadMarkdownAsDoc,
@@ -15,8 +20,11 @@ import {
   labelFiltroNivelMapeamento,
   pathRelatorioMitIaCompleto,
   filtroNivelFromDadosUsados,
-  carregarRelatorioSalvoSeCompativel,
-  relatorioSalvoIdFromSearchParams
+  relatorioSalvoIdFromSearchParams,
+  filtroUnidadeFromSearchParams,
+  queryEmpresaUnidadeId,
+  labelFiltroUnidade,
+  filtroUnidadeFromDadosUsados
 } from '../utils/filtroNivelMaturidade';
 import { relatorioBookSecao3Completo } from '../constants/ordemDimensoesFramework.js';
 import {
@@ -38,6 +46,7 @@ import {
   bookIaTipoProjeto,
   totalDimensoesBookFramework,
   isTipoBookCompleto,
+  isTipoBookUnidade,
   relatorioFrameworkMeta
 } from '../constants/frameworkMaturidade';
 import {
@@ -106,6 +115,7 @@ export default function RelatorioMITIACompleto() {
   const projetoVersaoId = searchParams.get('projetoVersaoId');
   const modoRapido = searchParams.get('modo') === 'rapido';
   const filtroNivelUrl = filtroNivelMapeamentoFromSearchParams(searchParams);
+  const filtroUnidadeUrl = filtroUnidadeFromSearchParams(searchParams);
   const [filtroNivelSelecionado, setFiltroNivelSelecionado] = useState(filtroNivelUrl);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -129,9 +139,11 @@ export default function RelatorioMITIACompleto() {
       ? filtroNivelFromDadosUsados(data.dadosUsados)
       : filtroNivelUrl;
   const pathComProjetoVersao = (filtroNivel) =>
-    `${pathRelatorioMitIaCompleto(id, { modoRapido, filtroNivel })}${
-      projetoVersaoId ? `&projetoVersaoId=${projetoVersaoId}` : ''
-    }`;
+    `${pathRelatorioMitIaCompleto(id, {
+      modoRapido,
+      filtroNivel,
+      empresaUnidadeId: filtroUnidadeUrl
+    })}${projetoVersaoId ? `&projetoVersaoId=${projetoVersaoId}` : ''}`;
 
   useEffect(() => {
     if (!id) return;
@@ -147,10 +159,14 @@ export default function RelatorioMITIACompleto() {
     data?.frameworkMaturidade ||
     data?.dadosUsados?.frameworkMaturidade ||
     frameworkProjeto;
-  const tipoBook = bookIaTipoProjeto(fwAtual, modoRapido);
+  const tipoBook = bookIaTipoProjeto(fwAtual, modoRapido, filtroUnidadeUrl);
   const totalDimsBook = totalDimensoesBookFramework(fwAtual);
   const fwMeta = relatorioFrameworkMeta(fwAtual);
-  const isSatfBook = fwAtual === 'SATF_TI_V3' || tipoBook.startsWith('completo_satf');
+  const isSatfBook =
+    fwAtual === 'SATF_TI_V3' ||
+    tipoBook.startsWith('completo_satf') ||
+    tipoBook.startsWith('book_unidade_satf');
+  const isBookUnidade = isTipoBookUnidade(tipoBook);
   const metodologiaResumo = isSatfBook ? METODOLOGIA_SATF_RESUMO : METODOLOGIA_BLUEPRINT_RESUMO;
   const labelValidadoMetodologia = isSatfBook ? LABEL_VALIDADO_METODOLOGIA_SATF : LABEL_VALIDADO_METODOLOGIA;
   const disclaimerBook = isSatfBook ? DISCLAIMER_BOOK_SATF : DISCLAIMER_BOOK_COMPLETO;
@@ -163,7 +179,7 @@ export default function RelatorioMITIACompleto() {
     if (!relatorioSalvoId && frameworkCarregando) return;
     geracaoIniciadaRef.current = false;
     gerarRelatorio();
-  }, [id, relatorioSalvoId, projetoVersaoId, modoRapido, filtroNivelUrl, frameworkCarregando, frameworkProjeto]);
+  }, [id, relatorioSalvoId, projetoVersaoId, modoRapido, filtroNivelUrl, filtroUnidadeUrl, frameworkCarregando, frameworkProjeto]);
 
   useEffect(() => {
     if (!relatorioSalvoId) return;
@@ -216,7 +232,7 @@ export default function RelatorioMITIACompleto() {
     return () => {
       cancelled = true;
     };
-  }, [id, relatorioSalvoId, projetoVersaoId, modoRapido, filtroNivelUrl]);
+  }, [id, relatorioSalvoId, projetoVersaoId, modoRapido, filtroNivelUrl, filtroUnidadeUrl]);
 
   async function obterJobAtivo() {
     try {
@@ -225,9 +241,7 @@ export default function RelatorioMITIACompleto() {
         tipo: tipoBook,
         limit: 20
       });
-      return (Array.isArray(jobs) ? jobs : []).find((j) =>
-        ['queued', 'running'].includes(j.status)
-      );
+      return await resolverJobRelatorioIaAtivo(jobs, dashboardApi);
     } catch {
       return null;
     }
@@ -262,19 +276,38 @@ export default function RelatorioMITIACompleto() {
     return mapRelatorioIASalvoToViewShape(row);
   }
 
-  async function gerarRelatorio() {
+  async function carregarRelatorioDoJob(status) {
+    const relatorioGeradoId = relatorioIdFromJobStatus(status);
+    if (!relatorioGeradoId) {
+      throw new Error(
+        'O job concluiu, mas não retornou um relatório salvo. Gere novamente para criar uma nova versão.'
+      );
+    }
+    return carregarRelatorioBiblioteca(relatorioGeradoId);
+  }
+
+  async function gerarRelatorio(forceRegenerate = false) {
+    if (forceRegenerate) {
+      resetEstadoGeracaoRelatorioIA({ geracaoIniciadaRef, backgroundRunningRef });
+      setJobBg(null);
+    }
     const carregandoBiblioteca = Boolean(relatorioSalvoId);
     setLoading(true);
     setError(null);
     setProgresso(3);
     setMensagemProgresso(
-      carregandoBiblioteca ? 'Carregando versão da biblioteca...' : 'Procurando versão salva...'
+      carregandoBiblioteca ? 'Carregando versão da biblioteca...' : 'Iniciando nova geração...'
     );
 
-    const mensagens = [
-      { p: 30, m: 'Buscando versão salva mais recente...' },
-      { p: 70, m: 'Carregando book completo...' },
-    ];
+    const mensagens = carregandoBiblioteca
+      ? [
+          { p: 30, m: 'Buscando versão na biblioteca...' },
+          { p: 70, m: 'Carregando book completo...' }
+        ]
+      : [
+          { p: 20, m: 'Verificando jobs em andamento...' },
+          { p: 60, m: 'Enfileirando nova geração do book...' }
+        ];
 
     let idx = 0;
     const intervalo = setInterval(() => {
@@ -302,25 +335,11 @@ export default function RelatorioMITIACompleto() {
         return;
       }
 
-      const salvo = await carregarRelatorioSalvoSeCompativel({
-        relatoriosIAApi,
-        projetoId: id,
-        tipo: tipoBook,
-        filtroNivel: filtroNivelUrl,
-        projetoVersaoId
-      });
-      if (salvo) {
-        clearInterval(intervalo);
-        setProgresso(100);
-        setMensagemProgresso('Versão salva carregada!');
-        setData(mapRelatorioIASalvoToViewShape(salvo));
-        return;
-      }
-
       clearInterval(intervalo);
       await iniciarGeracaoAutomatica(filtroNivelUrl);
     } catch (err) {
       clearInterval(intervalo);
+      resetEstadoGeracaoRelatorioIA({ geracaoIniciadaRef, backgroundRunningRef });
       setError(err.message || 'Erro ao gerar book de trabalho');
     } finally {
       clearInterval(intervalo);
@@ -353,18 +372,19 @@ export default function RelatorioMITIACompleto() {
           }
           if (status.status === 'completed') {
             backgroundRunningRef.current = false;
-            const params = new URLSearchParams(window.location.search);
-            const temSalvoNaUrl =
-              params.get('relatorioSalvoId') || params.get('versaoId');
-            if (temSalvoNaUrl) {
-              navigate(pathComProjetoVersao(filtroNivelUrl), {
-                replace: true
-              });
-            } else {
-              await gerarRelatorio();
+            try {
+              const mapped = await carregarRelatorioDoJob(status);
+              setData(mapped);
+              setProgresso(100);
+              setMensagemProgresso('Nova versão gerada e carregada.');
+              setLoading(false);
+            } catch (err) {
+              resetEstadoGeracaoRelatorioIA({ geracaoIniciadaRef, backgroundRunningRef });
+              setError(err.message || 'Falha ao carregar relatório gerado.');
+              setLoading(false);
             }
           } else if (status.status === 'failed') {
-            backgroundRunningRef.current = false;
+            resetEstadoGeracaoRelatorioIA({ geracaoIniciadaRef, backgroundRunningRef });
             setError(status.erro || 'Falha ao gerar book em background.');
             setLoading(false);
           }
@@ -387,12 +407,15 @@ export default function RelatorioMITIACompleto() {
   async function iniciarGeracaoBackground(filtroNivelOverride = filtroNivelUrl) {
     try {
       setIniciandoBg(true);
+      setData(null);
+      setError(null);
       const res = await dashboardApi.iniciarRelatorioIABackground(
         id,
         tipoBook,
         {
           nivelPrioridadeMapeamentoMaturidade: filtroNivelOverride,
-          versaoId: projetoVersaoId
+          versaoId: projetoVersaoId,
+          empresaUnidadeId: filtroUnidadeUrl
         }
       );
       const job = res?.job;
@@ -423,9 +446,10 @@ export default function RelatorioMITIACompleto() {
 
     geracaoIniciadaRef.current = false;
     skipGeracaoEffectRef.current = true;
+    setData(null);
     if (relatorioSalvoId || filtroNivel !== filtroNivelUrl) {
       const base = pathComProjetoVersao(filtroNivel);
-      navigate(relatorioSalvoId ? `${base}&relatorioSalvoId=${relatorioSalvoId}` : base, {
+      navigate(base, {
         replace: true
       });
     }
@@ -446,6 +470,7 @@ export default function RelatorioMITIACompleto() {
 
     geracaoIniciadaRef.current = false;
     skipGeracaoEffectRef.current = true;
+    setData(null);
     const base = pathComProjetoVersao(filtroNivel);
     if (relatorioSalvoId || filtroNivel !== filtroNivelUrl) {
       navigate(base, { replace: true });
@@ -646,7 +671,7 @@ export default function RelatorioMITIACompleto() {
           <div className="flex flex-wrap justify-center gap-2">
             <button
               type="button"
-              onClick={gerarRelatorio}
+              onClick={() => gerarRelatorio(true)}
               className="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 px-4 text-xs font-medium text-white transition hover:bg-emerald-700"
             >
               Tentar novamente
@@ -713,7 +738,7 @@ export default function RelatorioMITIACompleto() {
           </p>
           <button
             type="button"
-            onClick={gerarRelatorio}
+            onClick={() => gerarRelatorio(true)}
             className="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 px-4 text-xs font-medium text-white transition hover:bg-emerald-700"
           >
             Tentar novamente
@@ -736,7 +761,10 @@ export default function RelatorioMITIACompleto() {
   const statusSecao3 = data?.relatorio
     ? relatorioBookSecao3Completo(data.relatorio, totalDimsBook)
     : null;
-  const secao3Incompleta = Boolean(statusSecao3 && !statusSecao3.ok);
+  const tipoSalvo = data?.tipoRelatorio || data?.tipo;
+  const escopoUnidade =
+    isBookUnidade || isTipoBookUnidade(tipoSalvo) || data?.dadosUsados?.escopoRelatorio === 'unidade_organizacional';
+  const secao3Incompleta = !escopoUnidade && Boolean(statusSecao3 && !statusSecao3.ok);
   const headerBtn =
     'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition disabled:pointer-events-none disabled:opacity-60';
 
@@ -884,7 +912,7 @@ export default function RelatorioMITIACompleto() {
               }
               className={`${headerBtn} shrink-0 border border-indigo-300 bg-white text-indigo-900 hover:bg-indigo-100`}
             >
-              Ver versão mais recente
+              Gerar nova versão
             </button>
           </div>
         </div>
@@ -1059,20 +1087,23 @@ export default function RelatorioMITIACompleto() {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams(window.location.search);
-                    if (params.get('relatorioSalvoId') || params.get('versaoId')) {
-                      navigate(
-                        pathComProjetoVersao(filtroNivelUrl),
-                        { replace: true }
-                      );
-                    } else {
-                      gerarRelatorio();
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      setError(null);
+                      const mapped = await carregarRelatorioDoJob(jobBg);
+                      setData(mapped);
+                      setProgresso(100);
+                      setMensagemProgresso('Nova versão gerada e carregada.');
+                    } catch (err) {
+                      setError(err.message || 'Falha ao carregar relatório gerado.');
+                    } finally {
+                      setLoading(false);
                     }
                   }}
                   className={`${headerBtn} border border-cyan-300 bg-white text-cyan-900 hover:bg-cyan-100`}
                 >
-                  Recarregar relatório
+                  Recarregar versão gerada
                 </button>
               </div>
             )}

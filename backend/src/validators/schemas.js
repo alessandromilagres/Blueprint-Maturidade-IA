@@ -101,7 +101,16 @@ export const usuarioSchemas = {
     empresaId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]),
     role: z.enum(ROLES_USUARIO).default('avaliador'),
     ativo: z.boolean().default(true),
-    nivelPrioridadeMapeamentoMaturidade: z.coerce.number().int().min(1).max(3).optional().default(1)
+    nivelPrioridadeMapeamentoMaturidade: z.coerce.number().int().min(1).max(3).optional().default(1),
+    empresaUnidadeId: z
+      .union([
+        z.number().int().positive(),
+        z.string().regex(/^\d+$/).transform(Number),
+        z.null(),
+        z.literal('')
+      ])
+      .optional()
+      .nullable()
   }),
 
   atualizar: z.object({
@@ -112,7 +121,16 @@ export const usuarioSchemas = {
     empresaId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]).optional(),
     role: z.enum(ROLES_USUARIO).optional(),
     ativo: z.boolean().optional(),
-    nivelPrioridadeMapeamentoMaturidade: z.coerce.number().int().min(1).max(3).optional()
+    nivelPrioridadeMapeamentoMaturidade: z.coerce.number().int().min(1).max(3).optional(),
+    empresaUnidadeId: z
+      .union([
+        z.number().int().positive(),
+        z.string().regex(/^\d+$/).transform(Number),
+        z.null(),
+        z.literal('')
+      ])
+      .optional()
+      .nullable()
   })
 };
 

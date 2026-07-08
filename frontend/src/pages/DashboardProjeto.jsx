@@ -14,13 +14,13 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Radar, Bar, Doughnut } from 'react-chartjs-2';
-import { Download, Building2, Users, ArrowLeft, ChevronRight, FileText, UserCheck, Target, TrendingUp, AlertTriangle, Lightbulb, BarChart3, Activity, DollarSign, GitBranch, Loader2, Moon, Sun, ChevronDown, FileCode, File, Printer, Sparkles, Brain, Zap } from 'lucide-react';
+import { Download, Building2, Users, ArrowLeft, ChevronRight, FileText, UserCheck, Target, TrendingUp, AlertTriangle, Lightbulb, BarChart3, Activity, DollarSign, GitBranch, Loader2, Moon, Sun, ChevronDown, FileCode, File, Printer, Sparkles, Brain, Zap, Layers } from 'lucide-react';
 import { dashboardApi, exportarApi } from '../services/api';
 import { downloadWordDocument, downloadExecutiveWordDocument, downloadUserReport } from '../utils/generateReport';
 import { multiplicadorRoiPorFaturamento, percentualReferenciaRoi } from '../utils/roiPorFaturamento';
 import { VERTICAIS } from './Projetos';
 import { useTheme } from '../contexts/ThemeContext';
-import { queryNivelMapeamentoMaturidade } from '../utils/filtroNivelMaturidade';
+import { queryNivelMapeamentoMaturidade, queryEmpresaUnidadeId } from '../utils/filtroNivelMaturidade';
 import { nivelNumericoDeScore } from '../utils/nivelMaturidadeRubrica.js';
 import { ResumoRegulatorioProjeto } from '../components/ImplicacoesRegulatoriasDimensao';
 import FrameworkMaturidadeBadge from '../components/FrameworkMaturidadeBadge';
@@ -454,6 +454,7 @@ export default function DashboardProjeto() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filtroNivelMapeamentoMaturidade, setFiltroNivelMapeamentoMaturidade] = useState(3);
+  const [filtroUnidadeId, setFiltroUnidadeId] = useState('');
   const [selectedArea, setSelectedArea] = useState(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -476,6 +477,9 @@ export default function DashboardProjeto() {
     const projectName = dashboard.projeto.nome.replace(/\s+/g, '_');
     const versaoQ = dashboard.projetoVersao?.id ? `versaoId=${dashboard.projetoVersao.id}` : '';
     const projetoVersaoQ = dashboard.projetoVersao?.id ? `projetoVersaoId=${dashboard.projetoVersao.id}` : '';
+    const unidadeQ = queryEmpresaUnidadeId(filtroUnidadeId);
+    const extraQ = [projetoVersaoQ, unidadeQ].filter(Boolean).join('&');
+    const extraPrefix = extraQ ? `&${extraQ}` : '';
     
     // RELATÓRIOS COMPLETOS
     if (format === 'word') {
@@ -515,27 +519,28 @@ export default function DashboardProjeto() {
     
     // RELATÓRIOS GERADOS POR IA (validados pelo MIT) — usa o filtro já selecionado no dashboard
     else if (format === 'mit-ia') {
-      const nivelQ = `${queryNivelMapeamentoMaturidade(filtroNivelMapeamentoMaturidade)}${projetoVersaoQ ? `&${projetoVersaoQ}` : ''}`;
+      const nivelQ = `${queryNivelMapeamentoMaturidade(filtroNivelMapeamentoMaturidade)}${extraPrefix}`;
       window.open(`/relatorios/${id}/mit-ia?${nivelQ}`, '_blank');
     } else if (format === 'mit-ia-completo') {
-      const nivelQ = `${queryNivelMapeamentoMaturidade(filtroNivelMapeamentoMaturidade)}${projetoVersaoQ ? `&${projetoVersaoQ}` : ''}`;
+      const nivelQ = `${queryNivelMapeamentoMaturidade(filtroNivelMapeamentoMaturidade)}${extraPrefix}`;
       window.open(`/relatorios/${id}/mit-ia-completo?${nivelQ}`, '_blank');
     } else if (format === 'mit-ia-completo-rapido') {
-      const nivelQ = `${queryNivelMapeamentoMaturidade(filtroNivelMapeamentoMaturidade)}${projetoVersaoQ ? `&${projetoVersaoQ}` : ''}`;
+      const nivelQ = `${queryNivelMapeamentoMaturidade(filtroNivelMapeamentoMaturidade)}${extraPrefix}`;
       window.open(`/relatorios/${id}/mit-ia-completo?modo=rapido&${nivelQ}`, '_blank');
     }
   }
 
   useEffect(() => {
     loadDashboard();
-  }, [id, filtroNivelMapeamentoMaturidade, versaoIdSelecionada]);
+  }, [id, filtroNivelMapeamentoMaturidade, versaoIdSelecionada, filtroUnidadeId]);
 
   async function loadDashboard() {
     try {
       setLoading(true);
       const data = await dashboardApi.projeto(id, {
         nivelPrioridadeMapeamentoMaturidade: filtroNivelMapeamentoMaturidade,
-        versaoId: versaoIdSelecionada
+        versaoId: versaoIdSelecionada,
+        empresaUnidadeId: filtroUnidadeId || undefined
       });
       setDashboard(data);
     } catch (error) {
@@ -961,12 +966,20 @@ export default function DashboardProjeto() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white">
-                          {isSatf ? 'Book SATF TI v3 (IA)' : 'Book de Trabalho Completo (IA)'}
+                          {filtroUnidadeId
+                            ? isSatf
+                              ? `Book SATF por unidade (IA)`
+                              : `Book por unidade (IA)`
+                            : isSatf
+                              ? 'Book SATF TI v3 (IA)'
+                              : 'Book de Trabalho Completo (IA)'}
                         </p>
                         <p className="text-[10px] text-slate-400">
-                          {isSatf
-                            ? '11 dimensões · score certificado · ~18 blocos'
-                            : 'Profundo · 1 chamada/dimensão + blocos · típico 1h+'}
+                          {filtroUnidadeId
+                            ? `Dashboard, nota e ações por dimensão — ${dashboard?.filtroEmpresaUnidade?.nome || 'unidade'}`
+                            : isSatf
+                              ? '11 dimensões · score certificado · ~18 blocos'
+                              : 'Profundo · 1 chamada/dimensão + blocos · típico 1h+'}
                         </p>
                       </div>
                     </button>
@@ -1031,6 +1044,33 @@ export default function DashboardProjeto() {
               Abrir Book rápido
             </button>
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm border-t border-slate-700/80 pt-3">
+            <span className="text-slate-400 shrink-0 inline-flex items-center gap-1.5">
+              <Layers className="w-4 h-4" />
+              Unidade organizacional:
+            </span>
+            <select
+              value={filtroUnidadeId}
+              onChange={(e) => setFiltroUnidadeId(e.target.value)}
+              className="bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-1.5 text-sm max-w-md"
+            >
+              <option value="">Todas as unidades (consolidado enterprise)</option>
+              {(dashboard?.unidadesEmpresa || []).map((u) => (
+                <option key={u.id} value={String(u.id)}>
+                  {u.nome}
+                  {u.ehPadrao ? ' (padrão)' : ''}
+                </option>
+              ))}
+            </select>
+            {filtroUnidadeId && dashboard?.filtroEmpresaUnidade && (
+              <span className="text-xs text-cyan-300/90">
+                {dashboard.totalAvaliadores} de {dashboard.totalAvaliadoresVersao ?? '—'} avaliador(es) nesta versão
+              </span>
+            )}
+            <span className="text-xs text-slate-500">
+              Filtra o score pelos avaliadores da unidade. Cadastre unidades em Empresa → Detalhe.
+            </span>
+          </div>
         </header>
 
         <div className="p-6">
@@ -1081,6 +1121,18 @@ export default function DashboardProjeto() {
             >
               <BarChart3 className="h-4 w-4" />
               Executive
+            </Link>
+            <Link
+              to={(() => {
+                const p = new URLSearchParams();
+                if (dashboard.projetoVersao?.id) p.set('versaoId', String(dashboard.projetoVersao.id));
+                p.set('nivelPrioridadeMapeamentoMaturidade', String(filtroNivelMapeamentoMaturidade === 0 ? 0 : filtroNivelMapeamentoMaturidade));
+                return `/dashboard/projeto/${id}/comparativo-unidades?${p.toString()}`;
+              })()}
+              className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-500/15 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:bg-cyan-500/25"
+            >
+              <Building2 className="h-4 w-4" />
+              Comparativo unidades
             </Link>
           </div>
           <p className="text-slate-400 mb-6">{dashboard.projeto.nome}</p>
@@ -1892,6 +1944,9 @@ export default function DashboardProjeto() {
                   <div key={avaliador.id} className="bg-slate-700/50 rounded-lg p-4">
                     <p className="text-white font-medium">{avaliador.nome}</p>
                     <p className="text-slate-400 text-sm">{avaliador.email}</p>
+                    {avaliador.empresaUnidadeNome && (
+                      <p className="text-cyan-400/80 text-xs mt-1">{avaliador.empresaUnidadeNome}</p>
+                    )}
                     <p className="text-slate-500 text-xs mt-2">
                       {avaliador.areasSelecionadas?.length || 0} áreas avaliadas
                     </p>

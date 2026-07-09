@@ -40,7 +40,7 @@ import { listarAreasDoProjeto } from './areaFrameworkCatalog.js';
 import { mapaApresentacaoDimensoes } from './projetoDimensoesConfig.js';
 import { calcularScoresConsolidadoMaturidade, nivelNumericoDeScore } from './scoresConsolidadoProjetoMaturidade.js';
 import { enriquecerScoresDashboardSatf } from './projetoDimensaoCertificacao.js';
-import { ordenarAreasPorFramework, blocoOrdemDimensoesFrameworkMarkdown, TOTAL_DIMENSOES_SATF } from './ordemDimensoesFramework.js';
+import { ordenarAreasPorFramework, blocoOrdemDimensoesFrameworkMarkdown, TOTAL_DIMENSOES_SATF, garantirTodasDimensoesFramework } from './ordemDimensoesFramework.js';
 import { montarComparativoVersoesProjeto, blocoEvolucaoVersoesMarkdown } from './evolucaoVersoesProjeto.js';
 import {
   blocoContextoProjetoMarkdown,
@@ -93,7 +93,10 @@ import {
   recortarConteudoChunkBookSatf,
   deduplicarSecoesFinaisBookSatf,
   normalizarSecoesBookSatf,
-  validarSecoesDuplicadasBookSatf
+  validarSecoesDuplicadasBookSatf,
+  garantirSecoesD11BookSatf,
+  encontrarDimensaoD11Satf,
+  NOME_DIMENSAO_D11_SATF
 } from './satfBookTaxonomia.js';
 import { validarFatosCanonicosBook } from './projetoContextoFatos.js';
 
@@ -553,7 +556,19 @@ DADOS:\n${dados}`,
 
 Gere **SOMENTE** a Seção 6 (subseções 6.1–6.4). **PARE** antes de "# 7." — não antecipe Capacitação nem Próximos Passos.
 
-Governança de IA em TI, LGPD técnico, auditoria de modelos. Se setor regulado ou D11 ativa, aprofunde.
+**Obrigatório:** esta seção **sempre** deve existir no book SATF — mesmo se D11 estiver desativada ou sem score consolidado.
+${(() => {
+  const d11 = encontrarDimensaoD11Satf(dimensoesDiagnostico);
+  if (d11?.foraDeEscopo) {
+    return '\n> D11 está **fora do escopo** da configuração do projeto — documente como registro regulatório e próximos passos, sem omitir a seção.';
+  }
+  if (d11 && dimensaoComScoreZero(d11)) {
+    return '\n> D11 sem avaliações consolidadas nesta rodada — registre o status e recomende passos de conformidade (ISO 42001, LGPD, PL IA).';
+  }
+  return '\n> Use scores e perguntas de **D11 — Conformidade Regulatória de IA** dos DADOS.';
+})()}
+
+Governança de IA em TI, LGPD técnico, auditoria de modelos, SGAI e NIST AI RMF.
 Referencie **D11** e, se pertinente, **D2 Governança, Risco & Conformidade** — nomes SATF oficiais.
 
 DADOS:\n${dados}`,
@@ -970,6 +985,25 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     dimensoesConfig
   });
   let dimensoesDiagnostico = consolidado.todasDimensoes;
+  if (dimensoesDiagnostico.length !== TOTAL_DIMENSOES_SATF) {
+    console.warn(
+      `[Book SATF] Esperadas ${TOTAL_DIMENSOES_SATF} dimensões na Seção 3; recebidas ${dimensoesDiagnostico.length}. Recompondo ordem canônica.`
+    );
+    dimensoesDiagnostico = garantirTodasDimensoesFramework(
+      areas,
+      dimensoesDiagnostico,
+      FRAMEWORK_SATF_TI_V3
+    ).map((d) => ({
+      ...d,
+      peso: d.areaId != null ? dimensoesConfig.get(d.areaId)?.peso ?? d.peso : d.peso,
+      foraDeEscopo:
+        d.areaId != null ? dimensoesConfig.get(d.areaId)?.foraDeEscopo === true : d.foraDeEscopo === true
+    }));
+  }
+  const d11NoDiagnostico = encontrarDimensaoD11Satf(dimensoesDiagnostico);
+  if (!d11NoDiagnostico) {
+    console.warn(`[Book SATF] D11 (${NOME_DIMENSAO_D11_SATF}) ausente após recomposição — verifique seed SATF.`);
+  }
   let scoreGeral = consolidado.scoreGeral;
   let scoreGeralDeclarado = scoreGeral;
   let certificacaoSatf = null;
@@ -1105,7 +1139,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   );
 
   const startTime = Date.now();
-  const { markdown, totalTokensEntrada, totalTokensSaida, providerUsado, modelUsado, avisosProvedor } =
+  const { markdown: markdownBruto, totalTokensEntrada, totalTokensSaida, providerUsado, modelUsado, avisosProvedor } =
     await executarChunksLoop({
       chunks,
       dimensoesDiagnostico,
@@ -1119,6 +1153,8 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       instrucoesUnidadeExtra,
       temGlossarioFatos: regrasFatos.temGlossario
     });
+
+  const markdown = garantirSecoesD11BookSatf(markdownBruto, dimensoesDiagnostico);
 
   const validacao = relatorioBookSecao3Completo(markdown, TOTAL_DIMENSOES_SATF);
   if (!validacao.ok) {

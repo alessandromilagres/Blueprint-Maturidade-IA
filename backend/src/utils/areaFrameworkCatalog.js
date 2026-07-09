@@ -299,13 +299,97 @@ async function syncSatfPerguntasFromSeed(prisma) {
   return { atualizadas, inseridas };
 }
 
+/** Garante as 11 dimensões canônicas SATF por nome (não só contagem no banco). */
+async function alinharAreasSatfCanonicas(prisma) {
+  let criadas = 0;
+  let atualizadas = 0;
+  const hasFrameworkCol = await colunaFrameworkDisponivel(prisma);
+
+  for (const dim of SATF_FRAMEWORK_SEED) {
+    const area = await prisma.area.findUnique({ where: { nome: dim.nome } });
+    if (!area) {
+      if (hasFrameworkCol) {
+        const areaRows = await prisma.$queryRaw`
+          INSERT INTO "Area" (nome, descricao, ordem, peso, "frameworkMaturidade", "codigoFramework", "tipoDimensao")
+          VALUES (
+            ${dim.nome},
+            ${dim.descricao},
+            ${dim.ordem},
+            ${dim.peso},
+            ${FRAMEWORK_SATF_TI_V3},
+            ${dim.codigoFramework},
+            ${dim.tipoDimensao}
+          )
+          ON CONFLICT (nome) DO NOTHING
+          RETURNING id
+        `;
+        if (!areaRows?.[0]?.id) {
+          await prisma.$executeRaw`
+            UPDATE "Area"
+            SET "frameworkMaturidade" = ${FRAMEWORK_SATF_TI_V3},
+                "codigoFramework" = ${dim.codigoFramework},
+                "tipoDimensao" = ${dim.tipoDimensao},
+                ordem = ${dim.ordem},
+                descricao = ${dim.descricao},
+                peso = ${dim.peso}
+            WHERE nome = ${dim.nome}
+          `;
+          atualizadas += 1;
+        } else {
+          criadas += 1;
+        }
+      } else {
+        await prisma.area.create({
+          data: {
+            nome: dim.nome,
+            descricao: dim.descricao,
+            ordem: dim.ordem,
+            peso: dim.peso
+          }
+        });
+        criadas += 1;
+      }
+      continue;
+    }
+
+    if (hasFrameworkCol) {
+      const precisaAtualizar =
+        area.frameworkMaturidade !== FRAMEWORK_SATF_TI_V3 ||
+        area.codigoFramework !== dim.codigoFramework ||
+        area.tipoDimensao !== dim.tipoDimensao ||
+        area.ordem !== dim.ordem;
+      if (precisaAtualizar) {
+        await prisma.$executeRaw`
+          UPDATE "Area"
+          SET "frameworkMaturidade" = ${FRAMEWORK_SATF_TI_V3},
+              "codigoFramework" = ${dim.codigoFramework},
+              "tipoDimensao" = ${dim.tipoDimensao},
+              ordem = ${dim.ordem},
+              descricao = ${dim.descricao},
+              peso = ${dim.peso}
+          WHERE id = ${area.id}
+        `;
+        atualizadas += 1;
+      }
+    }
+  }
+
+  const sync = await syncSatfPerguntasFromSeed(prisma);
+  return { criadas, atualizadas, sync };
+}
+
 export async function ensureSatfFrameworkSeed(prisma) {
   await ensureAreaFrameworkSchema(prisma);
 
-  const jaExistem = await contarAreasSatf(prisma);
-  if (jaExistem >= SATF_FRAMEWORK_SEED.length) {
-    const sync = await syncSatfPerguntasFromSeed(prisma);
-    return { seeded: false, reason: 'already_exists', total: jaExistem, sync };
+  const alinhamento = await alinharAreasSatfCanonicas(prisma);
+  const total = await contarAreasSatf(prisma);
+  if (total >= SATF_FRAMEWORK_SEED.length) {
+    return {
+      seeded: alinhamento.criadas > 0,
+      reason: alinhamento.criadas > 0 ? 'aligned_missing' : 'already_exists',
+      total,
+      ...alinhamento
+    };
   }
 
   let result;
@@ -321,8 +405,9 @@ export async function ensureSatfFrameworkSeed(prisma) {
     result = await seedSatfViaPrisma(prisma);
   }
 
-  const sync = await syncSatfPerguntasFromSeed(prisma);
-  return { ...result, sync };
+  const posAlinhamento = await alinharAreasSatfCanonicas(prisma);
+  const totalFinal = await contarAreasSatf(prisma);
+  return { ...result, ...posAlinhamento, total: totalFinal };
 }
 
 async function listarAreasPorNomes(prisma, nomesSet, framework, options = {}) {
@@ -383,6 +468,19 @@ export async function listarAreasPorFramework(prisma, frameworkMaturidade, optio
     codigoFramework: metaMap.get(a.id)?.codigoFramework || null,
     tipoDimensao: metaMap.get(a.id)?.tipoDimensao || 'nucleo'
   }));
+
+  if (framework === FRAMEWORK_SATF_TI_V3) {
+    const presentes = new Set(comMeta.map((a) => a.nome));
+    const faltando = ORDEM_NOMES_SATF.filter((n) => !presentes.has(n));
+    if (faltando.length > 0) {
+      console.warn(
+        `[SATF] Dimensões canônicas ausentes no catálogo (${faltando.join(', ')}) — realinhando seed.`
+      );
+      await ensureSatfFrameworkSeed(prisma);
+      return listarAreasPorFramework(prisma, framework, options);
+    }
+  }
+
   if (!includePerguntas) return comMeta;
   return enriquecerAreasComEvidencia(prisma, comMeta);
 }

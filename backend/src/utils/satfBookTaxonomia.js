@@ -3,7 +3,12 @@
  */
 import { SATF_FRAMEWORK_SEED } from '../data/satfFrameworkSeed.js';
 import { ORDEM_DIMENSOES_FRAMEWORK } from './ordemDimensoesFramework.js';
-import { tabelaPerguntasDimensaoMarkdown, aplicarNumSecaoRotuloDimensao } from './bookModoRapidoMarkdown.js';
+import {
+  tabelaPerguntasDimensaoMarkdown,
+  dimensaoComScoreZero,
+  aplicarNumSecaoRotuloDimensao,
+  contarDimensoesSecao3Book
+} from './bookModoRapidoMarkdown.js';
 
 /** Dimensões oficiais SATF (código + nome). */
 export const SATF_DIMENSOES_CANONICAS = SATF_FRAMEWORK_SEED.map((d) => ({
@@ -225,6 +230,91 @@ export function validarSecoesDuplicadasBookSatf(markdown) {
 /** Aplica recorte por chunk + deduplicação global das seções finais. */
 export function normalizarSecoesBookSatf(markdown) {
   return deduplicarSecoesFinaisBookSatf(String(markdown || '').trim());
+}
+
+export const NOME_DIMENSAO_D11_SATF = 'Conformidade Regulatória de IA';
+
+export function encontrarDimensaoD11Satf(dimensoes = []) {
+  return (
+    dimensoes.find((d) => String(d.area || '').trim() === NOME_DIMENSAO_D11_SATF) ||
+    dimensoes[10] ||
+    null
+  );
+}
+
+export function blocoSecao6D11FallbackMarkdown(d11) {
+  const status = !d11
+    ? 'Dimensão D11 ausente no consolidado — bloco de registro inserido automaticamente.'
+    : d11.foraDeEscopo
+      ? '**D11 desativada na configuração do projeto** — mantida no book SATF para registro e auditoria.'
+      : dimensaoComScoreZero(d11)
+        ? '**Sem avaliações consolidadas** nesta rodada — registro com perguntas do instrumento.'
+        : 'Síntese regulatória D11 (fallback automático — regenere o book para análise completa pela IA).';
+
+  const tabela = d11 ? tabelaPerguntasDimensaoMarkdown(d11) : '_Sem dados de perguntas D11._';
+
+  return `# 6. Conformidade Regulatória de IA (D11)
+
+### 6.1 Status e escopo
+> ${status}
+
+### 6.2 Registro de scores — D11
+${tabela}
+
+### 6.3 Governança e conformidade (LGPD, ISO 42001, NIST AI RMF)
+Documentar SGAI, inventário de sistemas de IA, classificação de risco (PL 2.338/2023) e revisão humana de decisões automatizadas.
+
+### 6.4 Próximos passos regulatórios
+- Completar inventário e matriz de risco de sistemas de IA
+- Formalizar base legal LGPD e participação do DPO
+- Evidências de auditoria SGAI / ISO 42001 conforme maturidade declarada`;
+}
+
+export function blocoSecao311D11FallbackMarkdown(d11) {
+  const numSecao = '3.11';
+  const nome = NOME_DIMENSAO_D11_SATF;
+  const cabecalho =
+    d11 && !dimensaoComScoreZero(d11)
+      ? `## ${numSecao} Dimensão — ${nome} — oficial ${Number(d11.score).toFixed(2)} · Nível ${d11.nivel}`
+      : `## ${numSecao} Dimensão — ${nome} — Score 0 · Não analisada`;
+
+  return `${cabecalho}
+
+### ${numSecao}.1 Status da dimensão
+> Bloco **D11** inserido automaticamente — regenere o book se faltar análise completa da IA.
+
+### ${numSecao}.2 Registro de scores por pergunta
+${d11 ? tabelaPerguntasDimensaoMarkdown(d11) : '_Sem perguntas D11 cadastradas._'}
+`;
+}
+
+/** Garante Seção 3.11 e Seção 6 (D11) no book SATF quando a IA omitir ou o catálogo estiver incompleto. */
+export function garantirSecoesD11BookSatf(markdown, dimensoesDiagnostico = []) {
+  let out = String(markdown || '').trim();
+  const d11 = encontrarDimensaoD11Satf(dimensoesDiagnostico);
+  const sec3 = contarDimensoesSecao3Book(out);
+
+  if (!sec3.has(11)) {
+    const bloco311 = blocoSecao311D11FallbackMarkdown(d11);
+    const idx4 = out.search(/^#\s+4\.\s/m);
+    if (idx4 >= 0) {
+      out = `${out.slice(0, idx4).trimEnd()}\n\n${bloco311}\n\n${out.slice(idx4)}`;
+    } else {
+      out = `${out.trimEnd()}\n\n${bloco311}`;
+    }
+  }
+
+  if (!/^#\s+6\.\s/m.test(out)) {
+    const bloco6 = blocoSecao6D11FallbackMarkdown(d11);
+    const idx7 = out.search(/^#\s+7\.\s/m);
+    if (idx7 >= 0) {
+      out = `${out.slice(0, idx7).trimEnd()}\n\n${bloco6}\n\n${out.slice(idx7)}`;
+    } else {
+      out = `${out.trimEnd()}\n\n${bloco6}`;
+    }
+  }
+
+  return out;
 }
 
 export function introducaoSecao3SatfBookMarkdown(totalDimensoes, ordemNomes) {

@@ -20,8 +20,11 @@ import { montarComparativoVersoesProjeto, blocoEvolucaoVersoesMarkdown, blocoLog
 import {
   blocoContextoProjetoMarkdown,
   projetoTemContextoCadastrado,
-  blocoInstrucoesSistemaExecutivoComContexto
+  blocoInstrucoesSistemaExecutivoComContexto,
+  blocoInstrucoesPrioridadeGlossario,
+  carregarRegrasFatosContextoProjeto
 } from './projetoContexto.js';
+import { validarFatosCanonicosBook } from './projetoContextoFatos.js';
 import {
   blocoAvaliadoresConsolidadoMarkdown,
   filtroNivelRelatorioIACompativel,
@@ -352,6 +355,7 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps, opts
   const mediaSetor = mediaSetorTiBenchmark(setor);
 
   const blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
+  const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId);
   const temContexto = projetoTemContextoCadastrado(blocoContexto);
   const blocoDesejosIa = blocoDesejosIaResumoExecutivo(avaliacoesFiltradas);
   const temDesejosIa = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);
@@ -404,7 +408,11 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps, opts
   await loadPersistedAIConfig();
   console.log(`[Relatório IA SATF] Gerando executivo projeto ${projetoId} · ${getProvider().name}`);
 
-  const resultado = await callAIWithContinuation(userPrompt, SYSTEM_PROMPT_EXECUTIVO_SATF, {
+  const systemPromptExecutivo = `${SYSTEM_PROMPT_EXECUTIVO_SATF}${
+    regrasFatos.temGlossario ? blocoInstrucoesPrioridadeGlossario() : ''
+  }`;
+
+  const resultado = await callAIWithContinuation(userPrompt, systemPromptExecutivo, {
     temperature: 0.55,
     maxTokens: 8000
   }, { maxContinuations: 2, minContentTail: 800 });
@@ -450,7 +458,9 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps, opts
       ? avaliacoesFiltradas.filter((av) =>
           desejosIaTemRespostasGuardadas(av.desejosIADados?.payload ?? av.desejosIA)
         ).length
-      : 0
+      : 0,
+    temGlossarioFatos: regrasFatos.temGlossario,
+    contextoFatosHash: regrasFatos.hash
   };
 
   const corpoBase = `${capaConfidencialBookSatfMarkdown(projeto.empresa.nome, projeto.nome)}${resultado.content.trim()}`;
@@ -461,6 +471,18 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps, opts
     empresaNome: projeto.empresa.nome,
     projetoNome: projeto.nome
   });
+
+  const validacaoFatos = validarFatosCanonicosBook(conteudoExecutivo, {
+    termosProibidos: regrasFatos.termosProibidos,
+    glossario: regrasFatos.glossario
+  });
+  if (!validacaoFatos.ok) {
+    console.warn(
+      `[Relatório IA SATF] Termos proibidos: ${validacaoFatos.total}`,
+      validacaoFatos.ocorrencias.map((o) => o.termo).join('; ')
+    );
+  }
+  dadosUsados.validacaoFatos = validacaoFatos;
 
   const tituloUnidade = unidadeMeta ? ` — ${unidadeMeta.nome}` : '';
   let salvo = null;
@@ -500,6 +522,8 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps, opts
     validacaoTaxonomia,
     avisoTaxonomia: validacaoTaxonomia.ok
       ? null
-      : `Relatório gerado com ${validacaoTaxonomia.total} possível(is) referência(s) a outra taxonomia — regenere antes de entregar.`
+      : `Relatório gerado com ${validacaoTaxonomia.total} possível(is) referência(s) a outra taxonomia — regenere antes de entregar.`,
+    validacaoFatos,
+    avisoFatosCanonicos: validacaoFatos.aviso
   });
 }

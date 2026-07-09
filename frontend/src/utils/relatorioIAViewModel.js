@@ -34,5 +34,7 @@ export function mapRelatorioIASalvoToViewShape(row) {
           : null),
     frameworkMaturidade: row.dadosUsados?.frameworkMaturidade ?? null,
     avisosProvedor: row.dadosUsados?.avisosProvedor ?? undefined,
+    avisoTaxonomia: row.dadosUsados?.validacaoTaxonomia?.aviso ?? row.dadosUsados?.avisoTaxonomia ?? null,
+    avisoFatosCanonicos: row.dadosUsados?.validacaoFatos?.aviso ?? null,
   };
 }

@@ -50,6 +50,8 @@ import {
   blocoInstrucoesEntregaveisDimensaoSatf,
   blocoInstrucoesPromptSecao3Dimensao,
   blocoInstrucoesSistemaSecao3ComContexto,
+  blocoInstrucoesPrioridadeGlossario,
+  carregarRegrasFatosContextoProjeto,
   inventarioDocumentosContextoFromMarkdown,
   complementarSecao3EntregaveisEscopo,
   normalizarRotulosEntregaveisEscopo,
@@ -93,6 +95,7 @@ import {
   normalizarSecoesBookSatf,
   validarSecoesDuplicadasBookSatf
 } from './satfBookTaxonomia.js';
+import { validarFatosCanonicosBook } from './projetoContextoFatos.js';
 
 function mediaSetorTiBenchmark(setor) {
   const s = String(setor || '').toLowerCase();
@@ -600,7 +603,8 @@ async function executarChunksLoop({
   relatorioJobId,
   bookClienteDesconectou,
   atualizarProgressoJobBook,
-  instrucoesUnidadeExtra = ''
+  instrucoesUnidadeExtra = '',
+  temGlossarioFatos = false
 }) {
   const partesPreSec3 = [];
   const blocosSec3PorIndice = Array(dimensoesDiagnostico.length).fill(null);
@@ -617,6 +621,7 @@ ${blocoRegrasTaxonomiaSatfPrompt()}
 ${instrucoesUnidadeExtra}
 ${modoRapido ? '\nMODO RÁPIDO: textos mais curtos, mas mantenha especificidade por dimensão, [Qn], contexto do projeto e recomendações acionáveis (não resuma em bullets genéricos).' : ''}
 ${temContexto ? blocoInstrucoesSistemaSecao3ComContexto() : ''}
+${temGlossarioFatos ? blocoInstrucoesPrioridadeGlossario() : ''}
 Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
 
   const registrar = (chunk, conteudo) => {
@@ -1016,6 +1021,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   const setor = projeto.vertical || projeto.empresa.setor || 'Tecnologia';
   const porte = projeto.empresa.porte || 'Não informado';
   const blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
+  const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId);
   let inventarioDocumentos = await carregarInventarioDocumentosContexto(prisma, projetoId);
   if (!inventarioDocumentos.entregaveis.length && blocoContexto) {
     inventarioDocumentos = inventarioDocumentosContextoFromMarkdown(blocoContexto);
@@ -1110,7 +1116,8 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       relatorioJobId,
       bookClienteDesconectou: () => bookClienteDesconectou,
       atualizarProgressoJobBook,
-      instrucoesUnidadeExtra
+      instrucoesUnidadeExtra,
+      temGlossarioFatos: regrasFatos.temGlossario
     });
 
   const validacao = relatorioBookSecao3Completo(markdown, TOTAL_DIMENSOES_SATF);
@@ -1157,6 +1164,17 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   }
   const relatorioFinal = relatorioComCapas;
 
+  const validacaoFatos = validarFatosCanonicosBook(relatorioFinal, {
+    termosProibidos: regrasFatos.termosProibidos,
+    glossario: regrasFatos.glossario
+  });
+  if (!validacaoFatos.ok) {
+    console.warn(
+      `[Book SATF] Termos proibidos detectados: ${validacaoFatos.total} ocorrência(s)`,
+      validacaoFatos.ocorrencias.map((o) => `${o.termo} (${o.count})`).join('; ')
+    );
+  }
+
   const tempoTotal = Date.now() - startTime;
   const logoMeta = await resolverLogoEmpresa(projeto.empresa);
   const dadosUsados = {
@@ -1201,7 +1219,10 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
           desejosIaTemRespostasGuardadas(av.desejosIADados?.payload ?? av.desejosIA)
         ).length
       : 0,
-    avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined
+    avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined,
+    temGlossarioFatos: regrasFatos.temGlossario,
+    contextoFatosHash: regrasFatos.hash,
+    validacaoFatos
   };
 
   const tituloUnidade = unidadeMeta ? ` — ${unidadeMeta.nome}` : '';
@@ -1262,5 +1283,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     avisoSecoesDuplicadas: validacaoSecoes.ok
       ? null
       : `Seções ${validacaoSecoes.duplicadas.map((d) => d.secao).join(', ')} aparecem duplicadas no documento — regenere uma nova versão.`,
+    validacaoFatos,
+    avisoFatosCanonicos: validacaoFatos.aviso
   });
 }

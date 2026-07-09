@@ -36,6 +36,7 @@ function isImagemMime(mimeType) {
 const CAMPOS_NEGOCIO = ['contextoNegocio', 'publicoAlvoRelatorio', 'iniciativasEmAndamento'];
 const CAMPOS_TECNOLOGIA = ['stackTecnologica', 'sistemasCore', 'cloudProvedor'];
 const CAMPOS_REGULATORIO = ['reguladores', 'restricoes'];
+const CAMPOS_GLOSSARIO = ['glossarioFatosCanonicos', 'termosProibidos'];
 
 const PLACEHOLDERS_PADRAO = {
   contextoNegocio: 'Ex.: Varejo omnichannel, 200 lojas, foco em eficiência de supply chain…',
@@ -45,14 +46,24 @@ const PLACEHOLDERS_PADRAO = {
   reguladores: 'Ex.: LGPD, Bacen (Open Finance), política interna de IA…',
   iniciativasEmAndamento: 'Ex.: Piloto de copilot no jurídico, chatbot SAC fase 2…',
   restricoes: 'Ex.: Budget 2025 fechado, ERP legado sem API, dados sensíveis on-prem…',
-  publicoAlvoRelatorio: 'Ex.: CEO, CFO e diretoria de operações — tom executivo, pouco técnico.'
+  publicoAlvoRelatorio: 'Ex.: CEO, CFO e diretoria de operações — tom executivo, pouco técnico.',
+  glossarioFatosCanonicos:
+    'Ex.:\n- Piloto Faturamento: nome canônico, escopo, status atual\n- Cursor Enterprise: APROVADA (data)\n- Usar "Faturamento", não siglas obsoletas de billing',
+  termosProibidos:
+    'Ex. (um por linha):\nNome obsoleto piloto A\nNome obsoleto piloto B\nSigla billing antiga'
 };
 
-function CampoTexto({ campo, labels, dicas, valor, editable, onChange }) {
+function CampoTexto({ campo, labels, dicas, valor, editable, onChange, rows: rowsProp }) {
   const label = labels[campo] || campo;
   const dica = dicas[campo];
   const placeholder = PLACEHOLDERS_PADRAO[campo] || '';
-  const rows = campo === 'contextoNegocio' ? 4 : 2;
+  const rows =
+    rowsProp ??
+    (campo === 'contextoNegocio' || campo === 'glossarioFatosCanonicos'
+      ? 6
+      : campo === 'termosProibidos'
+        ? 5
+        : 2);
   return (
     <label className="block">
       <span className="mb-0.5 block text-sm font-medium text-gray-800 dark:text-gray-200">{label}</span>
@@ -341,6 +352,28 @@ export default function ProjetoContextoConfig({ projetoId, editable = false }) {
             Informações para personalizar o book
           </h3>
           <div className="space-y-8">
+          <div className="rounded-xl border border-violet-300 bg-white/80 p-4 dark:border-violet-800 dark:bg-violet-950/30">
+            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">
+              Glossário e fatos canônicos
+            </h4>
+            <p className="mb-4 text-xs text-violet-700 dark:text-violet-300">
+              Prevalem sobre anexos antigos e desejos IA desatualizados. Use para corrigir nomenclatura de pilotos,
+              status de aprovações e termos obsoletos.
+            </p>
+            <div className="grid gap-4">
+              {CAMPOS_GLOSSARIO.map((key) => (
+                <CampoTexto
+                  key={key}
+                  campo={key}
+                  labels={labels}
+                  dicas={dicas}
+                  valor={caracteristicas[key]}
+                  editable={editable}
+                  onChange={setCampo}
+                />
+              ))}
+            </div>
+          </div>
           <GrupoCampos
             titulo="Negócio e audiência"
             campos={CAMPOS_NEGOCIO}

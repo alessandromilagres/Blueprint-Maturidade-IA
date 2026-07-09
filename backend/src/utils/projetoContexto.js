@@ -11,6 +11,15 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { parseOffice } from 'officeparser';
+import {
+  blocoMarkdownGlossarioFatosCanonicos,
+  hashContextoFatosBook,
+  LABELS_FATOS_CANONICOS,
+  DICAS_FATOS_CANONICOS,
+  mesclarCamposFatosEmCaracteristicas,
+  obterTermosProibidos,
+  projetoTemGlossarioFatos
+} from './projetoContextoFatos.js';
 
 const officeparser = { parseOffice };
 
@@ -177,7 +186,7 @@ function normalizarCaracteristicas(raw = {}) {
     const v = raw[k];
     out[k] = v != null && String(v).trim() ? String(v).trim().slice(0, 8000) : '';
   }
-  return out;
+  return mesclarCamposFatosEmCaracteristicas(out, raw);
 }
 
 function normalizarUrls(raw = []) {
@@ -235,8 +244,8 @@ export async function carregarContextoProjeto(prisma, projetoId) {
       charsExtraidos: Number(a.charsExtraidos) || 0,
       createdAt: a.createdAt
     })),
-    labels: LABELS_CARACTERISTICAS,
-    dicas: DICAS_CARACTERISTICAS,
+    labels: { ...LABELS_CARACTERISTICAS, ...LABELS_FATOS_CANONICOS },
+    dicas: { ...DICAS_CARACTERISTICAS, ...DICAS_FATOS_CANONICOS },
     limites: { maxArquivos: MAX_ARQUIVOS_POR_PROJETO, maxFileSizeMb: 10 },
     updatedAt: reg?.updatedAt || null,
     configurado:
@@ -704,22 +713,24 @@ export async function blocoContextoProjetoMarkdown(prisma, projetoId) {
   await ensureProjetoContextoSchema(prisma);
 
   const ctxRows = await prisma.$queryRaw`
-    SELECT "caracteristicas", "urls" FROM "ProjetoContexto" WHERE "projetoId" = ${projetoId}
+    SELECT "caracteristicas", "urls", "updatedAt" FROM "ProjetoContexto" WHERE "projetoId" = ${projetoId}
   `;
   const arquivos = await prisma.$queryRaw`
     SELECT "nomeOriginal", "descricao", "conteudoExtraido", "mimeType"
     FROM "ProjetoContextoArquivo" WHERE "projetoId" = ${projetoId}
-    ORDER BY "createdAt" ASC
+    ORDER BY "createdAt" DESC
   `;
 
   const reg = ctxRows?.[0];
   const caracteristicas = normalizarCaracteristicas(reg?.caracteristicas || {});
   const urls = normalizarUrls(Array.isArray(reg?.urls) ? reg.urls : []);
+  const blocoGlossario = blocoMarkdownGlossarioFatosCanonicos(caracteristicas);
+  const temGlossario = Boolean(blocoGlossario);
 
-  const temCarac = Object.values(caracteristicas).some((v) => v);
+  const temCarac = CAMPOS_CARACTERISTICAS.some((k) => caracteristicas[k]);
   const temUrls = urls.length > 0;
   const temArquivos = (arquivos || []).length > 0;
-  if (!temCarac && !temUrls && !temArquivos) return '';
+  if (!temCarac && !temUrls && !temArquivos && !temGlossario) return '';
 
   const partes = [];
   partes.push('## Contexto do cliente (material de referência do projeto)');
@@ -727,7 +738,16 @@ export async function blocoContextoProjetoMarkdown(prisma, projetoId) {
   partes.push(
     '> **Instrução à IA:** Priorize este material para personalizar o relatório. Cite processos, sistemas e iniciativas documentados — **incluindo todos os Entregáveis A–H anexados** (não limite-se a A–D). O que não estiver aqui nem no assessment deve ser marcado como inferência ou "não documentado" — evite texto genérico de mercado.'
   );
+  if (temGlossario) {
+    partes.push(
+      '> **Glossário canônico:** em conflito com anexos, desejos IA ou inferências de setor, **prevalece o glossário de fatos canônicos** abaixo.'
+    );
+  }
   partes.push('');
+
+  if (blocoGlossario) {
+    partes.push(blocoGlossario);
+  }
 
   if (temCarac) {
     partes.push('### Características do projeto');
@@ -804,8 +824,28 @@ export function projetoTemContextoCadastrado(blocoContextoMarkdown) {
 /** Regra extra no system prompt do book quando há contexto — reforça Seção 3. */
 export function blocoInstrucoesSistemaSecao3ComContexto() {
   return `
-15. **Contexto do cliente cadastrado (Seção 3 — CRÍTICO):** quando o bloco "Contexto do cliente" estiver nos DADOS, a Seção 3 deve ser escrita para **este** cliente. **Proibido** texto genérico de mercado ("empresa de tecnologia de médio porte", "fintech típica", "SaaS B2B" etc.) salvo se constar no contexto. Personalize diagnóstico, riscos, recomendações e KPIs com iniciativas, sistemas, pilotos, métricas e público-alvo documentados. **Se o inventário listar Entregáveis E–H, eles devem ser citados** nas dimensões pertinentes (D1, D3, D9, D10 em especial) — não omita documentação de escopo cadastrada.`;
+15. **Contexto do cliente cadastrado (Seção 3 — CRÍTICO):** quando o bloco "Contexto do cliente" estiver nos DADOS, a Seção 3 deve ser escrita para **este** cliente. **Proibido** texto genérico de mercado ("empresa de tecnologia de médio porte", "fintech típica", "SaaS B2B" etc.) salvo se constar no contexto. Personalize diagnóstico, riscos, recomendações e KPIs com iniciativas, sistemas, pilotos, métricas e público-alvo documentados. **Se o inventário listar Entregáveis E–H, eles devem ser citados** nas dimensões pertinentes (D1, D3, D9, D10 em especial) — não omita documentação de escopo cadastrada. **Se houver glossário de fatos canônicos, ele vence anexos antigos em conflito.**`;
 }
+
+/** Carrega regras de glossário/termos proibidos para validação pós-geração e prompts. */
+export async function carregarRegrasFatosContextoProjeto(prisma, projetoId) {
+  await ensureProjetoContextoSchema(prisma);
+  const rows = await prisma.$queryRaw`
+    SELECT "caracteristicas", "updatedAt" FROM "ProjetoContexto" WHERE "projetoId" = ${projetoId}
+  `;
+  const reg = rows?.[0];
+  const caracteristicas = normalizarCaracteristicas(reg?.caracteristicas || {});
+  return {
+    caracteristicas,
+    glossario: caracteristicas.glossarioFatosCanonicos,
+    termosProibidos: obterTermosProibidos(caracteristicas),
+    temGlossario: projetoTemGlossarioFatos(caracteristicas),
+    hash: hashContextoFatosBook(caracteristicas, reg?.updatedAt),
+    updatedAt: reg?.updatedAt || null
+  };
+}
+
+export { blocoInstrucoesPrioridadeGlossario } from './projetoContextoFatos.js';
 
 /** Instruções por dimensão na Seção 3 quando há contexto cadastrado. */
 export function blocoInstrucoesPromptSecao3Dimensao(dimArea, blocoContextoMarkdown) {

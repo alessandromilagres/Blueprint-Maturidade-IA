@@ -691,6 +691,15 @@ export default function RelatorioMITIA() {
                 <p className="mt-1 text-xs text-amber-800">{data.avisoTaxonomia}</p>
               </div>
             )}
+            {data?.avisoFatosCanonicos && (
+              <div className="mb-6 rounded-xl border border-violet-300 bg-violet-50 p-4 print:hidden">
+                <p className="text-sm font-semibold text-violet-900 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  Termos proibidos ou fatos desatualizados
+                </p>
+                <p className="mt-1 text-xs text-violet-800">{data.avisoFatosCanonicos}</p>
+              </div>
+            )}
             {data?.dadosUsados?.comparativoVersoes?.disponivel && (
               <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/60 p-4 print:hidden">
                 <p className="text-sm font-semibold text-blue-900">Evolução entre versões da pesquisa</p>

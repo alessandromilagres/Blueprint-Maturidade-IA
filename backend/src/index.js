@@ -141,8 +141,11 @@ import {
   projetoTemContextoCadastrado,
   blocoInstrucoesSistemaSecao3ComContexto,
   blocoInstrucoesPromptSecao3Dimensao,
-  blocoInstrucoesSistemaExecutivoComContexto
+  blocoInstrucoesSistemaExecutivoComContexto,
+  blocoInstrucoesPrioridadeGlossario,
+  carregarRegrasFatosContextoProjeto
 } from './utils/projetoContexto.js';
+import { validarFatosCanonicosBook } from './utils/projetoContextoFatos.js';
 import {
   blocoDesejosIaMarkdown,
   blocoDesejosIaResumoExecutivo,
@@ -6731,6 +6734,7 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
     }[setor.toLowerCase()] || 2.8;
 
     const blocoContextoClienteBook = await blocoContextoProjetoMarkdown(prisma, projetoId);
+    const regrasFatosBook = await carregarRegrasFatosContextoProjeto(prisma, projetoId);
     const temContextoProjeto = projetoTemContextoCadastrado(blocoContextoClienteBook);
     const blocoDesejosIaBook = blocoDesejosIaMarkdown(avaliacoesFiltradas);
     const temDesejosIa = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);
@@ -6738,6 +6742,9 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
       ? blocoInstrucoesSistemaSecao3ComContexto()
       : '';
     const sufixoSistemaDesejosSecao3 = temDesejosIa ? blocoInstrucoesDesejosIaSistemaBook() : '';
+    const sufixoSistemaGlossario = regrasFatosBook.temGlossario
+      ? blocoInstrucoesPrioridadeGlossario()
+      : '';
 
     // ============= SYSTEM PROMPT BASE (compartilhado entre chunks) =============
     const systemPromptBase = `${SYSTEM_PROMPT_PERSONA_BOOK}
@@ -6760,7 +6767,7 @@ DIRETRIZES DE REDAÇÃO (CRÍTICO):
 11. **Trajetória MIT (ROI × maturidade)**: benchmarks MIT/McKinsey/BCG por nível são **ROI líquido típico sobre investimento em IA**—não margem sobre faturamento. O ganho de longo prazo vem de **subir de nível**. Use o bloco "Trajetória de valor MIT CISR" dos dados;
 12. **Projeção temporal**: nas Seções 2, 8 e 13, inclua visão **12–36 meses** de acumulação de valor ao aproximar-se do próximo nível (roadmap de investimento em IA alinhado ao MIT).
 13. **Evolução entre versões**: quando o bloco "Evolução entre versões da pesquisa" estiver disponível, a Seção 2 deve incluir subseção **Evolução entre rodadas** interpretando score, nível e deltas por dimensão; referencie também nas Seções 8 e 13 quando pertinente.
-14. **Prioridade dos avaliadores**: a capa com filtro e lista de avaliadores é inserida **automaticamente no início** do book — **não** gere de novo "## Nível dos avaliadores no consolidado". Comece direto pela Seção 1 (Metodologia).${sufixoSistemaContextoSecao3}${sufixoSistemaDesejosSecao3}`;
+14. **Prioridade dos avaliadores**: a capa com filtro e lista de avaliadores é inserida **automaticamente no início** do book — **não** gere de novo "## Nível dos avaliadores no consolidado". Comece direto pela Seção 1 (Metodologia).${sufixoSistemaContextoSecao3}${sufixoSistemaDesejosSecao3}${sufixoSistemaGlossario}`;
 
     // Modo rápido: menos tokens por resposta, prioridade em estrutura e tabelas compactas
     const systemPromptBaseRapido = `${SYSTEM_PROMPT_PERSONA_BOOK_RAPIDO}
@@ -7550,6 +7557,18 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
       relatorioComIndice,
       optsCapaAvaliadoresBook
     );
+
+    const validacaoFatos = validarFatosCanonicosBook(relatorioFinal, {
+      termosProibidos: regrasFatosBook.termosProibidos,
+      glossario: regrasFatosBook.glossario
+    });
+    if (!validacaoFatos.ok) {
+      console.warn(
+        `[Book IA] Termos proibidos detectados: ${validacaoFatos.total} ocorrência(s)`,
+        validacaoFatos.ocorrencias.map((o) => `${o.termo} (${o.count})`).join('; ')
+      );
+    }
+
     const tempoTotal = Date.now() - startTime;
 
     console.log(`[Book IA] Concluído em ${tempoTotal}ms · ${totalTokensEntrada} tokens in / ${totalTokensSaida} tokens out`);
@@ -7597,7 +7616,10 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
             desejosIaTemRespostasGuardadas(av.desejosIADados?.payload ?? av.desejosIA)
           ).length
         : 0,
-      avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined
+      avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined,
+      temGlossarioFatos: regrasFatosBook.temGlossario,
+      contextoFatosHash: regrasFatosBook.hash,
+      validacaoFatos
     };
 
     // Persistir versão gerada
@@ -7656,7 +7678,9 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
       relatorioVersaoGeradoEm: geradoEm.toISOString(),
       modoGeracao: modoRapido ? 'rapido' : 'completo',
       filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
-      projetoVersao
+      projetoVersao,
+      validacaoFatos,
+      avisoFatosCanonicos: validacaoFatos.aviso
     });
     } catch (genErr) {
       if (genErr.code === 'BOOK_IA_CANCELADO') {

@@ -21,6 +21,7 @@ import { multiplicadorRoiPorFaturamento, percentualReferenciaRoi } from '../util
 import { VERTICAIS } from './Projetos';
 import { useTheme } from '../contexts/ThemeContext';
 import { queryNivelMapeamentoMaturidade, queryEmpresaUnidadeId } from '../utils/filtroNivelMaturidade';
+import { agruparAvaliadoresPorUnidade } from '../utils/empresaUnidadeGrupos';
 import { nivelNumericoDeScore } from '../utils/nivelMaturidadeRubrica.js';
 import { ResumoRegulatorioProjeto } from '../components/ImplicacoesRegulatoriasDimensao';
 import FrameworkMaturidadeBadge from '../components/FrameworkMaturidadeBadge';
@@ -702,6 +703,56 @@ export default function DashboardProjeto() {
     vence_em_breve: 'text-amber-200 border-amber-500/40 bg-amber-500/15',
     no_prazo: 'text-emerald-200 border-emerald-500/40 bg-emerald-500/15'
   }[prazoAvaliacao.status] || 'text-slate-300 border-slate-600 bg-slate-700/40';
+
+  const gruposAvaliadores = dashboard.avaliadoresPorUnidade?.length
+    ? dashboard.avaliadoresPorUnidade
+    : agruparAvaliadoresPorUnidade({
+        avaliadores: dashboard.avaliadores || [],
+        unidadesEmpresa: dashboard.unidadesEmpresa || [],
+        unidadeGeralId: (dashboard.unidadesEmpresa || []).find((u) => u.ehPadrao)?.id,
+        incluirUnidadesVazias: !filtroUnidadeId
+      });
+
+  const exibirAvaliadoresPorUnidade =
+    !filtroUnidadeId && (dashboard.unidadesEmpresa?.length || 0) > 1;
+
+  const unidadesSemAvaliador = exibirAvaliadoresPorUnidade
+    ? gruposAvaliadores.filter((g) => g.total === 0 && !g.ehPadrao)
+    : [];
+
+  const renderCardAvaliador = (avaliador) => (
+    <div key={avaliador.id} className="bg-slate-700/50 rounded-lg p-4">
+      <p className="text-white font-medium">{avaliador.nome}</p>
+      <p className="text-slate-400 text-sm">{avaliador.email}</p>
+      {!exibirAvaliadoresPorUnidade && avaliador.empresaUnidadeNome && (
+        <p className="text-cyan-400/80 text-xs mt-1">{avaliador.empresaUnidadeNome}</p>
+      )}
+      <p className="text-slate-500 text-xs mt-2">
+        {avaliador.areasSelecionadas?.length || 0} áreas avaliadas
+      </p>
+      <div className="flex flex-col gap-2 mt-3">
+        <Link
+          to={`/relatorios/${avaliador.avaliacaoId}`}
+          className="text-blue-400 text-sm hover:underline"
+        >
+          Ver avaliação individual
+        </Link>
+        <button
+          onClick={() => void downloadUserReport({
+            nome: avaliador.nome,
+            email: avaliador.email,
+            areasSelecionadas: avaliador.areasSelecionadas,
+            dataAvaliacao: avaliador.dataAvaliacao || new Date(),
+            respostas: avaliador.respostas || []
+          }, dashboard)}
+          className="flex items-center gap-1.5 text-purple-400 text-sm hover:text-purple-300 transition-colors"
+        >
+          <UserCheck className="w-3.5 h-3.5" />
+          Exportar avaliação
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-900 flex">
@@ -1939,41 +1990,47 @@ export default function DashboardProjeto() {
                 <Users className="w-5 h-5" />
                 Avaliadores ({dashboard.totalAvaliadores})
               </h3>
-              <div className="grid grid-cols-3 gap-4">
-                {dashboard.avaliadores.map((avaliador) => (
-                  <div key={avaliador.id} className="bg-slate-700/50 rounded-lg p-4">
-                    <p className="text-white font-medium">{avaliador.nome}</p>
-                    <p className="text-slate-400 text-sm">{avaliador.email}</p>
-                    {avaliador.empresaUnidadeNome && (
-                      <p className="text-cyan-400/80 text-xs mt-1">{avaliador.empresaUnidadeNome}</p>
-                    )}
-                    <p className="text-slate-500 text-xs mt-2">
-                      {avaliador.areasSelecionadas?.length || 0} áreas avaliadas
-                    </p>
-                    <div className="flex flex-col gap-2 mt-3">
-                      <Link 
-                        to={`/relatorios/${avaliador.avaliacaoId}`}
-                        className="text-blue-400 text-sm hover:underline"
-                      >
-                        Ver avaliação individual
-                      </Link>
-                      <button
-                        onClick={() => void downloadUserReport({
-                          nome: avaliador.nome,
-                          email: avaliador.email,
-                          areasSelecionadas: avaliador.areasSelecionadas,
-                          dataAvaliacao: avaliador.dataAvaliacao || new Date(),
-                          respostas: avaliador.respostas || []
-                        }, dashboard)}
-                        className="flex items-center gap-1.5 text-purple-400 text-sm hover:text-purple-300 transition-colors"
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        Exportar avaliação
-                      </button>
+
+              {unidadesSemAvaliador.length > 0 && (
+                <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  <p>
+                    As unidades{' '}
+                    <strong>{unidadesSemAvaliador.map((u) => u.nome).join(', ')}</strong>{' '}
+                    ainda não têm avaliadores nesta versão. Vincule cada usuário à unidade em{' '}
+                    <strong>Usuários</strong> ou <strong>Empresa → Detalhe</strong>.
+                  </p>
+                </div>
+              )}
+
+              {exibirAvaliadoresPorUnidade ? (
+                <div className="space-y-6">
+                  {gruposAvaliadores.map((grupo) => (
+                    <div key={grupo.id}>
+                      <div className="flex flex-wrap items-center gap-2 mb-3 pb-2 border-b border-slate-600/80">
+                        <Layers className="w-4 h-4 text-cyan-400" />
+                        <h4 className="text-cyan-200 font-medium">{grupo.nome}</h4>
+                        {grupo.ehPadrao && (
+                          <span className="text-[10px] uppercase tracking-wide text-slate-500">padrão</span>
+                        )}
+                        <span className="text-xs text-slate-400">
+                          {grupo.total} avaliador{grupo.total === 1 ? '' : 'es'}
+                        </span>
+                      </div>
+                      {grupo.total > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {grupo.avaliadores.map((avaliador) => renderCardAvaliador(avaliador))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500 italic">Nenhum avaliador nesta unidade.</p>
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {dashboard.avaliadores.map((avaliador) => renderCardAvaliador(avaliador))}
+                </div>
+              )}
             </div>
           )}
         </div>

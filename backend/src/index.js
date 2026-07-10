@@ -196,7 +196,9 @@ import {
   validarUnidadeParaEmpresa,
   mapUnidadeEmpresaResponse,
   parseFiltroEmpresaUnidadeId,
-  usuarioIncluidoNoFiltroUnidadeEmpresa
+  usuarioIncluidoNoFiltroUnidadeEmpresa,
+  montarAvaliadoresPorUnidade,
+  unidadeEfetivaDoUsuario
 } from './utils/empresaUnidade.js';
 import { FRAMEWORK_SATF_TI_V3 } from './constants/frameworkMaturidadePolicy.js';
 import { NOMES_NIVEL_BLUEPRINT, faixaNivelPorScore } from './utils/nivelMaturidadeRubrica.js';
@@ -2668,19 +2670,21 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
     const areaPorId = new Map(areas.map((area) => [area.id, area]));
     const { frameworkMaturidade } = await carregarFrameworkProjeto(prisma, projetoId);
 
+    const unidadeGeral = await garantirUnidadeGeralEmpresa(projeto.empresaId);
+    const unidadesEmpresaRows = await prisma.unidadeEmpresa.findMany({
+      where: { empresaId: projeto.empresaId, ativo: true },
+      orderBy: [{ ehPadrao: 'desc' }, { ordem: 'asc' }, { nome: 'asc' }]
+    });
+    const unidadesEmpresa = unidadesEmpresaRows.map(mapUnidadeEmpresaResponse);
+    const nomesUnidadePorId = new Map(unidadesEmpresa.map((u) => [u.id, u.nome]));
+
     const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
     const [avaliacoesRaw, convitesRaw, eventos] = await Promise.all([
       prisma.avaliacao.findMany({
         where: { projetoId },
         include: {
           usuario: {
-            select: {
-              id: true,
-              nome: true,
-              email: true,
-              cargo: true,
-              nivelPrioridadeMapeamentoMaturidade: true
-            }
+            include: { empresaUnidade: true }
           },
           respostas: {
             include: {
@@ -2694,13 +2698,7 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
         where: { projetoId, tipo: 'projeto' },
         include: {
           avaliador: {
-            select: {
-              id: true,
-              nome: true,
-              email: true,
-              cargo: true,
-              nivelPrioridadeMapeamentoMaturidade: true
-            }
+            include: { empresaUnidade: true }
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -2842,6 +2840,11 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
                 ? 'link_enviado'
                 : 'sem_convite';
 
+      const { empresaUnidadeId, empresaUnidadeNome } = unidadeEfetivaDoUsuario(usuario, {
+        unidadeGeral,
+        nomesUnidadePorId
+      });
+
       linhas.push({
         usuarioId: usuario.id,
         nome: usuario.nome,
@@ -2849,6 +2852,8 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
         cargo: usuario.cargo,
         nivelPrioridadeMapeamentoMaturidade:
           nivelPrioridadeMapeamentoMaturidadeDoUsuario(usuario),
+        empresaUnidadeId,
+        empresaUnidadeNome,
         avaliacaoId,
         statusAvaliacao,
         respondidas,
@@ -2882,13 +2887,20 @@ app.get('/api/projetos/:id/avaliadores-status', async (req, res) => {
       projeto: { id: projeto.id, nome: projeto.nome },
       projetoVersao,
       empresa: projeto.empresa,
+      unidadesEmpresa,
       filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
       resumoOperacional: calcularResumoAcompanhamento(linhas),
       resumoQualidade: {
         alertas: linhas.reduce((acc, row) => acc + (row.alertasQualidade?.length || 0), 0),
         avaliadoresComAlerta: linhas.filter((row) => row.qualidadeDadoStatus === 'atencao').length
       },
-      avaliadores: linhas
+      avaliadores: linhas,
+      avaliadoresPorUnidade: montarAvaliadoresPorUnidade({
+        avaliadores: linhas,
+        unidadesEmpresa,
+        unidadeGeralId: unidadeGeral?.id,
+        incluirUnidadesVazias: true
+      })
     });
   } catch (error) {
     console.error('avaliadores-status:', error);
@@ -4484,6 +4496,31 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
       : null;
     
     const logoMetaProjeto = await resolverLogoEmpresa(projeto.empresa);
+    const avaliadoresLista = avaliacoesFinalizadas.map((a) => {
+      const { empresaUnidadeId, empresaUnidadeNome } = unidadeEfetivaDoUsuario(a.usuario, {
+        unidadeGeral,
+        nomesUnidadePorId
+      });
+      return {
+        id: a.usuario.id,
+        nome: a.usuario.nome,
+        email: a.usuario.email,
+        nivelPrioridadeMapeamentoMaturidade:
+          nivelPrioridadeMapeamentoMaturidadeDoUsuario(a.usuario),
+        empresaUnidadeId,
+        empresaUnidadeNome,
+        avaliacaoId: a.id,
+        dataAvaliacao: a.updatedAt,
+        areasSelecionadas: a.areasSelecionadas ? JSON.parse(a.areasSelecionadas) : areas.map((ar) => ar.id),
+        areasRecusadas: parseAreasRecusadas(a),
+        respostas: a.respostas.map((r) => ({
+          id: r.id,
+          perguntaId: r.perguntaId,
+          pontuacao: r.pontuacao,
+          observacoes: r.observacoes
+        }))
+      };
+    });
     const dashboard = {
       projeto: {
         id: projeto.id,
@@ -4531,31 +4568,12 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
       resumoRegulatorio: resumoRegulatorioProjeto(scoresPorArea),
       resumoComentarios: gerarResumoComentariosAvaliacoes(avaliacoesFinalizadas),
       comparativoAvaliacoes: gerarComparativoAvaliacoesProjeto(avaliacoesFinalizadas, areas),
-      avaliadores: avaliacoesFinalizadas.map((a) => {
-        const unidadeIdEfetiva =
-          a.usuario.empresaUnidadeId ?? unidadeGeral?.id ?? null;
-        return {
-        id: a.usuario.id,
-        nome: a.usuario.nome,
-        email: a.usuario.email,
-        nivelPrioridadeMapeamentoMaturidade:
-          nivelPrioridadeMapeamentoMaturidadeDoUsuario(a.usuario),
-        empresaUnidadeId: unidadeIdEfetiva,
-        empresaUnidadeNome:
-          a.usuario.empresaUnidade?.nome ||
-          nomesUnidadePorId.get(unidadeIdEfetiva) ||
-          (unidadeIdEfetiva === unidadeGeral?.id ? unidadeGeral?.nome : null),
-        avaliacaoId: a.id,
-        dataAvaliacao: a.updatedAt,
-        areasSelecionadas: a.areasSelecionadas ? JSON.parse(a.areasSelecionadas) : areas.map((ar) => ar.id),
-        areasRecusadas: parseAreasRecusadas(a),
-        respostas: a.respostas.map((r) => ({
-          id: r.id,
-          perguntaId: r.perguntaId,
-          pontuacao: r.pontuacao,
-          observacoes: r.observacoes
-        }))
-      };
+      avaliadores: avaliadoresLista,
+      avaliadoresPorUnidade: montarAvaliadoresPorUnidade({
+        avaliadores: avaliadoresLista,
+        unidadesEmpresa,
+        unidadeGeralId: unidadeGeral?.id,
+        incluirUnidadesVazias: filtroUnidadeId == null
       }),
       areas,
       ...logoMetaProjeto

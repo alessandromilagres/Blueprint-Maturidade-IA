@@ -234,3 +234,93 @@ export function filtrarAvaliacoesPorUnidadeEmpresa(avaliacoes, filtroUnidadeId, 
     usuarioIncluidoNoFiltroUnidadeEmpresa(av.usuario, filtroUnidadeId, unidadeGeralId)
   );
 }
+
+function ordenarUnidadesEmpresa(unidadesEmpresa = []) {
+  return [...unidadesEmpresa].sort((a, b) => {
+    if (a.ehPadrao && !b.ehPadrao) return -1;
+    if (!a.ehPadrao && b.ehPadrao) return 1;
+    return (a.ordem ?? 0) - (b.ordem ?? 0) || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
+  });
+}
+
+/**
+ * Agrupa itens (avaliadores, linhas de status etc.) por unidade organizacional.
+ * Com `incluirUnidadesVazias`, lista todas as unidades cadastradas mesmo sem avaliadores.
+ */
+export function agruparItensPorUnidadeEmpresa({
+  itens = [],
+  unidadesEmpresa = [],
+  unidadeGeralId = null,
+  getUnidadeId = (item) => item?.empresaUnidadeId,
+  incluirUnidadesVazias = true
+} = {}) {
+  const ordemUnidades = ordenarUnidadesEmpresa(unidadesEmpresa);
+  const grupos = new Map();
+
+  if (incluirUnidadesVazias) {
+    for (const unidade of ordemUnidades) {
+      grupos.set(unidade.id, { unidade, itens: [] });
+    }
+  }
+
+  for (const item of itens) {
+    const uid = getUnidadeId(item) ?? unidadeGeralId;
+    if (uid == null) continue;
+    if (!grupos.has(uid)) {
+      const unidade =
+        ordemUnidades.find((u) => u.id === uid) || {
+          id: uid,
+          nome: `Unidade #${uid}`,
+          codigo: '',
+          ehPadrao: uid === unidadeGeralId
+        };
+      grupos.set(uid, { unidade, itens: [] });
+    }
+    grupos.get(uid).itens.push(item);
+  }
+
+  const resultado = [];
+  const seen = new Set();
+  for (const unidade of ordemUnidades) {
+    if (!grupos.has(unidade.id)) continue;
+    resultado.push(grupos.get(unidade.id));
+    seen.add(unidade.id);
+  }
+  for (const [uid, grupo] of grupos) {
+    if (!seen.has(uid)) resultado.push(grupo);
+  }
+  return resultado;
+}
+
+/** Payload serializável para o dashboard / acompanhamento. */
+export function montarAvaliadoresPorUnidade({
+  avaliadores = [],
+  unidadesEmpresa = [],
+  unidadeGeralId = null,
+  incluirUnidadesVazias = true
+} = {}) {
+  return agruparItensPorUnidadeEmpresa({
+    itens: avaliadores,
+    unidadesEmpresa,
+    unidadeGeralId,
+    getUnidadeId: (item) => item?.empresaUnidadeId,
+    incluirUnidadesVazias
+  }).map((grupo) => ({
+    id: grupo.unidade.id,
+    nome: grupo.unidade.nome,
+    codigo: grupo.unidade.codigo || '',
+    ehPadrao: Boolean(grupo.unidade.ehPadrao),
+    total: grupo.itens.length,
+    avaliadores: grupo.itens
+  }));
+}
+
+/** Nome e ID efetivos da unidade do usuário (null → Geral). */
+export function unidadeEfetivaDoUsuario(usuario, { unidadeGeral, nomesUnidadePorId } = {}) {
+  const unidadeIdEfetiva = resolverUnidadeEfetivaIdUsuario(usuario, unidadeGeral?.id);
+  const empresaUnidadeNome =
+    usuario?.empresaUnidade?.nome ||
+    (nomesUnidadePorId instanceof Map ? nomesUnidadePorId.get(unidadeIdEfetiva) : null) ||
+    (unidadeIdEfetiva === unidadeGeral?.id ? unidadeGeral?.nome : null);
+  return { empresaUnidadeId: unidadeIdEfetiva, empresaUnidadeNome };
+}

@@ -35,10 +35,31 @@ export function jobRelatorioIaEstaObsoleto(job, now = Date.now()) {
   return minutos >= limiteMinutosJobObsoleto(job.tipo);
 }
 
+/** Mesmo critério do backend ao reutilizar job (`relatorios-ia-jobs/start`). */
+export function jobRelatorioIaCompativelComPedido(
+  job,
+  { versaoId = null, filtroNivelMax = 3, empresaUnidadeId = null } = {}
+) {
+  const meta = job?.metadata || {};
+  if (Number(meta.versaoId || 0) !== Number(versaoId || 0)) return false;
+  const salvo = meta.filtroNivelPrioridadeMapeamentoMaturidadeAplicado;
+  const a = salvo === undefined || salvo === null ? 3 : salvo;
+  const b = filtroNivelMax === undefined || filtroNivelMax === null ? 3 : filtroNivelMax;
+  if (a !== b) return false;
+  const salvoUnidade = meta.empresaUnidadeId;
+  const atualUnidade = empresaUnidadeId == null || empresaUnidadeId === '' ? null : Number(empresaUnidadeId);
+  if (salvoUnidade == null && atualUnidade == null) return true;
+  return Number(salvoUnidade) === Number(atualUnidade);
+}
+
 /** Ignora jobs zumbis; opcionalmente cancela no backend. */
-export async function resolverJobRelatorioIaAtivo(jobs, dashboardApi) {
+export async function resolverJobRelatorioIaAtivo(jobs, dashboardApi, contexto = {}) {
   const lista = Array.isArray(jobs) ? jobs : [];
-  const ativo = lista.find((j) => ['queued', 'running'].includes(j.status));
+  const ativos = lista.filter(
+    (j) =>
+      ['queued', 'running'].includes(j.status) && jobRelatorioIaCompativelComPedido(j, contexto)
+  );
+  const ativo = ativos[0] || null;
   if (!ativo) return null;
   if (!jobRelatorioIaEstaObsoleto(ativo)) return ativo;
   try {

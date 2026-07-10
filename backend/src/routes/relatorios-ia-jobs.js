@@ -67,6 +67,21 @@ const longRunningDispatcher = new Agent({
   connect: { timeout: 30_000 }
 });
 
+/** Tentativas de polling após queda do fetch interno (intervalo 10s). */
+function tentativasRecuperacaoAposFetchFalho(tipo) {
+  if (['completo', 'completo_satf', 'book_unidade', 'book_unidade_satf'].includes(tipo)) {
+    return 240; // ~40 min — book completo SATF/Blueprint
+  }
+  if (
+    ['completo_rapido', 'completo_satf_rapido', 'book_unidade_rapido', 'book_unidade_satf_rapido'].includes(
+      tipo
+    )
+  ) {
+    return 90; // ~15 min
+  }
+  return 20;
+}
+
 // Verifica se um relatório foi salvo durante a janela de execução do job.
 // Útil quando o fetch interno cai (timeout/keep-alive), mas a rota completou
 // e gravou o RelatorioIA do lado do servidor.
@@ -204,8 +219,7 @@ async function processarJobRelatorioIA({
     // Aguarda mais um tempo para garantir que a geração concluiu, e verifica.
     if (httpFailed) {
       // Espera adicional (algumas tentativas) para a rota terminar de salvar
-      const tentativas =
-        tipo === 'completo' ? 80 : tipo === 'completo_rapido' ? 50 : 20; // book: 16 dims · rápido ~21 blocos
+      const tentativas = tentativasRecuperacaoAposFetchFalho(tipo);
       const intervaloMs = 10_000;
       let salvo = null;
 

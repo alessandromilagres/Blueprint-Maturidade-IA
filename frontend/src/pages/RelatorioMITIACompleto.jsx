@@ -215,7 +215,7 @@ export default function RelatorioMITIACompleto() {
   }, [jobBg?.id, jobBg?.status]);
 
   useEffect(() => {
-    if (!id || relatorioSalvoId || projetoVersaoId) return undefined;
+    if (!id || relatorioSalvoId) return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -241,7 +241,11 @@ export default function RelatorioMITIACompleto() {
         tipo: tipoBook,
         limit: 20
       });
-      return await resolverJobRelatorioIaAtivo(jobs, dashboardApi);
+      return await resolverJobRelatorioIaAtivo(jobs, dashboardApi, {
+        versaoId: projetoVersaoId,
+        filtroNivelMax: filtroNivelUrl,
+        empresaUnidadeId: filtroUnidadeUrl
+      });
     } catch {
       return null;
     }

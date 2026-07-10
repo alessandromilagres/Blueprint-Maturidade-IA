@@ -136,12 +136,15 @@ export default function ProjetoContextoConfig({ projetoId, editable = false }) {
   const [caracteristicas, setCaracteristicas] = useState({});
   const [urls, setUrls] = useState([]);
   const [arquivos, setArquivos] = useState([]);
-  const [limites, setLimites] = useState({ maxArquivos: 10, maxFileSizeMb: 10 });
+  const [limites, setLimites] = useState({ maxFileSizeMb: 10 });
   const [configurado, setConfigurado] = useState(false);
   const [previewImagemUrl, setPreviewImagemUrl] = useState(null);
   const [previewImagemNome, setPreviewImagemNome] = useState('');
   const [pendingFile, setPendingFile] = useState(null);
+  const [pendingImageQueue, setPendingImageQueue] = useState([]);
+  const [imageBatchTotal, setImageBatchTotal] = useState(0);
   const [uploadDescricao, setUploadDescricao] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,7 +158,7 @@ export default function ProjetoContextoConfig({ projetoId, editable = false }) {
         setCaracteristicas(data?.caracteristicas || {});
         setUrls((data?.urls || []).map((u) => ({ ...u })));
         setArquivos(data?.arquivos || []);
-        setLimites(data?.limites || { maxArquivos: 10, maxFileSizeMb: 10 });
+        setLimites(data?.limites || { maxFileSizeMb: 10 });
         setConfigurado(Boolean(data?.configurado));
         setDirty(false);
       })
@@ -212,55 +215,130 @@ export default function ProjetoContextoConfig({ projetoId, editable = false }) {
     }
   }
 
-  async function handleFileSelect(e) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+  function validarArquivoUpload(file) {
     const maxBytes = (limites.maxFileSizeMb || 10) * 1024 * 1024;
     if (file.size > maxBytes) {
-      toast.error(`Arquivo muito grande (máximo ${limites.maxFileSizeMb || 10}MB).`);
-      return;
+      return `Arquivo muito grande (máximo ${limites.maxFileSizeMb || 10}MB): ${file.name}`;
     }
     const mimeType = resolveMimeTypeForProdutoUpload(file);
     if (!TIPOS_ACEITOS.has(mimeType)) {
-      toast.error('Use MD, TXT, PDF, DOC, DOCX ou imagens PNG/JPG/GIF/WebP.');
-      return;
+      return `Tipo não permitido: ${file.name}`;
     }
-    if (arquivos.length >= (limites.maxArquivos || 10)) {
-      toast.error(`Limite de ${limites.maxArquivos || 10} arquivos por projeto.`);
-      return;
-    }
-    if (isImagemMime(mimeType)) {
-      setPendingFile({ file, mimeType });
-      setUploadDescricao('');
-      return;
-    }
-    await enviarArquivo(file, mimeType, '');
+    return null;
   }
 
-  async function enviarArquivo(file, mimeType, descricao) {
-    setUploading(true);
+  async function enviarArquivoApi(file, mimeType, descricao) {
+    const base64 = await fileToBase64(file);
+    const data = await projetosApi.uploadContexto(projetoId, {
+      arquivo: base64,
+      nomeOriginal: file.name,
+      mimeType,
+      descricao: descricao || ''
+    });
+    const ctx = data.contexto || data;
+    setArquivos(ctx.arquivos || []);
+    setConfigurado(Boolean(ctx.configurado));
+    return ctx;
+  }
+
+  async function enviarArquivo(file, mimeType, descricao, { silencioso = false } = {}) {
+    if (!silencioso) setUploading(true);
     try {
-      const base64 = await fileToBase64(file);
-      const data = await projetosApi.uploadContexto(projetoId, {
-        arquivo: base64,
-        nomeOriginal: file.name,
-        mimeType,
-        descricao: descricao || ''
-      });
-      const ctx = data.contexto || data;
-      setArquivos(ctx.arquivos || []);
-      setConfigurado(Boolean(ctx.configurado));
-      const msg = isImagemMime(mimeType)
-        ? 'Imagem anexada — a descrição será usada no book.'
-        : 'Documento enviado e texto extraído para o book.';
-      toast.success(msg);
+      await enviarArquivoApi(file, mimeType, descricao);
+      if (!silencioso) {
+        const msg = isImagemMime(mimeType)
+          ? 'Imagem anexada — a descrição será usada no book.'
+          : 'Documento enviado e texto extraído para o book.';
+        toast.success(msg);
+      }
+      return true;
     } catch (err) {
-      toast.error(err.message || 'Erro no upload.');
+      if (!silencioso) {
+        toast.error(err.message || 'Erro no upload.');
+      }
+      throw err;
     } finally {
+      if (!silencioso) {
+        setUploading(false);
+        setPendingFile(null);
+        setUploadDescricao('');
+      }
+    }
+  }
+
+  function iniciarFilaImagens(imagens, { resetTotal = true } = {}) {
+    if (!imagens.length) return;
+    if (resetTotal) setImageBatchTotal(imagens.length);
+    setPendingImageQueue(imagens.slice(1));
+    setPendingFile(imagens[0]);
+    setUploadDescricao('');
+  }
+
+  async function handleFilesSelect(e) {
+    const selecionados = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!selecionados.length) return;
+
+    const invalidos = [];
+    const documentos = [];
+    const imagens = [];
+
+    for (const file of selecionados) {
+      const erro = validarArquivoUpload(file);
+      if (erro) {
+        invalidos.push(erro);
+        continue;
+      }
+      const mimeType = resolveMimeTypeForProdutoUpload(file);
+      if (isImagemMime(mimeType)) {
+        imagens.push({ file, mimeType });
+      } else {
+        documentos.push({ file, mimeType });
+      }
+    }
+
+    if (invalidos.length) {
+      toast.error(invalidos.slice(0, 3).join(' · ') + (invalidos.length > 3 ? ` (+${invalidos.length - 3})` : ''));
+    }
+
+    const total = documentos.length + imagens.length;
+    if (!total) return;
+
+    setUploading(true);
+    let enviados = 0;
+    let falhas = 0;
+
+    for (let i = 0; i < documentos.length; i++) {
+      const { file, mimeType } = documentos[i];
+      setUploadProgress({ atual: i + 1, total, nome: file.name });
+      try {
+        await enviarArquivo(file, mimeType, '', { silencioso: true });
+        enviados += 1;
+      } catch {
+        falhas += 1;
+      }
+    }
+
+    setUploadProgress(null);
+
+    if (imagens.length) {
+      if (documentos.length) {
+        toast.success(
+          `${enviados} documento(s) enviado(s)${falhas ? `, ${falhas} falha(s)` : ''}. Descreva ${imagens.length} imagem(ns).`
+        );
+      }
+      iniciarFilaImagens(imagens);
       setUploading(false);
-      setPendingFile(null);
-      setUploadDescricao('');
+      return;
+    }
+
+    setUploading(false);
+    if (enviados && !falhas) {
+      toast.success(enviados === 1 ? 'Documento enviado.' : `${enviados} documentos enviados.`);
+    } else if (enviados && falhas) {
+      toast.error(`${enviados} enviado(s), ${falhas} falha(s).`);
+    } else if (falhas) {
+      toast.error('Nenhum arquivo foi enviado.');
     }
   }
 
@@ -270,7 +348,36 @@ export default function ProjetoContextoConfig({ projetoId, editable = false }) {
       toast.error('Descreva a imagem (arquitetura, fluxo, mockup…) para a IA usar no book.');
       return;
     }
-    await enviarArquivo(pendingFile.file, pendingFile.mimeType, uploadDescricao.trim());
+    setUploading(true);
+    try {
+      await enviarArquivoApi(pendingFile.file, pendingFile.mimeType, uploadDescricao.trim());
+      const restantes = pendingImageQueue.length;
+      if (restantes > 0) {
+        toast.success(`Imagem anexada. Falta descrever ${restantes} imagem(ns).`);
+        iniciarFilaImagens(pendingImageQueue, { resetTotal: false });
+      } else {
+        toast.success('Imagem anexada — a descrição será usada no book.');
+        setPendingFile(null);
+        setPendingImageQueue([]);
+        setImageBatchTotal(0);
+        setUploadDescricao('');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Erro no upload.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function cancelarUploadImagem() {
+    const restantes = pendingImageQueue.length;
+    setPendingFile(null);
+    setPendingImageQueue([]);
+    setImageBatchTotal(0);
+    setUploadDescricao('');
+    if (restantes) {
+      toast.error(`${restantes} imagem(ns) não foram enviadas.`);
+    }
   }
 
   async function abrirPreviewImagem(arq) {
@@ -474,26 +581,29 @@ export default function ProjetoContextoConfig({ projetoId, editable = false }) {
                 <input
                   ref={fileInputRef}
                   type="file"
+                  multiple
                   accept=".md,.txt,.pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp,image/*"
                   className="hidden"
-                  onChange={handleFileSelect}
+                  onChange={handleFilesSelect}
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading || arquivos.length >= (limites.maxArquivos || 10)}
+                  disabled={uploading}
                   className="btn-secondary inline-flex items-center gap-2 text-sm disabled:opacity-50"
                 >
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  Enviar arquivo
+                  {uploadProgress
+                    ? `Enviando ${uploadProgress.atual}/${uploadProgress.total}…`
+                    : 'Enviar arquivos'}
                 </button>
               </>
             )}
           </div>
           <p className="mb-3 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Até {limites.maxArquivos || 10} arquivos, {limites.maxFileSizeMb || 10}MB cada. Documentos: texto extraído
-            automaticamente. Imagens: informe uma descrição (a IA usa o texto, não o pixel).
+            Selecione um ou vários arquivos ({limites.maxFileSizeMb || 10}MB cada). Documentos: texto extraído
+            automaticamente. Imagens: informe uma descrição por imagem (a IA usa o texto, não o pixel).
           </p>
           {arquivos.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum documento anexado.</p>
@@ -562,6 +672,11 @@ export default function ProjetoContextoConfig({ projetoId, editable = false }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl dark:bg-gray-900">
             <h3 className="font-semibold text-gray-900 dark:text-white">Descrever imagem</h3>
+            {imageBatchTotal > 1 && (
+              <p className="mt-1 text-xs font-medium text-violet-600 dark:text-violet-400">
+                Imagem {imageBatchTotal - pendingImageQueue.length} de {imageBatchTotal}
+              </p>
+            )}
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {pendingFile.file.name} — explique o que a imagem mostra (arquitetura, fluxo, organograma, mockup…).
               Esse texto entra no prompt do book.
@@ -578,10 +693,7 @@ export default function ProjetoContextoConfig({ projetoId, editable = false }) {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => {
-                  setPendingFile(null);
-                  setUploadDescricao('');
-                }}
+                onClick={cancelarUploadImagem}
                 disabled={uploading}
               >
                 Cancelar

@@ -1181,7 +1181,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       ? normalizarRotulosEntregaveisEscopo(markdown, inventarioDocumentos)
       : markdown;
 
-  const comIndice = adicionarIndiceAoBookMarkdown(markdownFinal);
+  const comIndice = adicionarIndiceAoBookMarkdown(markdownFinal, { modo: 'satf' });
   const comConfidencial = `${capaConfidencialBookSatfMarkdown(projeto.empresa.nome, projeto.nome)}${comIndice}`;
   const comUnidade = exigeUnidade
     ? prependCapaUnidadeAoRelatorio(comConfidencial, unidadeMeta)

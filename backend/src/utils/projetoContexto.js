@@ -28,7 +28,6 @@ export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_CONTEUDO_DB = 50000;
 /** Limite total de texto de contexto injetado nos prompts de IA. */
 export const MAX_CONTEXTO_BOOK_CHARS = 12000;
-export const MAX_ARQUIVOS_POR_PROJETO = 10;
 
 const TIPOS_PERMITIDOS = {
   'text/plain': '.txt',
@@ -246,7 +245,7 @@ export async function carregarContextoProjeto(prisma, projetoId) {
     })),
     labels: { ...LABELS_CARACTERISTICAS, ...LABELS_FATOS_CANONICOS },
     dicas: { ...DICAS_CARACTERISTICAS, ...DICAS_FATOS_CANONICOS },
-    limites: { maxArquivos: MAX_ARQUIVOS_POR_PROJETO, maxFileSizeMb: 10 },
+    limites: { maxFileSizeMb: 10 },
     updatedAt: reg?.updatedAt || null,
     configurado:
       Object.values(caracteristicas).some((v) => v) ||
@@ -292,15 +291,6 @@ export async function uploadArquivoContextoProjeto(
   if (!projeto) {
     const err = new Error('Projeto não encontrado');
     err.status = 404;
-    throw err;
-  }
-
-  const countRows = await prisma.$queryRaw`
-    SELECT COUNT(*)::int AS c FROM "ProjetoContextoArquivo" WHERE "projetoId" = ${projetoId}
-  `;
-  if (Number(countRows?.[0]?.c) >= MAX_ARQUIVOS_POR_PROJETO) {
-    const err = new Error(`Limite de ${MAX_ARQUIVOS_POR_PROJETO} arquivos por projeto.`);
-    err.status = 400;
     throw err;
   }
 

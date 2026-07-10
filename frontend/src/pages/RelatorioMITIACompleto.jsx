@@ -755,7 +755,9 @@ export default function RelatorioMITIACompleto() {
     data?.tipoRelatorio === 'completo_satf_rapido' ||
     data?.dadosUsados?.modoGeracao === 'rapido';
 
-  const indice = extrairEntradasIndiceMarkdown(data?.relatorio || '');
+  const indice = extrairEntradasIndiceMarkdown(data?.relatorio || '', {
+    modo: isSatfBook ? 'satf' : 'auto'
+  });
   const avisosProvedorExibicao = coletarAvisosProvedor(data);
   const avisosProvedorJob = coletarAvisosProvedorJob(jobBg);
   const statusSecao3 = data?.relatorio
@@ -1147,7 +1149,7 @@ export default function RelatorioMITIACompleto() {
                         : 'text-slate-600 pl-5 text-[13px]'
                     }`}
                   >
-                    {item.titulo}
+                    {item.tituloIndice || item.titulo}
                   </a>
                 ))}
               </nav>

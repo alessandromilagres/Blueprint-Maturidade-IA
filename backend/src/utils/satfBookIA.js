@@ -339,6 +339,7 @@ function numSecao3BookUnidade(exigeUnidade, unidadeMeta, idxRelativo, idxCanonic
 
 const DADOS_BLOCK_CONTEXTO_MAX_CHARS = 48_000;
 const DADOS_BLOCK_DESEJOS_MAX_CHARS = 16_000;
+const DADOS_BLOCK_INVENTARIO_MAX_CHARS = 24_000;
 const PROMPT_CONTEXTO_DIMENSAO_MAX_CHARS = 12_000;
 
 function limitarBlocoMarkdown(bloco, maxChars, rotulo) {
@@ -380,6 +381,8 @@ function montarDadosBlockSatf({
 }) {
   const ctx = limitarBlocoMarkdown(blocoContexto, DADOS_BLOCK_CONTEXTO_MAX_CHARS, 'Contexto do cliente');
   const desejos = limitarBlocoMarkdown(blocoDesejosIa, DADOS_BLOCK_DESEJOS_MAX_CHARS, 'Desejos IA');
+  const inventario = limitarBlocoMarkdown(blocoInventario, DADOS_BLOCK_INVENTARIO_MAX_CHARS, 'Inventário');
+  const evolucao = limitarBlocoMarkdown(blocoEvolucao, 12_000, 'Evolução entre versões');
   const dimsLista = dimensoesEscopo || dimensoesDiagnostico;
   const nivel = nivelNumericoDeScore(scoreGeral);
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
@@ -433,7 +436,7 @@ ${blocoAvaliadoresConsolidadoMarkdown(avaliacoesFiltradas, filtroNivelMax)}
 
 ${ctx ? `${ctx}\n\n` : ''}
 
-${blocoInventario ? `${blocoInventario}\n\n` : ''}
+${inventario ? `${inventario}\n\n` : ''}
 
 ${desejos ? `${desejos}\n\n` : ''}
 
@@ -441,7 +444,7 @@ ${blocoCert}
 
 ${blocoTaxonomiaObrigatoriaSatfMarkdown(dimsLista)}
 
-${blocoEvolucao}
+${evolucao}
 
 ## Metodologia de score SATF
 ${metodologiaScore?.descricaoScore || 'Média ponderada das dimensões núcleo; D10 fora da média geral; evidência obrigatória para notas ≥ 4.'}
@@ -480,6 +483,158 @@ ${bottom5.map((a, i) => `${i + 1}. **${a.area}**: ${a.score.toFixed(2)}`).join('
 ## Detalhamento por pergunta
 ${detalhePerguntasTxt}
 ${exigeUnidade && unidadeMeta ? `\n## Escopo unidade organizacional\n- **Unidade:** ${unidadeMeta.nome}\n- **Descrição:** ${String(unidadeMeta.descricao || '').trim() || '—'}${blocoEscopoFocoUnidadeSatf(unidadeMeta)}\n\n${montarBlocoPlanoAcaoUnidadeMarkdown(planoAcao)}` : ''}`;
+}
+
+/** Monta o pacote de dados em etapas com yield — evita bloquear o event loop (job em background). */
+async function montarDadosBlockSatfAsync(params, relatorioJobId, atualizarProgressoJobBook) {
+  const reportar = async (subpasso, etapa) => {
+    if (relatorioJobId && atualizarProgressoJobBook) {
+      await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 35, etapa, {
+        fase: 'preparacao_dados_block',
+        subpasso
+      });
+    }
+    await yieldEventLoop();
+  };
+
+  await reportar('inicio', 'Montando pacote de dados da unidade…');
+
+  const {
+    projeto,
+    projetoVersao,
+    avaliacoesFiltradas,
+    filtroNivelMax,
+    scoreGeral,
+    scoreGeralDeclarado,
+    certificacaoSatf,
+    setor,
+    porte,
+    metodologiaScore,
+    top5,
+    bottom5,
+    exigeUnidade,
+    unidadeMeta,
+    planoAcao,
+    dimensoesEscopo,
+    dimensoesDiagnostico,
+    dimensoesForaEscopo,
+    blocoContexto,
+    blocoInventario,
+    blocoDesejosIa,
+    blocoEvolucao
+  } = params;
+
+  const ctx = limitarBlocoMarkdown(blocoContexto, DADOS_BLOCK_CONTEXTO_MAX_CHARS, 'Contexto do cliente');
+  const desejos = limitarBlocoMarkdown(blocoDesejosIa, DADOS_BLOCK_DESEJOS_MAX_CHARS, 'Desejos IA');
+  const inventario = limitarBlocoMarkdown(blocoInventario, DADOS_BLOCK_INVENTARIO_MAX_CHARS, 'Inventário');
+  const evolucao = limitarBlocoMarkdown(blocoEvolucao, 12_000, 'Evolução entre versões');
+  const dimsLista = dimensoesEscopo || dimensoesDiagnostico;
+  const nivel = nivelNumericoDeScore(scoreGeral);
+  const nomesNivel = NOMES_NIVEL_BLUEPRINT;
+  const blocoEscopoFoco = exigeUnidade ? blocoEscopoFocoUnidadeSatf(unidadeMeta) : '';
+
+  await reportar('identificacao', 'Pacote de dados — identificação e avaliadores…');
+
+  const partes = [
+    '# DADOS DO ASSESSMENT — SATF TI v3',
+    `## Identificação
+- **Empresa:** ${projeto.empresa.nome}
+- **Projeto:** ${projeto.nome}
+- **Framework:** SATF TI v3 (IA Maturidade TI)
+- **Versão da pesquisa:** ${projetoVersao.titulo} (${projetoVersao.status})
+- **Setor / vertical:** ${setor}
+- **Porte:** ${porte}
+- **Avaliadores (filtro):** ${avaliacoesFiltradas.length}
+- **Filtro prioridade:** ${filtroNivelMax == null ? 'Todos' : `Até nível ${filtroNivelMax}`}
+${blocoEscopoFoco}
+${blocoAvaliadoresConsolidadoMarkdown(avaliacoesFiltradas, filtroNivelMax)}`
+  ];
+
+  await reportar('contexto', 'Pacote de dados — contexto e anexos…');
+  if (ctx) partes.push(ctx);
+  if (inventario) partes.push(inventario);
+  if (desejos) partes.push(desejos);
+
+  if (certificacaoSatf) {
+    partes.push(`## Certificação consultor
+- Status geral: **${certificacaoSatf.statusGeral}**
+- Dimensões pendentes: **${certificacaoSatf.pendentes}**
+- Certificadas: **${certificacaoSatf.certificadas}**
+- Rebaixadas: **${certificacaoSatf.rebaixadas}**
+- Score geral declarado: **${scoreGeralDeclarado?.toFixed(2) ?? '—'}**
+- Score geral **oficial** (usar no diagnóstico): **${scoreGeral.toFixed(2)}**`);
+  }
+
+  await reportar('taxonomia', 'Pacote de dados — taxonomia e scores…');
+  partes.push(blocoTaxonomiaObrigatoriaSatfMarkdown(dimsLista));
+  if (evolucao) partes.push(evolucao);
+
+  partes.push(`## Metodologia de score SATF
+${metodologiaScore?.descricaoScore || 'Média ponderada das dimensões núcleo; D10 fora da média geral; evidência obrigatória para notas ≥ 4.'}`);
+
+  partes.push(`## Resultado geral
+- **Score oficial:** ${scoreGeral.toFixed(2)} (Nível ${nivel} — ${nomesNivel[nivel - 1]})
+${scoreGeralDeclarado != null && scoreGeralDeclarado !== scoreGeral ? `- **Score declarado (autoavaliação):** ${scoreGeralDeclarado.toFixed(2)}` : ''}`);
+
+  partes.push(blocoOrdemDimensoesFrameworkMarkdown(FRAMEWORK_SATF_TI_V3));
+
+  const linhasScores = dimsLista.map((a) => {
+    const zero = dimensaoComScoreZero(a);
+    const gap =
+      a.scoreDeclarado != null && a.score != null && Math.abs(a.scoreDeclarado - a.score) > 0.05
+        ? ` · gap decl→oficial ${(a.scoreDeclarado - a.score).toFixed(2)}`
+        : '';
+    const cert = a.certificacao?.status ? ` · cert: ${a.certificacao.status}` : '';
+    return `- **${a.area}**${
+      zero
+        ? ' — score 0'
+        : ` — oficial ${a.score.toFixed(2)} (N${a.nivel})${a.scoreDeclarado != null ? ` · decl ${a.scoreDeclarado.toFixed(2)}` : ''}${gap}${cert}`
+    }${a.peso != null ? ` · peso ${a.peso}%` : ''}${a.foraDaMediaGeral ? ' · *fora da média geral*' : ''}${a.foraDeEscopo ? ' · *fora de escopo*' : ''}`;
+  });
+  partes.push(`## Scores por dimensão (${dimsLista.length})\n${linhasScores.join('\n')}`);
+
+  if ((dimensoesForaEscopo || []).length > 0) {
+    partes.push(`## Fora de escopo\n${dimensoesForaEscopo.map((a) => `- ${a.area}`).join('\n')}`);
+  }
+
+  await reportar('ranking', 'Pacote de dados — ranking e plano da unidade…');
+
+  partes.push(`## Top 5 forças\n${top5.map((a, i) => `${i + 1}. **${a.area}**: ${a.score.toFixed(2)}`).join('\n')}`);
+  partes.push(`## Top 5 gaps\n${bottom5.map((a, i) => `${i + 1}. **${a.area}**: ${a.score.toFixed(2)}`).join('\n')}`);
+
+  const detalhePerguntasTxt = exigeUnidade
+    ? montarResumoScoresDimensoes(dimsLista, {
+        titulo: 'Scores por dimensão (resumo — detalhe [Qn] em cada subseção 3.N)'
+      }) || '—'
+    : dimsLista
+        .map(
+          (a) =>
+            `\n### ${a.area} (Oficial: ${dimensaoComScoreZero(a) ? '0' : (a.score ?? 0).toFixed(2)}${
+              a.scoreDeclarado != null && a.scoreDeclarado !== a.score
+                ? ` · Declarado: ${a.scoreDeclarado.toFixed(2)}`
+                : ''
+            })\n${(a.perguntas || [])
+              .map(
+                (p) =>
+                  `- [Q${p.numero}] ${p.texto.substring(0, 160)}${p.texto.length > 160 ? '…' : ''} → ${
+                    p.totalRespostas > 0 ? p.score : '0'
+                  }`
+              )
+              .join('\n')}`
+        )
+        .join('\n');
+  partes.push(`## Detalhamento por pergunta\n${detalhePerguntasTxt}`);
+
+  if (exigeUnidade && unidadeMeta) {
+    partes.push(`## Escopo unidade organizacional
+- **Unidade:** ${unidadeMeta.nome}
+- **Descrição:** ${String(unidadeMeta.descricao || '').trim() || '—'}${blocoEscopoFocoUnidadeSatf(unidadeMeta)}
+
+${montarBlocoPlanoAcaoUnidadeMarkdown(planoAcao)}`);
+  }
+
+  await reportar('final', 'Pacote de dados — finalizando…');
+  return partes.filter(Boolean).join('\n\n');
 }
 
 async function montarChunksSatf({
@@ -526,6 +681,8 @@ async function montarChunksSatf({
       : '';
   const ordemNomesSecao3 = dimsParaSecao3.map((d) => d.area);
 
+  await yieldEventLoop();
+  await reportarChunkPreparado('Metodologia SATF + Sumário');
   chunks.push({
     id: 'sec_1_2',
     label: 'Metodologia SATF + Sumário',
@@ -553,7 +710,6 @@ ${dados}
 Comece com "# 1. METODOLOGIA SATF TI v3".`,
     maxTokens: modoRapido ? 3200 : 5000
   });
-  await reportarChunkPreparado('Metodologia SATF + Sumário');
 
   for (let idxRel = 0; idxRel < dimsParaSecao3.length; idxRel++) {
     const dim = dimsParaSecao3[idxRel];
@@ -594,6 +750,8 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
       }
     }
 
+    await yieldEventLoop();
+    await reportarChunkPreparado(`Diagnóstico — ${dim.area}`);
     chunks.push({
       id: `sec_3_${idx + 1}`,
       label: `Diagnóstico — ${dim.area}`,
@@ -620,7 +778,6 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
       }),
       maxTokens: modoRapido ? 3600 : 6000
     });
-    await reportarChunkPreparado(`Diagnóstico — ${dim.area}`);
   }
 
   const n4 = numeroSecaoPrincipalSatfUnidade(4, mapaRenumeracaoSecoes);
@@ -1362,32 +1519,48 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     exigeUnidade ? 'Montando pacote de dados da unidade…' : 'Montando pacote de dados do book…',
     { fase: 'preparacao_dados_block' }
   );
-  await yieldEventLoop();
 
-  const dadosBlock = montarDadosBlockSatf({
-    projeto,
-    projetoVersao,
-    avaliacoesFiltradas,
-    filtroNivelMax,
-    dimensoesDiagnostico,
-    dimensoesEscopo: dimsParaDados,
-    dimensoesForaEscopo: consolidado.dimensoesForaEscopo,
-    scoreGeral,
-    scoreGeralDeclarado,
-    certificacaoSatf,
-    setor,
-    porte,
-    blocoContexto,
-    blocoInventario,
-    blocoDesejosIa,
-    blocoEvolucao,
-    metodologiaScore,
-    top5,
-    bottom5,
-    exigeUnidade,
-    unidadeMeta,
-    planoAcao: planoAcaoUnidade
-  });
+  let dadosBlock;
+  try {
+    dadosBlock = await montarDadosBlockSatfAsync(
+      {
+        projeto,
+        projetoVersao,
+        avaliacoesFiltradas,
+        filtroNivelMax,
+        dimensoesDiagnostico,
+        dimensoesEscopo: dimsParaDados,
+        dimensoesForaEscopo: consolidado.dimensoesForaEscopo,
+        scoreGeral,
+        scoreGeralDeclarado,
+        certificacaoSatf,
+        setor,
+        porte,
+        blocoContexto,
+        blocoInventario,
+        blocoDesejosIa,
+        blocoEvolucao,
+        metodologiaScore,
+        top5,
+        bottom5,
+        exigeUnidade,
+        unidadeMeta,
+        planoAcao: planoAcaoUnidade
+      },
+      relatorioJobId,
+      atualizarProgressoJobBook
+    );
+  } catch (errPrep) {
+    console.error('[Book SATF] Falha ao montar pacote de dados:', errPrep);
+    if (relatorioJobId) {
+      await atualizarProgressoJobBook(relatorioJobId, {
+        progresso: 35,
+        etapa: `Erro ao montar pacote de dados: ${errPrep.message || 'falha na preparação'}`,
+        metadata: JSON.stringify({ fase: 'erro_preparacao_dados', erro: String(errPrep.message || errPrep) })
+      });
+    }
+    throw errPrep;
+  }
 
   await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 36, 'Pacote de dados montado', {
     fase: 'preparacao_dados_ok',

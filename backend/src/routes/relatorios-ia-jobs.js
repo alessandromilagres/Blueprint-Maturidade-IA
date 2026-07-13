@@ -21,6 +21,11 @@ import {
   jobRelatorioIAEstaObsoleto,
   falharJobRelatorioIAObsoleto
 } from '../utils/relatorioIAJobStale.js';
+import {
+  gerarBookSatfInProcess,
+  isTipoRelatorioIABookSatf,
+  relatorioIABookSatfDepsDisponivel
+} from '../utils/relatorioIABookJobRunner.js';
 
 const router = express.Router();
 
@@ -170,6 +175,10 @@ async function processarJobRelatorioIA({
     const abortController = new AbortController();
     registerJobAbortController(jobId, abortController);
 
+    const usarBookSatfInProcess =
+      isTipoRelatorioIABookSatf(tipo) && relatorioIABookSatfDepsDisponivel();
+    const heartbeatIntervalMs = usarBookSatfInProcess ? 15_000 : 45_000;
+
     const heartbeatInicio = Date.now();
     const heartbeat = setInterval(async () => {
       try {
@@ -199,34 +208,46 @@ async function processarJobRelatorioIA({
       } catch {
         /* ignore */
       }
-    }, 45_000);
+    }, heartbeatIntervalMs);
 
     try {
-      // Importante: usar undici.fetch (não o fetch global do Node) para que
-      // o `dispatcher` seja compatível com o Agent. O fetch global usa uma
-      // versão interna distinta de undici e quebra com "UND_ERR_INVALID_ARG".
-      const resp = await undiciFetch(`${baseUrl}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authHeader ? { Authorization: authHeader } : {})
-        },
-        dispatcher: longRunningDispatcher,
-        signal: abortController.signal
-      });
+      if (usarBookSatfInProcess) {
+        console.log(`[Job ${jobId}] book SATF in-process (sem HTTP interno)`);
+        payload = await gerarBookSatfInProcess({
+          projetoId,
+          jobId,
+          tipo,
+          filtroNivelMax,
+          versaoId,
+          empresaUnidadeId,
+          signal: abortController.signal
+        });
+      } else {
+        // Importante: usar undici.fetch (não o fetch global do Node) para que
+        // o `dispatcher` seja compatível com o Agent. O fetch global usa uma
+        // versão interna distinta de undici e quebra com "UND_ERR_INVALID_ARG".
+        const resp = await undiciFetch(`${baseUrl}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authHeader ? { Authorization: authHeader } : {})
+          },
+          dispatcher: longRunningDispatcher,
+          signal: abortController.signal
+        });
 
-      payload = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        httpFailed = true;
-        httpError = new Error(payload?.error || payload?.details || `Falha HTTP ${resp.status}`);
+        payload = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          httpFailed = true;
+          httpError = new Error(payload?.error || payload?.details || `Falha HTTP ${resp.status}`);
+        }
       }
     } catch (fetchErr) {
-      httpFailed = true;
-      httpError = fetchErr;
       const foiAbort =
         fetchErr?.name === 'AbortError' ||
         fetchErr?.code === 'ABORT_ERR' ||
-        String(fetchErr?.message || '').toLowerCase().includes('abort');
+        String(fetchErr?.message || '').toLowerCase().includes('abort') ||
+        String(fetchErr?.message || '').toLowerCase().includes('cancelado');
       if (foiAbort) {
         await prisma.relatorioIAJob
           .update({
@@ -242,6 +263,11 @@ async function processarJobRelatorioIA({
           .catch(() => {});
         return;
       }
+      if (usarBookSatfInProcess) {
+        throw fetchErr;
+      }
+      httpFailed = true;
+      httpError = fetchErr;
       console.warn(`[Job ${jobId}] fetch interno falhou: ${fetchErr.message}. Verificando se o relatório foi salvo mesmo assim...`);
     } finally {
       clearInterval(heartbeat);

@@ -186,6 +186,7 @@ import {
 } from './utils/satfEvidenciaObrigatoria.js';
 import { enriquecerScoresDashboardSatf } from './utils/projetoDimensaoCertificacao.js';
 import { executarGeracaoBookSatf } from './utils/satfBookIA.js';
+import { registerRelatorioIABookSatfDeps } from './utils/relatorioIABookJobRunner.js';
 import { executarGeracaoRelatorioExecutivoSatf } from './utils/satfRelatorioExecutivoIA.js';
 import { executarGeracaoRelatorioExecutivoUnidadeBlueprint } from './utils/relatorioExecutivoUnidadeBlueprint.js';
 import { executarGeracaoBookUnidadeBlueprint } from './utils/bookUnidadeOrganizacionalIA.js';
@@ -936,6 +937,12 @@ async function atualizarProgressoJobBook(jobId, data) {
     console.warn('[Book IA] atualizarProgressoJobBook:', err.message);
   }
 }
+
+registerRelatorioIABookSatfDeps({
+  atualizarProgressoJobBook,
+  obterVersaoSelecionadaProjeto,
+  idsAvaliacoesDaVersao
+});
 
 async function resolverArquiteturaReferenciaProduto(arquiteturaReferenciaId, empresaIdProjeto) {
   if (arquiteturaReferenciaId === undefined || arquiteturaReferenciaId === null || arquiteturaReferenciaId === '') {

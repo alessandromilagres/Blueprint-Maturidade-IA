@@ -4,8 +4,12 @@ import { isTipoRelatorioIABook } from '../constants/tiposRelatorioIA.js';
 /** Minutos sem atualização antes de considerar job órfão/zumbi. */
 const STALE_MINUTES_EXECUTIVO = 20;
 const STALE_MINUTES_BOOK = 120;
+const STALE_MINUTES_BOOK_PREPARACAO = 8;
 
-export function limiteMinutosJobObsoleto(tipo) {
+export function limiteMinutosJobObsoleto(tipo, job = null) {
+  if (job?.progresso != null && Number(job.progresso) <= 40) {
+    return STALE_MINUTES_BOOK_PREPARACAO;
+  }
   return isTipoRelatorioIABook(tipo) ? STALE_MINUTES_BOOK : STALE_MINUTES_EXECUTIVO;
 }
 
@@ -14,7 +18,7 @@ export function jobRelatorioIAEstaObsoleto(job, now = Date.now()) {
   const ref = job.updatedAt || job.startedAt || job.createdAt;
   if (!ref) return false;
   const minutos = (now - new Date(ref).getTime()) / 60_000;
-  return minutos >= limiteMinutosJobObsoleto(job.tipo);
+  return minutos >= limiteMinutosJobObsoleto(job.tipo, job);
 }
 
 export async function falharJobRelatorioIAObsoleto(jobId, motivo) {

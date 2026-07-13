@@ -112,7 +112,8 @@ import {
   unidadeTemDimensoesFoco,
   montarBlocoDadosDimensaoUnica,
   montarInstrucaoDadosSomenteDimensao,
-  montarResumoScoresDimensoes
+  montarResumoScoresDimensoes,
+  codigoEfetivoDimensaoFramework
 } from './bookDadosDimensao.js';
 
 function mediaSetorTiBenchmark(setor) {
@@ -215,7 +216,7 @@ DETALHE DESTA DIMENSÃO (perguntas consolidadas):
 ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
 `;
 
-  // Book por unidade: template canônico 3.x.1–3.x.6 (mesmo do modo completo).
+  // Book por unidade (SATF/MIT): sempre o template canônico 3.x.1–3.x.6.
   const usarTemplateUnidadeOuCompleto = exigeUnidade || !modoRapido;
 
   if (!usarTemplateUnidadeOuCompleto) {
@@ -297,22 +298,60 @@ function montarBlocoSecao3DimensaoSatf({
   ordemNomes,
   modoRapido,
   inventarioDocumentos,
-  numPai = 3
+  numPai = 3,
+  exigeUnidade = false
 }) {
   let md = '';
   if (isFirst) {
     md += `${introducaoSecao3SatfBookMarkdown(totalDimensoes, ordemNomes, { numPai })}\n\n`;
   }
   md += `${rotuloDimensaoSatfBookMarkdown(dim, numSecao)}\n\n`;
-  let corpo = limparConteudoIaSecao3Dimensao(conteudoIa, numSecao, { bookCompleto: !modoRapido });
+  // Book por unidade: limpeza no modo completo para preservar ### 3.x.1–6.
+  const bookCompleto = exigeUnidade ? true : !modoRapido;
+  let corpo = limparConteudoIaSecao3Dimensao(conteudoIa, numSecao, { bookCompleto });
   if (corpo && inventarioDocumentos?.entregaveis?.length) {
     corpo = complementarSecao3EntregaveisEscopo(corpo, dim.area, inventarioDocumentos, numSecao, {
-      modoRapido
+      modoRapido: exigeUnidade ? false : modoRapido
     });
     corpo = normalizarRotulosEntregaveisEscopo(corpo, inventarioDocumentos);
   }
   if (corpo) md += corpo;
   return md;
+}
+
+function esqueletoAnaliseDimensaoSatf(numSecao, dim, motivo = '') {
+  const aviso = motivo
+    ? `> ⚠️ ${motivo}\n\n`
+    : '';
+  return `${aviso}### ${numSecao}.1 Análise Diagnóstica
+
+> Conteúdo incompleto — regenere o book para análise completa. Score: ${rotuloScoreDimensaoSatf(dim)}.
+
+### ${numSecao}.2 Evidências Críticas
+
+- Lacuna de evidências documentadas nesta montagem.
+
+### ${numSecao}.3 Risco de Negócio
+
+> Risco não detalhado automaticamente — revisar com o time da dimensão **${dim.area}**.
+
+### ${numSecao}.4 Benchmark Setorial
+
+> Benchmark não gerado nesta montagem.
+
+### ${numSecao}.5 Recomendações Específicas
+
+1. Revisar evidências e prioridades desta dimensão com a unidade.
+2. Definir entregável e owner em até 30 dias.
+3. Incluir KPI de evolução do score oficial.
+
+### ${numSecao}.6 KPIs de Acompanhamento
+
+| KPI | Baseline | Meta 6m | Meta 12m |
+|-----|----------|---------|----------|
+| Score oficial ${dim.area} | ${Number(dim.score ?? 0).toFixed(2)} | — | — |
+
+${tabelaPerguntasDimensaoMarkdown(dim)}`;
 }
 
 function unidadeComFocoDefinido(unidadeMeta) {
@@ -770,9 +809,17 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
   for (let idxRel = 0; idxRel < dimsParaSecao3.length; idxRel++) {
     const dim = dimsParaSecao3[idxRel];
     const idxOriginal = dimensoesDiagnostico.findIndex(
-      (d) => d.areaId === dim.areaId && d.area === dim.area
+      (d) =>
+        (d.areaId != null && dim.areaId != null && d.areaId === dim.areaId) ||
+        (d.area && dim.area && d.area === dim.area) ||
+        (codigoEfetivoDimensaoFramework(d, 'satf') &&
+          codigoEfetivoDimensaoFramework(d, 'satf') === codigoEfetivoDimensaoFramework(dim, 'satf'))
     );
     const idx = idxOriginal >= 0 ? idxOriginal : dimensoesDiagnostico.indexOf(dim);
+    if (idx < 0) {
+      console.warn(`[Book SATF] Dimensão sem índice canônico ignorada no chunk: ${dim?.area}`);
+      continue;
+    }
     const isFirst = idxRel === 0;
     const numSecao = numSecaoDiagnosticoBook(exigeUnidade, unidadeMeta, idxRel, idx);
     const dadosDimensao = montarBlocoDadosDimensaoUnica(dim, {
@@ -1047,13 +1094,13 @@ async function executarChunksLoop({
   temGlossarioFatos = false,
   indicesSecao3Ativos = null,
   ordemNomesSecao3Ativos = null,
-  numPaiDiagnostico = 3
+  numPaiDiagnostico = 3,
+  exigeUnidade = false
 }) {
   const paiDiag = Number(numPaiDiagnostico) === 2 ? 2 : 3;
   const partesPreSec3 = [];
   const blocosSec3PorIndice = Array(dimensoesDiagnostico.length).fill(null);
   const partesPosSec3 = [];
-  let chegouSec3 = false;
   let totalTokensEntrada = 0;
   let totalTokensSaida = 0;
   let providerUsado = null;
@@ -1068,17 +1115,24 @@ ${temContexto ? blocoInstrucoesSistemaSecao3ComContexto() : ''}
 ${temGlossarioFatos ? blocoInstrucoesPrioridadeGlossario() : ''}
 Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
 
+  /** Ordem fixa: pré (§1–2) · diagnóstico (§3.N) · pós (§4+). Não depende de “chegouSec3”. */
   const registrar = (chunk, conteudo) => {
     const texto = recortarConteudoChunkBookSatf(conteudo, chunk.id);
     if (!texto) return;
-    const m = String(chunk.id || '').match(/^sec_3_(\d+)$/);
+    const id = String(chunk.id || '');
+    const m = id.match(/^sec_3_(\d+)$/);
     if (m) {
-      chegouSec3 = true;
-      blocosSec3PorIndice[parseInt(m[1], 10) - 1] = texto;
+      const slot = parseInt(m[1], 10) - 1;
+      if (slot >= 0 && slot < blocosSec3PorIndice.length) {
+        blocosSec3PorIndice[slot] = texto;
+      }
       return;
     }
-    if (!chegouSec3) partesPreSec3.push(texto);
-    else partesPosSec3.push(texto);
+    if (/^sec_[4-8]$/.test(id)) {
+      partesPosSec3.push(texto);
+      return;
+    }
+    partesPreSec3.push(texto);
   };
 
   for (let i = 0; i < chunks.length; i++) {
@@ -1142,7 +1196,8 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
             ordemNomes: nomesSecao3,
             modoRapido,
             inventarioDocumentos,
-            numPai: paiDiag
+            numPai: paiDiag,
+            exigeUnidade
           })
         );
       } else {
@@ -1207,28 +1262,38 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
       if (m) {
         const dimIdx = parseInt(m[1], 10) - 1;
         const dim = dimensoesDiagnostico[dimIdx];
-        const numSecao = `${paiDiag}.${dimIdx + 1}`;
+        const indicesOrdenados =
+          indicesSecao3Ativos && indicesSecao3Ativos.size
+            ? [...indicesSecao3Ativos].sort((a, b) => a - b)
+            : null;
+        const idxRel = indicesOrdenados ? indicesOrdenados.indexOf(dimIdx) : dimIdx;
+        const numSecao =
+          indicesOrdenados && idxRel >= 0 ? `${paiDiag}.${idxRel + 1}` : `${paiDiag}.${dimIdx + 1}`;
+        const primeiroIdxAtivo = indicesOrdenados ? indicesOrdenados[0] : 0;
+        const totalDimsSec3 = indicesOrdenados ? indicesOrdenados.length : dimensoesDiagnostico.length;
+        const nomesSecao3 = ordemNomesSecao3Ativos || ordemNomes;
+        const usarEsqueletoAnalise =
+          exigeUnidade || !dimensaoComScoreZero(dim);
         registrar(
           chunk,
-          dimensaoComScoreZero(dim)
-            ? blocoDimensaoScoreZeroSecao3Satf(numSecao, dim, {
-                isFirst: dimIdx === 0,
-                totalDimensoes: dimensoesDiagnostico.length,
-                ordemNomes,
-                modoRapido,
-                numPai: paiDiag
-              })
-            : montarBlocoSecao3DimensaoSatf({
-                numSecao,
-                dim,
-                conteudoIa: `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ **Esta seção não pôde ser gerada pela IA** (${msgErro.slice(0, 500)}).\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
-                isFirst: dimIdx === 0,
-                totalDimensoes: dimensoesDiagnostico.length,
-                ordemNomes,
-                modoRapido,
-                inventarioDocumentos,
-                numPai: paiDiag
-              })
+          montarBlocoSecao3DimensaoSatf({
+            numSecao,
+            dim,
+            conteudoIa: usarEsqueletoAnalise
+              ? esqueletoAnaliseDimensaoSatf(
+                  numSecao,
+                  dim,
+                  `Falha na geração IA desta dimensão (${msgErro.slice(0, 280)}).`
+                )
+              : `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ **Esta seção não pôde ser gerada pela IA** (${msgErro.slice(0, 500)}).\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
+            isFirst: dimIdx === primeiroIdxAtivo,
+            totalDimensoes: totalDimsSec3,
+            ordemNomes: nomesSecao3,
+            modoRapido,
+            inventarioDocumentos,
+            numPai: paiDiag,
+            exigeUnidade
+          })
         );
       } else {
         registrar(chunk, formatSecaoErroGenerico(chunk, err));
@@ -1250,7 +1315,7 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
         indicesOrdenadosFallback && idxRel >= 0
           ? `${paiDiag}.${idxRel + 1}`
           : `${paiDiag}.${idx + 1}`;
-      if (dimensaoComScoreZero(dim)) {
+      if (dimensaoComScoreZero(dim) && !exigeUnidade) {
         let md = '';
         const primeiroIdxAtivo = indicesOrdenadosFallback ? indicesOrdenadosFallback[0] : 0;
         if (idx === primeiroIdxAtivo) {
@@ -1276,7 +1341,11 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
       return montarBlocoSecao3DimensaoSatf({
         numSecao,
         dim,
-        conteudoIa: `### ${numSecao}.1 Status\n\n> Bloco não gerado — regenere o book.\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
+        conteudoIa: esqueletoAnaliseDimensaoSatf(
+          numSecao,
+          dim,
+          'Bloco ausente na montagem — conteúdo de análise 3.x.1–3.x.6 reconstruído automaticamente.'
+        ),
         isFirst: idx === (indicesOrdenadosFallback ? indicesOrdenadosFallback[0] : 0),
         totalDimensoes: indicesOrdenadosFallback
           ? indicesOrdenadosFallback.length
@@ -1284,7 +1353,8 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
         ordemNomes: ordemNomesSecao3Ativos || ordemNomes,
         modoRapido,
         inventarioDocumentos,
-        numPai: paiDiag
+        numPai: paiDiag,
+        exigeUnidade
       });
     })
     .filter(Boolean);
@@ -1790,7 +1860,8 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       temGlossarioFatos: regrasFatos.temGlossario,
       indicesSecao3Ativos,
       ordemNomesSecao3Ativos: indicesSecao3Ativos ? ordemNomesSecao3Ativos : null,
-      numPaiDiagnostico: 3
+      numPaiDiagnostico: 3,
+      exigeUnidade
     });
 
   const markdownBrutoRenumerado = mapaRenumeracaoSecoes

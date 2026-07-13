@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizarDimensoesFocoSatfInput, normalizarDimensoesFocoMitInput } from '../src/utils/empresaUnidade.js';
-import { dimensoesSecao3BookUnidade } from '../src/utils/bookDadosDimensao.js';
+import { dimensoesSecao3BookUnidade, dimensaoCorrespondeFocoUnidade } from '../src/utils/bookDadosDimensao.js';
 import {
   construirMapaRenumeracaoSecoesPrincipaisSatfUnidade,
   renumerarSecoesPrincipaisBookSatfUnidade,
@@ -21,6 +21,14 @@ describe('normalizarDimensoesFocoInput', () => {
 
   it('exclui dimensões marcadas com prefixo -', () => {
     assert.deepEqual(normalizarDimensoesFocoSatfInput('D1, -D8, D4'), ['D1', 'D4']);
+  });
+});
+
+describe('dimensaoCorrespondeFocoUnidade por nome', () => {
+  it('resolve D1 pelo nome canônico mesmo sem codigoFramework/ordem', () => {
+    const dim = { area: 'Estratégia & Postura de IA', score: 2.1 };
+    assert.equal(dimensaoCorrespondeFocoUnidade(dim, ['D1'], 'satf'), true);
+    assert.equal(dimensaoCorrespondeFocoUnidade(dim, ['D2'], 'satf'), false);
   });
 });
 

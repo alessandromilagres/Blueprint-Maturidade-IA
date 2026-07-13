@@ -9,16 +9,42 @@ import {
 import { dimensaoComScoreZero, tabelaPerguntasDimensaoMarkdown } from './bookModoRapidoMarkdown.js';
 import { NOMES_NIVEL_BLUEPRINT } from './nivelMaturidadeRubrica.js';
 import { nivelNumericoDeScore } from './scoresConsolidadoProjetoMaturidade.js';
+import { ORDEM_DIMENSOES_FRAMEWORK } from './ordemDimensoesFramework.js';
+import { SATF_FRAMEWORK_SEED } from '../data/satfFrameworkSeed.js';
 
-export function codigoEfetivoDimensaoFramework(dim) {
+function normalizarNomeDimensaoComparacao(nome) {
+  return String(nome || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, 'e')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+const SATF_NOME_PARA_CODIGO = new Map(
+  SATF_FRAMEWORK_SEED.map((d) => [normalizarNomeDimensaoComparacao(d.nome), d.codigoFramework])
+);
+const MIT_NOME_PARA_CODIGO = new Map(
+  ORDEM_DIMENSOES_FRAMEWORK.map((nome, idx) => [
+    normalizarNomeDimensaoComparacao(nome),
+    `BP${idx + 1}`
+  ])
+);
+
+export function codigoEfetivoDimensaoFramework(dim, framework = 'satf') {
   const cod = String(dim?.codigoFramework || '').trim().toUpperCase();
   if (cod) return cod;
   if (dim?.ordem != null) {
     const o = Number(dim.ordem);
+    if (framework === 'mit' && o >= 1 && o <= 16) return `BP${o}`;
     if (o >= 1 && o <= 11) return `D${o}`;
     if (o >= 1 && o <= 16) return `BP${o}`;
   }
-  return '';
+  const nomeNorm = normalizarNomeDimensaoComparacao(dim?.area || dim?.nome);
+  if (!nomeNorm) return '';
+  if (framework === 'mit') return MIT_NOME_PARA_CODIGO.get(nomeNorm) || '';
+  return SATF_NOME_PARA_CODIGO.get(nomeNorm) || '';
 }
 
 export function parseFocoUnidadePorFramework(unidadeMeta, framework = 'satf') {
@@ -27,10 +53,10 @@ export function parseFocoUnidadePorFramework(unidadeMeta, framework = 'satf') {
     : parseDimensoesFocoSatfJson(unidadeMeta);
 }
 
-export function dimensaoCorrespondeFocoUnidade(dim, focoCodigos) {
+export function dimensaoCorrespondeFocoUnidade(dim, focoCodigos, framework = 'satf') {
   if (!focoCodigos?.length) return true;
 
-  const cod = codigoEfetivoDimensaoFramework(dim);
+  const cod = codigoEfetivoDimensaoFramework(dim, framework);
   if (cod && focoCodigos.includes(cod)) return true;
 
   for (const f of focoCodigos) {
@@ -39,6 +65,7 @@ export function dimensaoCorrespondeFocoUnidade(dim, focoCodigos) {
     if (m && cod === `D${m[1]}`) return true;
     const bp = /^BP(\d{1,2})$/i.exec(String(f).trim());
     if (bp && dim.ordem != null && Number(dim.ordem) === Number(bp[1])) return true;
+    if (bp && cod === `BP${bp[1]}`) return true;
   }
 
   return false;
@@ -48,7 +75,7 @@ export function dimensaoCorrespondeFocoUnidade(dim, focoCodigos) {
 export function filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta, framework = 'satf') {
   const foco = parseFocoUnidadePorFramework(unidadeMeta, framework);
   if (!foco?.length) return dimensoes || [];
-  return (dimensoes || []).filter((d) => dimensaoCorrespondeFocoUnidade(d, foco));
+  return (dimensoes || []).filter((d) => dimensaoCorrespondeFocoUnidade(d, foco, framework));
 }
 
 /** Dimensões em foco com score consolidado > 0 (ranking/plano de ação). */

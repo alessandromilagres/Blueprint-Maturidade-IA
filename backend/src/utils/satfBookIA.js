@@ -111,7 +111,8 @@ import {
   parseFocoUnidadePorFramework,
   unidadeTemDimensoesFoco,
   montarBlocoDadosDimensaoUnica,
-  montarInstrucaoDadosSomenteDimensao
+  montarInstrucaoDadosSomenteDimensao,
+  montarResumoScoresDimensoes
 } from './bookDadosDimensao.js';
 
 function mediaSetorTiBenchmark(setor) {
@@ -363,23 +364,27 @@ function montarDadosBlockSatf({
   const dimsLista = dimensoesEscopo || dimensoesDiagnostico;
   const nivel = nivelNumericoDeScore(scoreGeral);
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
-  const detalhePerguntasTxt = dimsLista
-    .map(
-      (a) =>
-        `\n### ${a.area} (Oficial: ${dimensaoComScoreZero(a) ? '0' : (a.score ?? 0).toFixed(2)}${
-          a.scoreDeclarado != null && a.scoreDeclarado !== a.score
-            ? ` · Declarado: ${a.scoreDeclarado.toFixed(2)}`
-            : ''
-        })\n${(a.perguntas || [])
-          .map(
-            (p) =>
-              `- [Q${p.numero}] ${p.texto.substring(0, 160)}${p.texto.length > 160 ? '…' : ''} → ${
-                p.totalRespostas > 0 ? p.score : '0'
-              }`
-          )
-          .join('\n')}`
-    )
-    .join('\n');
+  const detalhePerguntasTxt = exigeUnidade
+    ? montarResumoScoresDimensoes(dimsLista, {
+        titulo: 'Scores por dimensão (resumo — detalhe [Qn] em cada subseção 3.N)'
+      }) || '—'
+    : dimsLista
+        .map(
+          (a) =>
+            `\n### ${a.area} (Oficial: ${dimensaoComScoreZero(a) ? '0' : (a.score ?? 0).toFixed(2)}${
+              a.scoreDeclarado != null && a.scoreDeclarado !== a.score
+                ? ` · Declarado: ${a.scoreDeclarado.toFixed(2)}`
+                : ''
+            })\n${(a.perguntas || [])
+              .map(
+                (p) =>
+                  `- [Q${p.numero}] ${p.texto.substring(0, 160)}${p.texto.length > 160 ? '…' : ''} → ${
+                    p.totalRespostas > 0 ? p.score : '0'
+                  }`
+              )
+              .join('\n')}`
+        )
+        .join('\n');
 
   const blocoCert = certificacaoSatf
     ? `## Certificação consultor
@@ -1314,6 +1319,13 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     exigeUnidade ? 'Montando blocos do book por unidade…' : 'Comparativo de versões processado',
     { fase: 'preparacao_blocos' }
   );
+  await tickJobProgress(
+    relatorioJobId,
+    atualizarProgressoJobBook,
+    35,
+    exigeUnidade ? 'Montando pacote de dados da unidade…' : 'Montando pacote de dados do book…',
+    { fase: 'preparacao_dados_block' }
+  );
   const blocoEvolucao = blocoEvolucaoVersoesMarkdown(comparativoVersoes);
   const ordemNomes = dimsParaDados.map((d) => d.area);
 
@@ -1340,6 +1352,11 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     exigeUnidade,
     unidadeMeta,
     planoAcao: planoAcaoUnidade
+  });
+
+  await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 36, 'Pacote de dados montado', {
+    fase: 'preparacao_dados_ok',
+    bytesDados: dadosBlock.length
   });
 
   const dadosBlockRapido = `${dadosBlock}\n\n${blocoDadosExtrasBookRapidoSatf({
@@ -1377,6 +1394,11 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     mapaRenumeracaoSecoes
   });
 
+  await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 37, `${chunks.length} blocos IA preparados`, {
+    fase: 'preparacao_chunks',
+    totalChunks: chunks.length
+  });
+
   const dimsParaSecao3 =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
       ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
@@ -1396,14 +1418,19 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   const ordemNomesSecao3Ativos = dimsParaSecao3.map((d) => d.area);
 
   await loadPersistedAIConfig();
+  await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 38, `Conectando IA (${getProvider().name})…`, {
+    fase: 'preparacao_ia',
+    provider: getProvider().name,
+    totalChunks: chunks.length
+  });
   console.log(
     `[Book SATF] Projeto ${projetoId} — ${chunks.length} chunks · ${getProvider().name}`
   );
 
   if (relatorioJobId) {
     await atualizarProgressoJobBook(relatorioJobId, {
-      progresso: 35,
-      etapa: `Iniciando geração — ${chunks.length} blocos (1º pode levar alguns minutos)`,
+      progresso: 39,
+      etapa: `Gerando bloco 1/${chunks.length} — 1º chunk pode levar alguns minutos`,
       metadata: JSON.stringify({
         fase: 'inicio_chunks',
         totalChunks: chunks.length,

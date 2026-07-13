@@ -180,17 +180,17 @@ async function processarJobRelatorioIA({
         if (!snap || !['queued', 'running'].includes(snap.status)) return;
         const pct = Number(snap.progresso);
         const semProgressoBook =
-          pct <= 35 &&
+          pct <= 40 &&
           snap.updatedAt &&
           Date.now() - new Date(snap.updatedAt).getTime() > 90_000;
-        if (pct > 35 && !semProgressoBook) return;
+        if (pct > 40 && !semProgressoBook) return;
         const min = Math.max(1, Math.round((Date.now() - heartbeatInicio) / 60_000));
         await prisma.relatorioIAJob.update({
           where: { id: jobId },
           data: {
             progresso: pct <= 31 ? Math.min(29, 12 + min * 2) : pct,
             etapa:
-              pct <= 35
+              pct <= 40
                 ? `Gerador ativo (${min} min) — ${snap.etapa || 'preparando book…'}`
                 : snap.etapa,
             metadata: JSON.stringify({ fase: 'heartbeat_worker', minutos: min, progressoBook: pct })

@@ -544,4 +544,52 @@ Esta entrega **não** tem validador dedicado `validate:comparativo-unidades` ain
 
 ---
 
+## 16. Estrutura obrigatória dos Books IA (2026-07-13)
+
+> **Critério de aceite desta entrega:** apêndices por último + dimensões fora do foco omitidas.
+
+### Regras implementadas
+
+| Regra | MIT completo | SATF completo | Book unidade |
+|-------|--------------|---------------|--------------|
+| `# APÊNDICES METODOLÓGICOS` **por último** (após índice, capas, sec 13/14) | ✅ | ✅ | ✅ (modo completo) |
+| Seção 12 = **Material Complementar** (scores + biblio) — **sem** glossário/metodologia duplicados | ✅ | N/A (SATF não tem sec 12) | N/A |
+| `dimensoesFoco` na unidade → **só** essas dims no dashboard, Seção 3, dados IA e prompts | N/A | ✅ | ✅ |
+| Dimensões fora do foco **não mencionadas** | N/A | ✅ | ✅ |
+| SATF unidade: sec 5 (D10) / sec 6 (D11) omitidas se fora do foco | N/A | ✅ | ✅ |
+
+### Arquivos desta entrega (commitar)
+
+| Arquivo | Função |
+|---------|--------|
+| `backend/src/utils/bookApendicesMetodologicos.js` | Apêndices A/B determinísticos + `posicionarApendicesMetodologicosComoUltimaSecao()` |
+| `backend/src/utils/bookDadosDimensao.js` | `filtrarDimensoesFocoUnidade`, dados isolados por dimensão |
+| `backend/src/index.js` | Book MIT completo: sec 12 material complementar; apêndices após capas |
+| `backend/src/utils/satfBookIA.js` | Book SATF: apêndices finais; foco unidade; assembly Seção 3 filtrada |
+| `backend/src/utils/bookUnidadeOrganizacionalIA.js` | Book MIT unidade: foco + apêndices finais |
+| `backend/src/utils/bookUnidadeContexto.js` | Dashboard/instruções: proíbe mencionar dims fora do foco |
+| `docs/ESTRUTURA_OBRIGATORIA_BOOKS_IA.md` | Referência de estrutura (4 tipos de book) |
+
+### Validação pós-deploy — books (smoke)
+
+**Book completo MIT**
+1. Gerar book completo (background, ~30 min) ou inspecionar último salvo **após** deploy
+2. Ordem: seções 1–14 → **último bloco** = `# APÊNDICES METODOLÓGICOS` (A Metodologia, B Glossário)
+3. **Não** deve haver `# 12. APÊNDICES` com glossário **antes** da seção 13
+
+**Book por unidade (ex.: foco D4, D5)**
+1. Cadastrar unidade com `dimensoesFoco = ["D4","D5"]`
+2. Gerar `book_unidade` ou `book_unidade_satf`
+3. Dashboard e Seção 3 **só** D4/D5; demais dimensões **ausentes** do texto
+4. Apêndices metodológicos no **final** (modo completo)
+
+**Regeneração**
+- Books **já na biblioteca PRD** mantêm estrutura antiga até **regenerar**
+- Modo rápido **não** anexa apêndices metodológicos (comportamento esperado)
+
+### Documentação
+Ver `docs/ESTRUTURA_OBRIGATORIA_BOOKS_IA.md` para árvore completa das seções.
+
+---
+
 *Documento gerado para continuidade entre agentes. Atualizar após commit SHA definitivo da release.*

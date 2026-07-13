@@ -78,6 +78,7 @@ import {
 } from './services/produto-cadastro-workflow.js';
 import { gerarApoioEspecificacaoDaIdealizacao } from './services/idealizacaoApoioEspecificacaoIA.js';
 import { adicionarIndiceAoBookMarkdown } from './utils/bookMarkdownIndice.js';
+import { posicionarApendicesMetodologicosComoUltimaSecao } from './utils/bookApendicesMetodologicos.js';
 import { deveReutilizarRelatorioIASalvo } from './utils/reutilizarRelatorioIA.js';
 import { percentualReferenciaRoi, projecaoFinanceiraRelatorio } from './utils/roiPorFaturamento.js';
 import {
@@ -102,6 +103,7 @@ import {
   montarBlocoSecao3Dimensao,
   relatorioBookSecao3Completo
 } from './utils/bookModoRapidoMarkdown.js';
+import { montarBlocoDadosDimensaoUnica } from './utils/bookDadosDimensao.js';
 import {
   parseAreasRecusadas,
   parseAreasSelecionadas,
@@ -6965,8 +6967,7 @@ ${blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBook)}
 
 ${blocoInstrucoesDesejosIaSecao3Dimensao(dim.area, temDesejosIa)}
 
-DADOS CONSOLIDADOS:
-${dadosBlockRapido}
+${montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor })}
 
 TABELA OBRIGATÓRIA (copie integralmente em ${numSecao}.2):
 ${tabelaPerguntasDimensaoMarkdown(dim)}`,
@@ -7024,15 +7025,15 @@ ${dadosBlockRapido}`,
 
       chunks.push({
         id: 'sec_12_13',
-        label: 'Apêndices + Próximos passos (modo rápido)',
+        label: 'Material complementar + Próximos passos (modo rápido)',
         prompt: `Gere SOMENTE em Markdown:
 
-# 12. APÊNDICES
-## A — Glossário (10 termos, tabela Termo | Definição)
-## B — Frameworks (lista breve MIT/DORA/MLOps/FinOps/NIST)
-## C — Scores por pergunta
+# 12. MATERIAL COMPLEMENTAR
+## 12.1 Scores por pergunta
 Copie **integralmente** o bloco "Apêndice C — modelo completo" dos DADOS (cada dimensão com tabela e **última linha** "Score geral da dimensão"; ao final, bloco "Consolidado do projeto" com **Score geral do projeto**).
-## D — Bibliografia (5 referências)
+## 12.2 Bibliografia (5 referências)
+
+**Não** gere glossário nem metodologia aqui — ficam nos Apêndices Metodológicos ao final do documento.
 
 # 13. PRÓXIMOS PASSOS (30 DIAS)
 Lista numerada de **5** ações com responsável e entregável (formato compacto). Inclua 1 ação ligada ao próximo nível MIT.
@@ -7116,6 +7117,8 @@ CONTEXTO:
 
 DETALHE DESTA DIMENSÃO:
 ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
+
+${montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor })}
 
 ${blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score)}
 
@@ -7242,46 +7245,27 @@ Gere SOMENTE a seção 11. Comece direto com "# 11. KPIs ESTRATÉGICOS (DASHBOAR
       maxTokens: 6000
     });
 
-    // CHUNK: Seção 12 (Apêndices A e B)
+    // CHUNK: Seção 12 (material complementar — glossário/metodologia ficam nos Apêndices Metodológicos finais)
     chunks.push({
-      id: 'sec_12_ab',
-      label: 'Apêndices A e B',
-      prompt: `Gere SOMENTE o início da Seção 12 do book, em Markdown:
+      id: 'sec_12',
+      label: 'Material complementar (scores + bibliografia)',
+      prompt: `Gere SOMENTE a Seção 12 do book, em Markdown:
 
-# 12. APÊNDICES
+# 12. MATERIAL COMPLEMENTAR
 
-## Apêndice A — Glossário de Termos
-Tabela com 15–20 termos essenciais (Termo | Definição)
-
-## Apêndice B — Frameworks de Referência
-Lista descritiva: MIT CISR Enterprise AI Maturity Model, DORA Metrics, MLOps (CI/CD/CT), FinOps, NIST AI RMF
-
-CONTEXTO:
-${dadosBlock}
-
-Gere SOMENTE a seção 12 até o final do Apêndice B. Comece direto com "# 12. APÊNDICES".`,
-      maxTokens: 6000
-    });
-
-    // CHUNK: Seção 12 (Apêndices C e D)
-    chunks.push({
-      id: 'sec_12_cd',
-      label: 'Apêndices C e D',
-      prompt: `Continue a Seção 12 do book (o bloco ## Apêndice A e ## Apêndice B já foi gerado). Gere SOMENTE em Markdown:
-
-## Apêndice C — Detalhamento dos Scores por Pergunta
+## 12.1 Detalhamento dos Scores por Pergunta
 Tabela completa com TODAS as perguntas avaliadas (Dimensão | # | Pergunta resumida | Score).
 NÃO RESUMA e NÃO CORTE linhas no meio.
 
-## Apêndice D — Bibliografia e Próximas Leituras Recomendadas
+## 12.2 Bibliografia e Próximas Leituras Recomendadas
 Lista de 8–10 referências (livros, papers, sites) sobre maturidade em IA, governança, MLOps
 
-OBRIGATÓRIO: use exatamente ## Apêndice C e ## Apêndice D; não repita # 12. APÊNDICES.
+OBRIGATÓRIO: use exatamente # 12., ## 12.1 e ## 12.2. **Não** gere glossário nem metodologia aqui — esses conteúdos ficam nos **Apêndices Metodológicos** (última seção do documento).
 
 CONTEXTO:
 ${dadosBlock}
 
-Gere SOMENTE os Apêndices C e D. Comece direto com "## Apêndice C — Detalhamento dos Scores por Pergunta".`,
+Gere SOMENTE a seção 12. Comece direto com "# 12. MATERIAL COMPLEMENTAR".`,
       maxTokens: 8000
     });
 
@@ -7571,10 +7555,16 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
       console.log(`[Book IA] Seção 3 validada: ${validacaoSec3.total}/16 dimensões na ordem do framework.`);
     }
     const relatorioComIndice = adicionarIndiceAoBookMarkdown(relatorioComRegulatorio);
-    const relatorioFinal = prependCapaNivelAvaliadoresAoRelatorio(
+    const relatorioComCapas = prependCapaNivelAvaliadoresAoRelatorio(
       relatorioComIndice,
       optsCapaAvaliadoresBook
     );
+    const relatorioFinal = !modoRapido
+      ? posicionarApendicesMetodologicosComoUltimaSecao(relatorioComCapas, {
+          framework: 'blueprint',
+          glossarioProjeto: regrasFatosBook.glossario
+        })
+      : relatorioComCapas;
 
     const validacaoFatos = validarFatosCanonicosBook(relatorioFinal, {
       termosProibidos: regrasFatosBook.termosProibidos,

@@ -28,8 +28,10 @@ import { resolverLogoEmpresa } from './empresaLogo.js';
 import { NOMES_NIVEL_BLUEPRINT } from './nivelMaturidadeRubrica.js';
 import {
   blocoContextoProjetoMarkdown,
-  projetoTemContextoCadastrado
+  projetoTemContextoCadastrado,
+  carregarRegrasFatosContextoProjeto
 } from './projetoContexto.js';
+import { posicionarApendicesMetodologicosComoUltimaSecao } from './bookApendicesMetodologicos.js';
 import {
   blocoDesejosIaMarkdown,
   projetoTemDesejosIaCadastrados
@@ -50,6 +52,12 @@ import {
   planoAcaoPorNomeDimensao,
   prependSecaoDashboardUnidadeAoRelatorio
 } from './bookUnidadeContexto.js';
+import {
+  filtrarDimensoesFocoUnidade,
+  montarBlocoDadosDimensaoUnica,
+  montarCabecalhoDadosUnidade,
+  montarResumoScoresDimensoes
+} from './bookDadosDimensao.js';
 
 function tipoRelatorioBookUnidadeBlueprint(modoRapido) {
   return modoRapido ? 'book_unidade_rapido' : 'book_unidade';
@@ -159,21 +167,26 @@ export async function executarGeracaoBookUnidadeBlueprint(req, res, deps) {
   const dimensoesDiagnostico = todasDimensoes;
   const nivel = nivelNumericoDeScore(scoreGeral);
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
-  const planoAcao = gerarPlanoAcaoPorDimensao(scoresPorArea);
   const setor = projeto.vertical || projeto.empresa.setor || 'Geral';
   const porte = projeto.empresa.porte || 'Não informado';
   const blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
+  const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId);
   const temContexto = projetoTemContextoCadastrado(blocoContexto);
   const blocoDesejosIa = blocoDesejosIaMarkdown(avaliacoesFiltradas);
   const temDesejosIa = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);
+
+  const dimensoesRelevantes = filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta);
+  const planoAcaoRelevante = gerarPlanoAcaoPorDimensao(
+    dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d))
+  );
 
   const secaoDashboard = montarSecaoDashboardUnidadeMarkdown({
     unidadeMeta,
     frameworkMaturidade: FRAMEWORK_BLUEPRINT_16,
     scoreGeral,
-    scoresPorArea: dimensoesDiagnostico,
+    scoresPorArea: dimensoesRelevantes,
     avaliacoesFiltradas,
-    planoAcao,
+    planoAcao: planoAcaoRelevante,
     filtroNivelMax
   });
 
@@ -182,19 +195,20 @@ export async function executarGeracaoBookUnidadeBlueprint(req, res, deps) {
     frameworkMaturidade: FRAMEWORK_BLUEPRINT_16
   });
 
-  const dadosResumo = `# DADOS — UNIDADE ${unidadeMeta.nome}
-
-- Empresa: ${projeto.empresa.nome} | Projeto: ${projeto.nome}
-- Setor: ${setor} | Porte: ${porte}
-- Score unidade: **${scoreGeral.toFixed(2)}** (N${nivel} — ${nomesNivel[nivel - 1]})
-- Avaliadores: ${avaliacoesFiltradas.length}
-
+  const dadosResumoBase = `${montarCabecalhoDadosUnidade({
+    empresa: projeto.empresa.nome,
+    projeto: projeto.nome,
+    unidadeNome: unidadeMeta.nome,
+    setor,
+    porte,
+    scoreGeral,
+    nivel,
+    avaliadoresCount: avaliacoesFiltradas.length,
+    frameworkLabel: 'SysMap Blueprint IA (16 dimensões)'
+  })}
 ${blocoAvaliadoresConsolidadoMarkdown(avaliacoesFiltradas, filtroNivelMax)}
 
-## Scores por dimensão
-${dimensoesDiagnostico
-  .map((d) => `- ${d.area}: ${dimensaoComScoreZero(d) ? '0' : Number(d.score).toFixed(2)}`)
-  .join('\n')}
+${montarResumoScoresDimensoes(dimensoesRelevantes)}
 
 ${blocoContexto ? `${blocoContexto}\n` : ''}${blocoDesejosIa ? `${blocoDesejosIa}\n` : ''}`;
 
@@ -212,7 +226,7 @@ Gere SOMENTE o conteúdo solicitado em Markdown. A Seção 0 (Dashboard) já exi
   let modelUsado = getProvider().defaultModel;
   const partesSumario = [];
   const partesDimensoes = [];
-  const dimsComDados = dimensoesDiagnostico.filter((d) => !dimensaoComScoreZero(d));
+  const dimsComDados = dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d));
   const totalChunks = dimsComDados.length + 2;
 
   let relatorioJobId = null;
@@ -264,7 +278,7 @@ Gere SOMENTE o conteúdo solicitado em Markdown. A Seção 0 (Dashboard) já exi
   await reportarProgresso(0, 'Sumário executivo da unidade');
   partesSumario.push(
     await chamarIa(
-      `${dadosResumo}
+      `${dadosResumoBase}
 
 Gere SOMENTE:
 
@@ -296,15 +310,17 @@ ${temContexto ? 'Use o contexto do cliente quando disponível.' : ''}`,
       i + 1,
       `Dimensão ${num}/${dimsComDados.length}: ${dim.area}`
     );
-    const planoDim = planoAcaoPorNomeDimensao(planoAcao, dim.area);
-    const detalhePerg = (dim.perguntas || [])
-      .slice(0, 8)
-      .map((p) => `- [Q${p.numero}] ${String(p.texto || '').substring(0, 120)} → ${p.score ?? '—'}`)
-      .join('\n');
+    const planoDim = planoAcaoPorNomeDimensao(planoAcaoRelevante, dim.area);
+    const blocoDim = montarBlocoDadosDimensaoUnica(dim, {
+      scoreGeral,
+      unidadeNome: unidadeMeta.nome
+    });
 
     partesDimensoes.push(
       await chamarIa(
-        `${dadosResumo}
+        `${dadosResumoBase}
+
+${blocoDim}
 
 Gere SOMENTE a subseção da dimensão **${dim.area}**:
 
@@ -324,9 +340,6 @@ Tabela compacta: KPI | Baseline | Meta 90d (mínimo 2 linhas).
 
 ${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}
 
-Perguntas consolidadas desta dimensão:
-${detalhePerg || '—'}
-
 ${temDesejosIa ? 'Ancore ≥1 ação em Desejos IA quando pertinente.' : ''}`,
         modoRapido ? 1800 : 2800
       )
@@ -337,10 +350,10 @@ ${temDesejosIa ? 'Ancore ≥1 ação em Desejos IA quando pertinente.' : ''}`,
 
   await reportarProgresso(totalChunks - 1, 'Roadmap 90 dias da unidade');
   const secao3 = await chamarIa(
-    `${dadosResumo}
+    `${dadosResumoBase}
 
-Plano rule-based prioritário:
-${planoAcao.map((p) => `- ${p.area} (${p.score}): ${p.acoes30Dias[0]}`).join('\n') || '—'}
+Plano rule-based prioritário (dimensões em foco):
+${planoAcaoRelevante.map((p) => `- ${p.area} (${p.score}): ${p.acoes30Dias[0]}`).join('\n') || '—'}
 
 Gere SOMENTE:
 
@@ -370,12 +383,18 @@ Bullets: cadência de acompanhamento, métricas de revisão, critério de sucess
   }
 
   markdown = prependCapaUnidadeAoRelatorio(markdown, unidadeMeta);
-  const relatorioFinal = prependCapaNivelAvaliadoresAoRelatorio(markdown, {
+  const relatorioComCapas = prependCapaNivelAvaliadoresAoRelatorio(markdown, {
     filtroMax: filtroNivelMax,
     avaliacoesFiltradas,
     empresaNome: projeto.empresa.nome,
     projetoNome: projeto.nome
   });
+  const relatorioFinal = !modoRapido
+    ? posicionarApendicesMetodologicosComoUltimaSecao(relatorioComCapas, {
+        framework: 'blueprint',
+        glossarioProjeto: regrasFatos.glossario
+      })
+    : relatorioComCapas;
 
   const tempoTotal = Date.now() - startTime;
   const logoMeta = await resolverLogoEmpresa(projeto.empresa);
@@ -388,16 +407,16 @@ Bullets: cadência de acompanhamento, métricas de revisão, critério de sucess
     porte,
     scoreGeral,
     nivel,
-    scoresPorArea: dimensoesDiagnostico.map((a) => ({
+    scoresPorArea: dimensoesRelevantes.map((a) => ({
       area: a.area,
       score: a.score,
       nivel: a.nivel,
       semDadosConsolidados: dimensaoComScoreZero(a)
     })),
-    totalDimensoesFramework: dimensoesDiagnostico.length,
+    totalDimensoesFramework: dimensoesRelevantes.length,
     totalAvaliadores: avaliacoesFiltradas.length,
     filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
-    planoAcaoUnidade: planoAcao,
+    planoAcaoUnidade: planoAcaoRelevante,
     ...metadadosUnidadeDadosUsados(unidadeMeta, filtroUnidadeId),
     projetoVersao,
     modoGeracao: modoRapido ? 'book_unidade_rapido' : 'book_unidade',

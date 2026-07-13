@@ -26,7 +26,7 @@ import {
   relatorioUnidadeCacheCompativel,
   resolverContextoUnidadeRelatorioObrigatorio
 } from './relatorioUnidadeIA.js';
-import { garantirUnidadeGeralEmpresa } from './empresaUnidade.js';
+import { garantirUnidadeGeralEmpresa, parseDimensoesFocoJson } from './empresaUnidade.js';
 import {
   gerarPlanoAcaoPorDimensao,
   instrucoesSistemaBookUnidade,
@@ -73,7 +73,8 @@ import {
   dimensaoComScoreZero,
   instrucaoPromptSecao3SemCabecalhos,
   relatorioBookSecao3Completo,
-  limparConteudoIaSecao3Dimensao
+  limparConteudoIaSecao3Dimensao,
+  contarDimensoesSecao3Book
 } from './bookModoRapidoMarkdown.js';
 import { blocoGuiaProgressaoDimensaoSatf } from './guiasProgressaoFramework.js';
 import {
@@ -99,6 +100,13 @@ import {
   NOME_DIMENSAO_D11_SATF
 } from './satfBookTaxonomia.js';
 import { validarFatosCanonicosBook } from './projetoContextoFatos.js';
+import { posicionarApendicesMetodologicosComoUltimaSecao } from './bookApendicesMetodologicos.js';
+import {
+  dimensaoCorrespondeFocoUnidade,
+  filtrarDimensoesFocoUnidade,
+  montarBlocoDadosDimensaoUnica,
+  montarInstrucaoDadosSomenteDimensao
+} from './bookDadosDimensao.js';
 
 function mediaSetorTiBenchmark(setor) {
   const s = String(setor || '').toLowerCase();
@@ -155,7 +163,7 @@ function montarPromptSecao3DimensaoSatf({
   temDesejosIa,
   blocoContextoClienteBook,
   inventarioDocumentos,
-  dados,
+  dadosDimensao,
   tabelaDim,
   exigeUnidade = false,
   unidadeMeta = null,
@@ -223,8 +231,7 @@ ${instrucoesContexto}
 
 ${instrucoesDesejos}
 
-${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}DADOS GERAIS:
-${dados}
+${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${dadosDimensao || montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor, unidadeNome: unidadeMeta?.nome })}
 
 TABELA OBRIGATÓRIA (copie integralmente em ${numSecao}.2):
 ${tabelaDim}`;
@@ -255,8 +262,7 @@ ${instrucoesContexto}
 
 ${instrucoesDesejos}
 
-${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}DADOS GERAIS:
-${dados}`;
+${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${dadosDimensao || montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor, unidadeNome: unidadeMeta?.nome })}`;
 }
 
 function rotuloDimensaoSatfBookMarkdown(dim, numSecao) {
@@ -296,6 +302,26 @@ function montarBlocoSecao3DimensaoSatf({
   return md;
 }
 
+function unidadeComFocoDefinido(unidadeMeta) {
+  const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
+  return Array.isArray(foco) && foco.length > 0;
+}
+
+function dimensaoNoFocoUnidade(unidadeMeta, dimOuCodigo) {
+  if (!unidadeComFocoDefinido(unidadeMeta)) return true;
+  const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
+  if (typeof dimOuCodigo === 'string') {
+    return dimensaoCorrespondeFocoUnidade({ codigoFramework: dimOuCodigo }, foco);
+  }
+  return dimensaoCorrespondeFocoUnidade(dimOuCodigo, foco);
+}
+
+function blocoEscopoFocoUnidadeSatf(unidadeMeta) {
+  if (!unidadeComFocoDefinido(unidadeMeta)) return '';
+  const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco).join(', ');
+  return `\n> **Escopo de dimensões (unidade):** analise e mencione **somente** ${foco}. **Proibido** referenciar dimensões SATF fora deste foco.\n`;
+}
+
 function montarDadosBlockSatf({
   projeto,
   projetoVersao,
@@ -317,11 +343,13 @@ function montarDadosBlockSatf({
   bottom5,
   exigeUnidade = false,
   unidadeMeta = null,
-  planoAcao = null
+  planoAcao = null,
+  dimensoesEscopo = null
 }) {
+  const dimsLista = dimensoesEscopo || dimensoesDiagnostico;
   const nivel = nivelNumericoDeScore(scoreGeral);
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
-  const detalhePerguntasTxt = dimensoesDiagnostico
+  const detalhePerguntasTxt = dimsLista
     .map(
       (a) =>
         `\n### ${a.area} (Oficial: ${dimensaoComScoreZero(a) ? '0' : (a.score ?? 0).toFixed(2)}${
@@ -349,6 +377,8 @@ function montarDadosBlockSatf({
 - Score geral **oficial** (usar no diagnóstico): **${scoreGeral.toFixed(2)}**`
     : '';
 
+  const blocoEscopoFoco = exigeUnidade ? blocoEscopoFocoUnidadeSatf(unidadeMeta) : '';
+
   return `# DADOS DO ASSESSMENT — SATF TI v3
 
 ## Identificação
@@ -360,7 +390,7 @@ function montarDadosBlockSatf({
 - **Porte:** ${porte}
 - **Avaliadores (filtro):** ${avaliacoesFiltradas.length}
 - **Filtro prioridade:** ${filtroNivelMax == null ? 'Todos' : `Até nível ${filtroNivelMax}`}
-
+${blocoEscopoFoco}
 ${blocoAvaliadoresConsolidadoMarkdown(avaliacoesFiltradas, filtroNivelMax)}
 
 ${blocoContexto ? `${blocoContexto}\n\n` : ''}
@@ -371,7 +401,7 @@ ${blocoDesejosIa ? `${blocoDesejosIa}\n\n` : ''}
 
 ${blocoCert}
 
-${blocoTaxonomiaObrigatoriaSatfMarkdown(dimensoesDiagnostico)}
+${blocoTaxonomiaObrigatoriaSatfMarkdown(dimsLista)}
 
 ${blocoEvolucao}
 
@@ -384,8 +414,8 @@ ${scoreGeralDeclarado != null && scoreGeralDeclarado !== scoreGeral ? `- **Score
 
 ${blocoOrdemDimensoesFrameworkMarkdown(FRAMEWORK_SATF_TI_V3)}
 
-## Scores por dimensão (${dimensoesDiagnostico.length})
-${dimensoesDiagnostico
+## Scores por dimensão (${dimsLista.length})
+${dimsLista
   .map((a) => {
     const zero = dimensaoComScoreZero(a);
     const gap =
@@ -411,7 +441,7 @@ ${bottom5.map((a, i) => `${i + 1}. **${a.area}**: ${a.score.toFixed(2)}`).join('
 
 ## Detalhamento por pergunta
 ${detalhePerguntasTxt}
-${exigeUnidade && unidadeMeta ? `\n## Escopo unidade organizacional\n- **Unidade:** ${unidadeMeta.nome}\n- **Descrição:** ${String(unidadeMeta.descricao || '').trim() || '—'}\n\n${montarBlocoPlanoAcaoUnidadeMarkdown(planoAcao)}` : ''}`;
+${exigeUnidade && unidadeMeta ? `\n## Escopo unidade organizacional\n- **Unidade:** ${unidadeMeta.nome}\n- **Descrição:** ${String(unidadeMeta.descricao || '').trim() || '—'}${blocoEscopoFocoUnidadeSatf(unidadeMeta)}\n\n${montarBlocoPlanoAcaoUnidadeMarkdown(planoAcao)}` : ''}`;
 }
 
 function montarChunksSatf({
@@ -437,6 +467,13 @@ function montarChunksSatf({
   const chunks = [];
   const dados = modoRapido ? dadosBlockRapido : dadosBlock;
   const regrasTaxonomia = blocoRegrasTaxonomiaSatfPrompt();
+
+  const dimsParaSecao3 = exigeUnidade
+    ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta)
+    : dimensoesDiagnostico;
+  const focoUnidadeTxt = exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
+    ? `\n**Escopo:** analise e mencione **somente** as dimensões em foco (${parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco).join(', ')}). **Não** referencie dimensões SATF fora do foco.\n`
+    : '';
 
   chunks.push({
     id: 'sec_1_2',
@@ -466,20 +503,29 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
     maxTokens: modoRapido ? 3200 : 5000
   });
 
-  dimensoesDiagnostico.forEach((dim, idx) => {
-    const isFirst = idx === 0;
+  dimsParaSecao3.forEach((dim, idxRel) => {
+    const idxOriginal = dimensoesDiagnostico.findIndex(
+      (d) => d.areaId === dim.areaId && d.area === dim.area
+    );
+    const idx = idxOriginal >= 0 ? idxOriginal : dimensoesDiagnostico.indexOf(dim);
+    const isFirst = idxRel === 0;
     const numSecao = `3.${idx + 1}`;
+    const dadosDimensao = montarBlocoDadosDimensaoUnica(dim, {
+      scoreGeral,
+      mediaSetor,
+      unidadeNome: exigeUnidade ? unidadeMeta?.nome : null
+    });
     if (dimensaoComScoreZero(dim)) {
       chunks.push({
         id: `sec_3_${idx + 1}`,
         label: `Registro — ${dim.area}`,
         staticContent: (() => {
           let md = '';
-          if (isFirst) md += `${introducaoSecao3SatfBookMarkdown(dimensoesDiagnostico.length, ordemNomes)}\n\n`;
+          if (isFirst) md += `${introducaoSecao3SatfBookMarkdown(dimsParaSecao3.length, ordemNomes)}\n\n`;
           md += `${rotuloDimensaoSatfBookMarkdown(dim, numSecao)}\n\n`;
           md += blocoDimensaoScoreZeroSecao3Satf(numSecao, dim, {
             isFirst: false,
-            totalDimensoes: dimensoesDiagnostico.length,
+            totalDimensoes: dimsParaSecao3.length,
             ordemNomes,
             modoRapido
           }).replace(introducaoSecao3SatfBookMarkdown(dimensoesDiagnostico.length, ordemNomes), '');
@@ -507,7 +553,7 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
         temDesejosIa,
         blocoContextoClienteBook,
         inventarioDocumentos,
-        dados,
+        dadosDimensao,
         tabelaDim: tabelaPerguntasDimensaoMarkdown(dim),
         exigeUnidade,
         unidadeMeta,
@@ -526,37 +572,40 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
 Gere **SOMENTE** a Seção 4 em Markdown (subseções 4.1–4.5). **PARE** antes de "# 5." — não gere Fábrica Agêntica, Conformidade, Capacitação nem Próximos Passos aqui (há chunks dedicados).
 
 Conteúdo: visão por horizonte (30/60/90), foco SDLC agêntico, plataforma, dados e governança técnica. Tabela resumo.
-Ao referenciar gaps e iniciativas, use **somente** dimensões SATF D1–D11 com nomes oficiais do bloco DADOS.
+Ao referenciar gaps e iniciativas, use **somente** dimensões SATF D1–D11 com nomes oficiais do bloco DADOS.${focoUnidadeTxt}
 
 DADOS:\n${dados}`,
     maxTokens: 4000
   });
 
-  chunks.push({
-    id: 'sec_5',
-    label: 'Fábrica Agêntica (D10)',
-    prompt: `${regrasTaxonomia}
+  if (!exigeUnidade || !unidadeComFocoDefinido(unidadeMeta) || dimensaoNoFocoUnidade(unidadeMeta, 'D10')) {
+    chunks.push({
+      id: 'sec_5',
+      label: 'Fábrica Agêntica (D10)',
+      prompt: `${regrasTaxonomia}
 # 5. Fábrica Agêntica de Software (D10)
 
 Gere **SOMENTE** a Seção 5 (subseções 5.1–5.5). **PARE** antes de "# 6." — não antecipe Conformidade Regulatória.
 
 Se D10 estiver nos dados com score > 0, analise maturidade de fábrica agêntica. Senão, nota curta "fora de escopo ou sem dados".
 Ao citar entregáveis do escopo use **rótulos canônicos**: E = Roteiro de Pilotos; H = Diagnóstico de Clientes; G = Capacitação e Gestão de Mudança.
-**Não** introduza outras dimensões além das SATF D1–D11.
+**Não** introduza outras dimensões além das SATF D1–D11.${focoUnidadeTxt}
 
 DADOS:\n${dados}`,
-    maxTokens: 3500
-  });
+      maxTokens: 3500
+    });
+  }
 
-  chunks.push({
-    id: 'sec_6',
-    label: 'Conformidade TI (D11)',
-    prompt: `${regrasTaxonomia}
+  if (!exigeUnidade || !unidadeComFocoDefinido(unidadeMeta) || dimensaoNoFocoUnidade(unidadeMeta, 'D11')) {
+    chunks.push({
+      id: 'sec_6',
+      label: 'Conformidade TI (D11)',
+      prompt: `${regrasTaxonomia}
 # 6. Conformidade Regulatória de IA (D11)
 
 Gere **SOMENTE** a Seção 6 (subseções 6.1–6.4). **PARE** antes de "# 7." — não antecipe Capacitação nem Próximos Passos.
 
-**Obrigatório:** esta seção **sempre** deve existir no book SATF — mesmo se D11 estiver desativada ou sem score consolidado.
+**Obrigatório:** esta seção **sempre** deve existir no book SATF completo — mesmo se D11 estiver desativada ou sem score consolidado.
 ${(() => {
   const d11 = encontrarDimensaoD11Satf(dimensoesDiagnostico);
   if (d11?.foraDeEscopo) {
@@ -569,11 +618,12 @@ ${(() => {
 })()}
 
 Governança de IA em TI, LGPD técnico, auditoria de modelos, SGAI e NIST AI RMF.
-Referencie **D11** e, se pertinente, **D2 Governança, Risco & Conformidade** — nomes SATF oficiais.
+Referencie **D11** e, se pertinente, **D2 Governança, Risco & Conformidade** — nomes SATF oficiais.${focoUnidadeTxt}
 
 DADOS:\n${dados}`,
-    maxTokens: 3500
-  });
+      maxTokens: 3500
+    });
+  }
 
   chunks.push({
     id: 'sec_7',
@@ -584,7 +634,7 @@ DADOS:\n${dados}`,
 Gere **SOMENTE** a Seção 7 (subseções 7.1–7.5). **PARE** antes de "# 8." — não antecipe Próximos Passos.
 
 Skills, chapter leads, guildas de IA, operating model de engenharia.
-Ancorar em **D3 Pessoas, Cultura & Capacitação** e **D2 Governança, Risco & Conformidade** (SATF) — não use taxonomia Blueprint.
+Ancorar em **D3 Pessoas, Cultura & Capacitação** e **D2 Governança, Risco & Conformidade** (SATF) — não use taxonomia Blueprint.${focoUnidadeTxt}
 
 DADOS:\n${dados}`,
     maxTokens: 3500
@@ -599,7 +649,7 @@ DADOS:\n${dados}`,
 Gere **SOMENTE** a Seção 8 (subseções 8.1–8.4). **Não** gere seção 9+ nem Apêndice numerado como seção principal.
 
 7–10 ações numeradas com responsável, entregável e prazo. Foco TI.
-Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).
+Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).${focoUnidadeTxt}
 
 DADOS:\n${dados}`,
     maxTokens: 4000
@@ -619,7 +669,8 @@ async function executarChunksLoop({
   bookClienteDesconectou,
   atualizarProgressoJobBook,
   instrucoesUnidadeExtra = '',
-  temGlossarioFatos = false
+  temGlossarioFatos = false,
+  indicesSecao3Ativos = null
 }) {
   const partesPreSec3 = [];
   const blocosSec3PorIndice = Array(dimensoesDiagnostico.length).fill(null);
@@ -686,14 +737,19 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
         const dimIdx = parseInt(m[1], 10) - 1;
         const dim = dimensoesDiagnostico[dimIdx];
         const numSecao = `3.${dimIdx + 1}`;
+        const primeiroIdxAtivo =
+          indicesSecao3Ativos && indicesSecao3Ativos.size
+            ? Math.min(...indicesSecao3Ativos)
+            : 0;
+        const totalDimsSec3 = indicesSecao3Ativos?.size ?? dimensoesDiagnostico.length;
         registrar(
           chunk,
           montarBlocoSecao3DimensaoSatf({
             numSecao,
             dim,
             conteudoIa: resultado.content,
-            isFirst: dimIdx === 0,
-            totalDimensoes: dimensoesDiagnostico.length,
+            isFirst: dimIdx === primeiroIdxAtivo,
+            totalDimensoes: totalDimsSec3,
             ordemNomes,
             modoRapido,
             inventarioDocumentos
@@ -788,28 +844,37 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
     }
   }
 
-  const blocosSec3 = blocosSec3PorIndice.map((bloco, idx) => {
-    if (bloco) return bloco;
-    const dim = dimensoesDiagnostico[idx];
-    const numSecao = `3.${idx + 1}`;
-    if (dimensaoComScoreZero(dim)) {
-      let md = '';
-      if (idx === 0) md += `${introducaoSecao3SatfBookMarkdown(dimensoesDiagnostico.length, ordemNomes)}\n\n`;
-      md += `${rotuloDimensaoSatfBookMarkdown(dim, numSecao)}\n\n`;
-      md += `### ${numSecao}.1 Status\n\nScore 0 — sem dados consolidados.\n`;
-      return md;
-    }
-    return montarBlocoSecao3DimensaoSatf({
-      numSecao,
-      dim,
-      conteudoIa: `### ${numSecao}.1 Status\n\n> Bloco não gerado — regenere o book.\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
-      isFirst: idx === 0,
-      totalDimensoes: dimensoesDiagnostico.length,
-      ordemNomes,
-      modoRapido,
-      inventarioDocumentos
-    });
-  });
+  const blocosSec3 = blocosSec3PorIndice
+    .map((bloco, idx) => {
+      if (indicesSecao3Ativos && !indicesSecao3Ativos.has(idx)) return null;
+      if (bloco) return bloco;
+      const dim = dimensoesDiagnostico[idx];
+      const numSecao = `3.${idx + 1}`;
+      if (dimensaoComScoreZero(dim)) {
+        let md = '';
+        if (idx === 0 || (indicesSecao3Ativos && [...indicesSecao3Ativos].sort((a, b) => a - b)[0] === idx)) {
+          const totalAtivas = indicesSecao3Ativos ? indicesSecao3Ativos.size : dimensoesDiagnostico.length;
+          const nomesAtivos = indicesSecao3Ativos
+            ? dimensoesDiagnostico.filter((_, i) => indicesSecao3Ativos.has(i)).map((d) => d.area)
+            : ordemNomes;
+          md += `${introducaoSecao3SatfBookMarkdown(totalAtivas, nomesAtivos)}\n\n`;
+        }
+        md += `${rotuloDimensaoSatfBookMarkdown(dim, numSecao)}\n\n`;
+        md += `### ${numSecao}.1 Status\n\nScore 0 — sem dados consolidados.\n`;
+        return md;
+      }
+      return montarBlocoSecao3DimensaoSatf({
+        numSecao,
+        dim,
+        conteudoIa: `### ${numSecao}.1 Status\n\n> Bloco não gerado — regenere o book.\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
+        isFirst: idx === 0,
+        totalDimensoes: indicesSecao3Ativos ? indicesSecao3Ativos.size : dimensoesDiagnostico.length,
+        ordemNomes,
+        modoRapido,
+        inventarioDocumentos
+      });
+    })
+    .filter(Boolean);
   return {
     markdown: normalizarSecoesBookSatf(
       [...partesPreSec3, ...blocosSec3, ...partesPosSec3].join('\n\n')
@@ -1031,10 +1096,21 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   }
 
   const nivel = nivelNumericoDeScore(scoreGeral);
-  const ordenados = [...consolidado.scoresPorArea].sort((a, b) => b.score - a.score);
+  const dimsRelevantesUnidade = exigeUnidade
+    ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta)
+    : dimensoesDiagnostico;
+  const dimsParaDados =
+    exigeUnidade && unidadeComFocoDefinido(unidadeMeta) ? dimsRelevantesUnidade : dimensoesDiagnostico;
+  const scoresParaRanking =
+    exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
+      ? dimsRelevantesUnidade.filter((d) => !dimensaoComScoreZero(d))
+      : consolidado.scoresPorArea;
+  const ordenados = [...scoresParaRanking].sort((a, b) => b.score - a.score);
   const top5 = ordenados.slice(0, 5);
   const bottom5 = ordenados.slice(-5).reverse();
-  const planoAcaoUnidade = exigeUnidade ? gerarPlanoAcaoPorDimensao(consolidado.scoresPorArea) : null;
+  const planoAcaoUnidade = exigeUnidade
+    ? gerarPlanoAcaoPorDimensao(dimsRelevantesUnidade.filter((d) => !dimensaoComScoreZero(d)))
+    : null;
   const secaoDashboardUnidade =
     exigeUnidade && unidadeMeta
       ? montarSecaoDashboardUnidadeMarkdown({
@@ -1043,7 +1119,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
           scoreGeral,
           scoreGeralDeclarado,
           certificacaoSatf,
-          scoresPorArea: dimensoesDiagnostico,
+          scoresPorArea: dimsRelevantesUnidade,
           avaliacoesFiltradas,
           planoAcao: planoAcaoUnidade,
           filtroNivelMax
@@ -1079,7 +1155,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     usuarioIncluidoNoFiltro: usuarioIncluidoNoFiltroNivelMapeamentoMaturidade
   });
   const blocoEvolucao = blocoEvolucaoVersoesMarkdown(comparativoVersoes);
-  const ordemNomes = dimensoesDiagnostico.map((d) => d.area);
+  const ordemNomes = dimsParaDados.map((d) => d.area);
 
   const dadosBlock = montarDadosBlockSatf({
     projeto,
@@ -1087,6 +1163,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     avaliacoesFiltradas,
     filtroNivelMax,
     dimensoesDiagnostico,
+    dimensoesEscopo: dimsParaDados,
     dimensoesForaEscopo: consolidado.dimensoesForaEscopo,
     scoreGeral,
     scoreGeralDeclarado,
@@ -1106,7 +1183,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   });
 
   const dadosBlockRapido = `${dadosBlock}\n\n${blocoDadosExtrasBookRapidoSatf({
-    scoresPorArea: dimensoesDiagnostico,
+    scoresPorArea: dimsParaDados,
     scoreGeral,
     nivel,
     nomesNivel: NOMES_NIVEL_BLUEPRINT
@@ -1133,6 +1210,20 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     planoAcao: planoAcaoUnidade
   });
 
+  const dimsParaSecao3 = exigeUnidade
+    ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta)
+    : dimensoesDiagnostico;
+  const indicesSecao3Ativos =
+    exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
+      ? new Set(
+          dimsParaSecao3
+            .map((dim) =>
+              dimensoesDiagnostico.findIndex((d) => d.areaId === dim.areaId && d.area === dim.area)
+            )
+            .filter((i) => i >= 0)
+        )
+      : null;
+
   await loadPersistedAIConfig();
   console.log(
     `[Book SATF] Projeto ${projetoId} — ${chunks.length} chunks · ${getProvider().name}`
@@ -1151,12 +1242,28 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       bookClienteDesconectou: () => bookClienteDesconectou,
       atualizarProgressoJobBook,
       instrucoesUnidadeExtra,
-      temGlossarioFatos: regrasFatos.temGlossario
+      temGlossarioFatos: regrasFatos.temGlossario,
+      indicesSecao3Ativos
     });
 
-  const markdown = garantirSecoesD11BookSatf(markdownBruto, dimensoesDiagnostico);
+  const markdown =
+    exigeUnidade && unidadeComFocoDefinido(unidadeMeta) && !dimensaoNoFocoUnidade(unidadeMeta, 'D11')
+      ? markdownBruto
+      : garantirSecoesD11BookSatf(markdownBruto, dimensoesDiagnostico);
 
-  const validacao = relatorioBookSecao3Completo(markdown, TOTAL_DIMENSOES_SATF);
+  const totalDimsEsperadoSec3 =
+    exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
+      ? dimsParaSecao3.length
+      : TOTAL_DIMENSOES_SATF;
+  const validacao =
+    exigeUnidade && unidadeComFocoDefinido(unidadeMeta) && indicesSecao3Ativos
+      ? (() => {
+          const encontrados = contarDimensoesSecao3Book(markdown);
+          const esperados = [...indicesSecao3Ativos].map((i) => i + 1);
+          const faltando = esperados.filter((i) => !encontrados.has(i));
+          return { ok: faltando.length === 0, faltando, total: encontrados.size };
+        })()
+      : relatorioBookSecao3Completo(markdown, totalDimsEsperadoSec3);
   if (!validacao.ok) {
     console.warn(`[Book SATF] Seção 3 incompleta: ${validacao.total}/${TOTAL_DIMENSOES_SATF}`);
   }
@@ -1198,7 +1305,12 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       secaoDashboardUnidade
     );
   }
-  const relatorioFinal = relatorioComCapas;
+  const relatorioFinal = !modoRapido
+    ? posicionarApendicesMetodologicosComoUltimaSecao(relatorioComCapas, {
+        framework: 'satf',
+        glossarioProjeto: regrasFatos.glossario
+      })
+    : relatorioComCapas;
 
   const validacaoFatos = validarFatosCanonicosBook(relatorioFinal, {
     termosProibidos: regrasFatos.termosProibidos,

@@ -4,7 +4,9 @@ import { normalizarDimensoesFocoSatfInput, normalizarDimensoesFocoMitInput } fro
 import { dimensoesSecao3BookUnidade } from '../src/utils/bookDadosDimensao.js';
 import {
   construirMapaRenumeracaoSecoesPrincipaisSatfUnidade,
-  renumerarSecoesPrincipaisBookSatfUnidade
+  renumerarSecoesPrincipaisBookSatfUnidade,
+  removerSpilloverSecao3BookSatf,
+  normalizarSecoesBookSatf
 } from '../src/utils/satfBookTaxonomia.js';
 import { extrairEntradasIndiceMarkdown } from '../src/utils/markdownSlug.js';
 
@@ -80,5 +82,24 @@ describe('renumeracao secoes SATF por unidade', () => {
     const dims = entradas.filter((e) => e.level === 2).map((e) => e.tituloIndice || e.titulo);
     assert.match(dims[0], /^3\.1\b/);
     assert.match(dims[1], /^3\.2\b/);
+  });
+
+  it('não apaga ## 3.N sob # 3. DIAGNÓSTICO nem ## 2.N do sumário', () => {
+    const md = `# 1. METODOLOGIA
+# 2. SUMÁRIO EXECUTIVO
+## 2.1 Panorama
+texto sumário
+# 3. DIAGNÓSTICO POR DIMENSÃO (SATF TI v3)
+## 3.1 Dimensão — D1
+### 3.1.1 Análise Diagnóstica
+texto dim
+# 4. ROADMAP
+## 3.9 Dimensão — spillover indevido
+# 5. Próximos Passos`;
+    const out = normalizarSecoesBookSatf(md);
+    assert.match(out, /^## 2\.1 Panorama/m);
+    assert.match(out, /^# 3\. DIAGNÓSTICO/m);
+    assert.match(out, /^## 3\.1 Dimensão — D1/m);
+    assert.doesNotMatch(out, /## 3\.9 Dimensão — spillover/);
   });
 });

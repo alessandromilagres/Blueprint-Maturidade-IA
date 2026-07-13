@@ -1137,7 +1137,7 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
             numSecao,
             dim,
             conteudoIa: resultado.content,
-            isFirst: false,
+            isFirst: dimIdx === primeiroIdxAtivo,
             totalDimensoes: totalDimsSec3,
             ordemNomes: nomesSecao3,
             modoRapido,
@@ -1728,16 +1728,27 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       : exigeUnidade
         ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
         : dimensoesDiagnostico;
-  const indicesSecao3Ativos =
+  const indicesSecao3AtivosRaw =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
       ? new Set(
           dimsParaSecao3
             .map((dim) =>
-              dimensoesDiagnostico.findIndex((d) => d.areaId === dim.areaId && d.area === dim.area)
+              dimensoesDiagnostico.findIndex(
+                (d) =>
+                  (d.areaId != null && dim.areaId != null && d.areaId === dim.areaId) ||
+                  (d.area && dim.area && d.area === dim.area) ||
+                  (d.codigoFramework &&
+                    dim.codigoFramework &&
+                    String(d.codigoFramework).toUpperCase() ===
+                      String(dim.codigoFramework).toUpperCase())
+              )
             )
             .filter((i) => i >= 0)
         )
       : null;
+  // Set vazio é truthy em JS e fazia o merge descartar TODAS as dimensões (§3 sumia).
+  const indicesSecao3Ativos =
+    indicesSecao3AtivosRaw && indicesSecao3AtivosRaw.size > 0 ? indicesSecao3AtivosRaw : null;
   const ordemNomesSecao3Ativos = dimsParaSecao3.map((d) => d.area);
 
   await loadPersistedAIConfig();

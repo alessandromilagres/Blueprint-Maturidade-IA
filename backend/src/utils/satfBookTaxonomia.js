@@ -125,6 +125,7 @@ REGRAS DE TAXONOMIA SATF (CRÍTICO — NUNCA VIOLAR):
 const SECAO_MAX_POR_CHUNK_SATF = {
   sec_1: 1,
   sec_1_2: 2,
+  sec_2: 2,
   sec_3: 3,
   sec_4: 4,
   sec_5: 5,
@@ -165,8 +166,9 @@ export function recortarConteudoChunkBookSatf(conteudo, chunkId) {
 }
 
 /**
- * Remove blocos duplicados de seções 3–8 (h1 `# N.`).
- * Mantém a primeira ocorrência de cada número (enterprise 4–8; unidade roadmap 3 / próximos 4).
+ * Remove blocos duplicados de seções finais (h1 `# N.`).
+ * Só deduplica 4–8 (roadmap em diante). A Seção 3 (Diagnóstico) NÃO entra —
+ * senão o book por unidade perde o capítulo inteiro.
  */
 export function deduplicarSecoesFinaisBookSatf(markdown) {
   const linhas = String(markdown || '').split('\n');
@@ -192,8 +194,8 @@ export function deduplicarSecoesFinaisBookSatf(markdown) {
   const vistos = new Set();
   const saida = [];
   for (const b of blocos) {
-    // Enterprise: 4–8; unidade: 3 (roadmap) e 4 (próximos).
-    if (b.sec != null && b.sec >= 3 && b.sec <= 8) {
+    // Só seções pós-diagnóstico (roadmap/fábrica/capacitação/próximos).
+    if (b.sec != null && b.sec >= 4 && b.sec <= 8) {
       if (vistos.has(b.sec)) continue;
       vistos.add(b.sec);
     }
@@ -203,7 +205,10 @@ export function deduplicarSecoesFinaisBookSatf(markdown) {
   return saida.join('\n').trim();
 }
 
-/** Remove headings ## 2.N / ## 3.N gerados indevidamente fora do diagnóstico (spillover). */
+/**
+ * Remove headings ## 3.N gerados indevidamente fora do Diagnóstico (spillover).
+ * Não mexe em ## 2.N (subseções do Sumário Executivo).
+ */
 export function removerSpilloverSecao3BookSatf(markdown) {
   const linhas = String(markdown || '').split('\n');
   const saida = [];
@@ -211,17 +216,17 @@ export function removerSpilloverSecao3BookSatf(markdown) {
 
   for (const linha of linhas) {
     const t = linha.trim();
-    if (/^#\s+[23]\.\s+DIAGNÓSTICO/i.test(t)) {
+    if (/^#\s+3\.\s+DIAGNÓSTICO/i.test(t)) {
       dentroDiagnostico = true;
       saida.push(linha);
       continue;
     }
-    if (/^#\s+\d+\.\s+/.test(t) && !/^#\s+[23]\.\s+DIAGNÓSTICO/i.test(t)) {
+    if (/^#\s+\d+\.\s+/.test(t) && !/^#\s+3\.\s+DIAGNÓSTICO/i.test(t)) {
       dentroDiagnostico = false;
       saida.push(linha);
       continue;
     }
-    if (!dentroDiagnostico && /^##\s+[23]\.\d+\s+/i.test(t)) {
+    if (!dentroDiagnostico && /^##\s+3\.\d+\s+/i.test(t)) {
       continue;
     }
     saida.push(linha);

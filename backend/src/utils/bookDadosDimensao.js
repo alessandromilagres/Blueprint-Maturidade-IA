@@ -21,18 +21,19 @@ export function dimensaoCorrespondeFocoUnidade(dim, focoCodigos) {
     if (bp && dim.ordem != null && Number(dim.ordem) === Number(bp[1])) return true;
   }
 
-  const areaNorm = String(dim.area || '').toLowerCase();
-  return focoCodigos.some((f) => {
-    const fn = String(f).toLowerCase();
-    return fn.length >= 4 && areaNorm.includes(fn);
-  });
+  return false;
 }
 
-/** Filtra dimensões pelo cadastro de foco da unidade (D4, D5…). Sem foco = todas. Com foco = só as relevantes (sem fallback). */
+/** Filtra dimensões pelo cadastro de foco da unidade (D4, D5…). Sem foco = todas. Com foco = só códigos válidos. */
 export function filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta) {
   const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
   if (!foco?.length) return dimensoes || [];
   return (dimensoes || []).filter((d) => dimensaoCorrespondeFocoUnidade(d, foco));
+}
+
+/** Dimensões em foco com score consolidado > 0 (books por unidade). */
+export function filtrarDimensoesFocoUnidadeComDados(dimensoes, unidadeMeta) {
+  return filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta).filter((d) => !dimensaoComScoreZero(d));
 }
 
 /** Índices (0-based) em `dimensoes` que permanecem após filtro de foco — null se todas. */

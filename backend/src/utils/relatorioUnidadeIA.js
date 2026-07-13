@@ -6,6 +6,7 @@ import {
   garantirUnidadeGeralEmpresa,
   mapUnidadeEmpresaResponse,
   parseDimensoesFocoJson,
+  formatarDimensoesFocoDisplay,
   parseFiltroEmpresaUnidadeId,
   usuarioIncluidoNoFiltroUnidadeEmpresa
 } from './empresaUnidade.js';
@@ -82,9 +83,7 @@ export function filtrarAvaliacoesRelatorioProjeto(
 
 export function blocoUnidadeRelatorioMarkdown(unidadeMeta) {
   if (!unidadeMeta) return '';
-  const foco = parseDimensoesFocoJson(unidadeMeta.dimensoesFoco);
-  const focoTxt =
-    Array.isArray(foco) && foco.length ? foco.join(', ') : '— (não definido no cadastro)';
+  const focoTxt = formatarDimensoesFocoDisplay(parseDimensoesFocoJson(unidadeMeta.dimensoesFoco)) || '— (não definido no cadastro)';
   const desc = String(unidadeMeta.descricao || '').trim() || '—';
   return `## Unidade organizacional — escopo deste relatório
 

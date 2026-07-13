@@ -2,7 +2,7 @@
  * Contexto compartilhado para books IA por unidade organizacional:
  * dashboard consolidado, plano de ação por dimensão e instruções para IA.
  */
-import { parseDimensoesFocoJson } from './empresaUnidade.js';
+import { parseDimensoesFocoJson, formatarDimensoesFocoDisplay } from './empresaUnidade.js';
 import { NOMES_NIVEL_BLUEPRINT } from './nivelMaturidadeRubrica.js';
 import { dimensaoComScoreZero } from './bookModoRapidoMarkdown.js';
 import { FRAMEWORK_SATF_TI_V3 } from '../constants/frameworkMaturidadePolicy.js';
@@ -98,7 +98,7 @@ export function montarSecaoDashboardUnidadeMarkdown({
   const nivel = Math.min(5, Math.max(1, Math.round(Number(scoreGeral) || 1)));
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
   const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
-  const focoListaTxt = Array.isArray(foco) && foco.length ? foco.join(', ') : null;
+  const focoListaTxt = formatarDimensoesFocoDisplay(foco);
   const focoDisplay = focoListaTxt || 'Todas as dimensões do framework (sem filtro de foco)';
 
   const ordenados = [...(scoresPorArea || [])].filter((a) => !dimensaoComScoreZero(a));
@@ -196,7 +196,7 @@ export function montarBlocoPlanoAcaoDimensaoPrompt(planoDim) {
 export function instrucoesSistemaBookUnidade({ unidadeMeta, frameworkMaturidade }) {
   const isSatf = frameworkMaturidade === FRAMEWORK_SATF_TI_V3;
   const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
-  const focoTxt = Array.isArray(foco) && foco.length ? foco.join(', ') : null;
+  const focoTxt = formatarDimensoesFocoDisplay(foco);
 
   return `
 CONTEXTO DE UNIDADE ORGANIZACIONAL (OBRIGATÓRIO):

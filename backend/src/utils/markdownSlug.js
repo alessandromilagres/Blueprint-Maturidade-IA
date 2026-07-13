@@ -42,16 +42,34 @@ export function detectarBookSatf(conteudoMd) {
 
 /** Título curto para dimensões da seção 3 no índice (slug continua vindo do título completo). */
 export function encurtarTituloDimensaoSecao3(titulo) {
-  const m = String(titulo).match(/^3\.(\d+)\s+Dimens[aã]o\s*[—–-]\s*(.+)$/i);
-  if (!m) return null;
-  let nome = m[2].trim();
-  nome = nome
-    .split(/\s*[—–-]\s*oficial\b/i)[0]
-    .split(/\s*\(oficial\b/i)[0]
-    .split(/\s*·\s*N[ií]vel\b/i)[0]
-    .split(/\s*·\s*Score\b/i)[0]
-    .trim();
-  return `3.${m[1]} — ${nome}`;
+  const mDim = String(titulo).match(/^3\.(\d+)\s+Dimens[aã]o\s*[—–-]\s*(.+)$/i);
+  if (mDim) {
+    let nome = mDim[2].trim();
+    nome = nome
+      .split(/\s*[—–-]\s*oficial\b/i)[0]
+      .split(/\s*\(oficial\b/i)[0]
+      .split(/\s*·\s*N[ií]vel\b/i)[0]
+      .split(/\s*·\s*Score\b/i)[0]
+      .trim();
+    return `3.${mDim[1]} — ${nome}`;
+  }
+  const mCod = String(titulo).match(/^3\.(\d+)\s+(D(?:10|11|[1-9]))\s+[—–-]\s*(.+)$/i);
+  if (mCod) {
+    let nome = mCod[3].trim();
+    nome = nome
+      .split(/\s*[—–-]\s*Score\b/i)[0]
+      .split(/\s*·\s*N[ií]vel\b/i)[0]
+      .trim();
+    return `3.${mCod[1]} — ${nome}`;
+  }
+  return null;
+}
+
+function tituloEhSecao3Dimensao(titulo) {
+  return (
+    /^3\.\d+\s+Dimens[aã]o\b/i.test(titulo) ||
+    /^3\.\d+\s+D(?:10|11|[1-9])\s+[—–-]/i.test(titulo)
+  );
 }
 
 function resolverModoIndice(conteudoMd, options = {}) {
@@ -65,7 +83,7 @@ function deveIncluirNoIndice(modo, depth, titulo) {
   if (/^índice$/i.test(titulo)) return false;
   if (modo !== 'satf') return depth <= 2;
   if (depth === 1) return /^[1-8]\.\s+/.test(titulo);
-  if (depth === 2) return /^3\.\d+\s+Dimens[aã]o\b/i.test(titulo);
+  if (depth === 2) return tituloEhSecao3Dimensao(titulo);
   return false;
 }
 

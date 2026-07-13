@@ -54,6 +54,7 @@ import {
 } from './bookUnidadeContexto.js';
 import {
   filtrarDimensoesFocoUnidade,
+  filtrarDimensoesFocoUnidadeComDados,
   montarBlocoDadosDimensaoUnica,
   montarCabecalhoDadosUnidade,
   montarResumoScoresDimensoes
@@ -176,6 +177,9 @@ export async function executarGeracaoBookUnidadeBlueprint(req, res, deps) {
   const temDesejosIa = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);
 
   const dimensoesRelevantes = filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta);
+  const dimsComDados = filtrarDimensoesFocoUnidadeComDados(dimensoesDiagnostico, unidadeMeta);
+  const dimsParaChunks =
+    dimsComDados.length > 0 ? dimsComDados : dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d));
   const planoAcaoRelevante = gerarPlanoAcaoPorDimensao(
     dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d))
   );
@@ -226,8 +230,10 @@ Gere SOMENTE o conteúdo solicitado em Markdown. A Seção 0 (Dashboard) já exi
   let modelUsado = getProvider().defaultModel;
   const partesSumario = [];
   const partesDimensoes = [];
-  const dimsComDados = dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d));
-  const totalChunks = dimsComDados.length + 2;
+  const dimsComDadosLoop = dimsParaChunks.length
+    ? dimsParaChunks
+    : dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d));
+  const totalChunks = dimsComDadosLoop.length + 2;
 
   let relatorioJobId = null;
   const jobIdParam = req.query.jobId;
@@ -303,12 +309,12 @@ ${temContexto ? 'Use o contexto do cliente quando disponível.' : ''}`,
   );
 
   // Chunks por dimensão — ações específicas
-  for (let i = 0; i < dimsComDados.length; i++) {
-    const dim = dimsComDados[i];
+  for (let i = 0; i < dimsComDadosLoop.length; i++) {
+    const dim = dimsComDadosLoop[i];
     const num = i + 1;
     await reportarProgresso(
       i + 1,
-      `Dimensão ${num}/${dimsComDados.length}: ${dim.area}`
+      `Dimensão ${num}/${dimsComDadosLoop.length}: ${dim.area}`
     );
     const planoDim = planoAcaoPorNomeDimensao(planoAcaoRelevante, dim.area);
     const blocoDim = montarBlocoDadosDimensaoUnica(dim, {

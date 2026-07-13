@@ -9,6 +9,7 @@ import { labelPorteComFaixa } from '../constants/porteEmpresa';
 import { FRAMEWORK_BLUEPRINT_16 } from '../constants/frameworkMaturidade';
 import FrameworkMaturidadeSelector from '../components/FrameworkMaturidadeSelector';
 import FrameworkMaturidadeBadge from '../components/FrameworkMaturidadeBadge';
+import { normalizarDimensoesFocoInput, formatarDimensoesFocoDisplay } from '../utils/dimensoesFocoUnidade';
 
 export default function EmpresaDetalhe() {
   const { id } = useParams();
@@ -54,7 +55,7 @@ export default function EmpresaDetalhe() {
         ativo: item?.ativo !== false,
       });
     } else if (type === 'unidade') {
-      const foco = Array.isArray(item?.dimensoesFoco) ? item.dimensoesFoco.join(', ') : '';
+      const foco = formatarDimensoesFocoDisplay(item?.dimensoesFoco);
       setFormData({
         nome: item?.nome || '',
         codigo: item?.codigo || '',
@@ -110,10 +111,13 @@ export default function EmpresaDetalhe() {
   async function handleSubmitUnidade(e) {
     e.preventDefault();
     try {
-      const dimensoesFoco = String(formData.dimensoesFocoTexto || '')
-        .split(/[,;\s]+/)
-        .map((x) => x.trim().toUpperCase())
-        .filter(Boolean);
+      const dimensoesFoco = normalizarDimensoesFocoInput(formData.dimensoesFocoTexto);
+      if (String(formData.dimensoesFocoTexto || '').trim() && !dimensoesFoco?.length) {
+        alert(
+          'Dimensões em foco: informe códigos válidos (ex.: D1, D3, D4, D7). Anotações entre parênteses não entram — use -D8 para excluir.'
+        );
+        return;
+      }
       const payload = {
         nome: formData.nome,
         codigo: formData.codigo || undefined,
@@ -345,9 +349,9 @@ export default function EmpresaDetalhe() {
                   {unidade.descricao && (
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{unidade.descricao}</p>
                   )}
-                  {Array.isArray(unidade.dimensoesFoco) && unidade.dimensoesFoco.length > 0 && (
+                  {formatarDimensoesFocoDisplay(unidade.dimensoesFoco) && (
                     <p className="text-xs text-primary-600 dark:text-primary-400 mt-1">
-                      Foco: {unidade.dimensoesFoco.join(', ')}
+                      Foco: {formatarDimensoesFocoDisplay(unidade.dimensoesFoco)}
                     </p>
                   )}
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -623,16 +627,17 @@ export default function EmpresaDetalhe() {
             />
           </div>
           <div>
-            <label className="label">Dimensões em foco (SATF)</label>
+            <label className="label">Dimensões em foco (SATF / Blueprint)</label>
             <input
               type="text"
               className="input"
-              placeholder="Ex.: D4, D5, D10"
+              placeholder="Ex.: D1, D3, D4, D7  ou  D1, D3, D4, D7, -D8"
               value={formData.dimensoesFocoTexto || ''}
               onChange={(e) => setFormData({ ...formData, dimensoesFocoTexto: e.target.value })}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Códigos separados por vírgula. Usado nos relatórios por unidade (próxima fase).
+              Somente códigos D1–D11 (SATF) ou BP1–BP16 (Blueprint), separados por vírgula. Use{' '}
+              <code className="text-xs">-D8</code> para excluir. Anotações vão na descrição, não aqui.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-4">

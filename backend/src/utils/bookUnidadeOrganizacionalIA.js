@@ -176,8 +176,8 @@ export async function executarGeracaoBookUnidadeBlueprint(req, res, deps) {
   const blocoDesejosIa = blocoDesejosIaMarkdown(avaliacoesFiltradas);
   const temDesejosIa = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);
 
-  const dimensoesRelevantes = filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta);
-  const dimsParaChunks = dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta);
+  const dimensoesRelevantes = filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'mit');
+  const dimsParaChunks = dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta, 'mit');
   const planoAcaoRelevante = gerarPlanoAcaoPorDimensao(
     dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d))
   );

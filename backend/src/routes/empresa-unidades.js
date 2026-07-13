@@ -4,8 +4,8 @@ import {
   garantirUnidadeGeralEmpresa,
   mapUnidadeEmpresaResponse,
   normalizarCodigoUnidade,
-  parseDimensoesFocoJson,
-  serializarDimensoesFoco,
+  serializarDimensoesFocoSatf,
+  serializarDimensoesFocoMit,
   UNIDADE_GERAL_CODIGO
 } from '../utils/empresaUnidade.js';
 
@@ -48,8 +48,14 @@ function sanitizarPayloadUnidade(body, { parcial = false, ehPadrao = false } = {
     data.descricao = d ? d.slice(0, 2000) : null;
   }
 
+  if (body.dimensoesFocoSatf !== undefined) {
+    data.dimensoesFocoSatf = serializarDimensoesFocoSatf(body.dimensoesFocoSatf);
+  }
+  if (body.dimensoesFocoMit !== undefined) {
+    data.dimensoesFocoMit = serializarDimensoesFocoMit(body.dimensoesFocoMit);
+  }
   if (body.dimensoesFoco !== undefined) {
-    data.dimensoesFoco = serializarDimensoesFoco(body.dimensoesFoco);
+    data.dimensoesFoco = serializarDimensoesFocoSatf(body.dimensoesFoco);
   }
 
   if (body.ordem !== undefined) {
@@ -102,6 +108,8 @@ router.post('/', requireGestao, async (req, res) => {
         nome: data.nome,
         codigo: data.codigo || normalizarCodigoUnidade(null, data.nome),
         descricao: data.descricao ?? null,
+        dimensoesFocoSatf: data.dimensoesFocoSatf ?? null,
+        dimensoesFocoMit: data.dimensoesFocoMit ?? null,
         dimensoesFoco: data.dimensoesFoco ?? null,
         ehPadrao: false,
         ordem: data.ordem ?? 0,

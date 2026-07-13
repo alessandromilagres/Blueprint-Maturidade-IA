@@ -169,6 +169,30 @@ async function processarJobRelatorioIA({
 
     const abortController = new AbortController();
     registerJobAbortController(jobId, abortController);
+
+    const heartbeatInicio = Date.now();
+    const heartbeat = setInterval(async () => {
+      try {
+        const snap = await prisma.relatorioIAJob.findUnique({
+          where: { id: jobId },
+          select: { progresso: true, status: true }
+        });
+        if (!snap || !['queued', 'running'].includes(snap.status)) return;
+        if (Number(snap.progresso) > 31) return;
+        const min = Math.max(1, Math.round((Date.now() - heartbeatInicio) / 60_000));
+        await prisma.relatorioIAJob.update({
+          where: { id: jobId },
+          data: {
+            progresso: Math.min(29, 12 + min * 2),
+            etapa: `Gerador ativo (${min} min) — aguardando resposta do book…`,
+            metadata: JSON.stringify({ fase: 'heartbeat_worker', minutos: min })
+          }
+        });
+      } catch {
+        /* ignore */
+      }
+    }, 45_000);
+
     try {
       // Importante: usar undici.fetch (não o fetch global do Node) para que
       // o `dispatcher` seja compatível com o Agent. O fetch global usa uma
@@ -212,6 +236,7 @@ async function processarJobRelatorioIA({
       }
       console.warn(`[Job ${jobId}] fetch interno falhou: ${fetchErr.message}. Verificando se o relatório foi salvo mesmo assim...`);
     } finally {
+      clearInterval(heartbeat);
       unregisterJobAbortController(jobId);
     }
 

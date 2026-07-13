@@ -38,7 +38,9 @@ model UnidadeEmpresa {
   /// Contexto breve para relatórios IA por unidade
   descricao     String?   @db.Text
   /// JSON: códigos de dimensão do framework em foco (ex. ["D4","D5","D10"] SATF)
-  dimensoesFoco String?   @db.Text
+  dimensoesFoco      String? @db.Text /// legado — preferir dimensoesFocoSatf / dimensoesFocoMit
+  dimensoesFocoSatf  String? @db.Text
+  dimensoesFocoMit   String? @db.Text
   /// Unidade padrão "Geral" — não pode ser excluída
   ehPadrao      Boolean   @default(false)
   ordem         Int       @default(0)

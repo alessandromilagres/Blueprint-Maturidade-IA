@@ -6,8 +6,7 @@ import { ORDEM_DIMENSOES_FRAMEWORK } from './ordemDimensoesFramework.js';
 import {
   tabelaPerguntasDimensaoMarkdown,
   dimensaoComScoreZero,
-  aplicarNumSecaoRotuloDimensao,
-  contarDimensoesSecao3Book
+  aplicarNumSecaoRotuloDimensao
 } from './bookModoRapidoMarkdown.js';
 import { unidadeTemDimensoesFoco } from './bookDadosDimensao.js';
 
@@ -165,7 +164,7 @@ export function recortarConteudoChunkBookSatf(conteudo, chunkId) {
 }
 
 /**
- * Remove blocos duplicados de seções 5–8 (h1 `# N.`).
+ * Remove blocos duplicados de seções 4–8 (h1 `# N.`).
  * Mantém a primeira ocorrência de cada número.
  */
 export function deduplicarSecoesFinaisBookSatf(markdown) {
@@ -192,13 +191,38 @@ export function deduplicarSecoesFinaisBookSatf(markdown) {
   const vistos = new Set();
   const saida = [];
   for (const b of blocos) {
-    if (b.sec != null && b.sec >= 5 && b.sec <= 8) {
+    if (b.sec != null && b.sec >= 4 && b.sec <= 8) {
       if (vistos.has(b.sec)) continue;
       vistos.add(b.sec);
     }
     saida.push(...b.linhas);
   }
 
+  return saida.join('\n').trim();
+}
+
+/** Remove headings ## 3.N gerados indevidamente fora da Seção 3 (spillover de chunks 4+). */
+export function removerSpilloverSecao3BookSatf(markdown) {
+  const linhas = String(markdown || '').split('\n');
+  const saida = [];
+  let dentroSec3 = false;
+
+  for (const linha of linhas) {
+    if (/^#\s+3\.\s+DIAGNÓSTICO/i.test(linha.trim())) {
+      dentroSec3 = true;
+      saida.push(linha);
+      continue;
+    }
+    if (/^#\s+[4-9]\.\s+/m.test(linha)) {
+      dentroSec3 = false;
+      saida.push(linha);
+      continue;
+    }
+    if (!dentroSec3 && /^##\s+3\.\d+\s+/i.test(linha.trim())) {
+      continue;
+    }
+    saida.push(linha);
+  }
   return saida.join('\n').trim();
 }
 
@@ -231,7 +255,9 @@ export function validarSecoesDuplicadasBookSatf(markdown) {
 
 /** Aplica recorte por chunk + deduplicação global das seções finais. */
 export function normalizarSecoesBookSatf(markdown) {
-  return deduplicarSecoesFinaisBookSatf(String(markdown || '').trim());
+  return removerSpilloverSecao3BookSatf(
+    deduplicarSecoesFinaisBookSatf(String(markdown || '').trim())
+  );
 }
 
 /**
@@ -244,7 +270,7 @@ export function construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(
   unidadeMeta,
   { dimensaoNoFoco } = {}
 ) {
-  if (!exigeUnidade || !unidadeTemDimensoesFoco(unidadeMeta)) return null;
+  if (!exigeUnidade || !unidadeTemDimensoesFoco(unidadeMeta, 'satf')) return null;
 
   const noFoco = (cod) => (typeof dimensaoNoFoco === 'function' ? dimensaoNoFoco(cod) : true);
   const incluir = {
@@ -349,21 +375,15 @@ ${d11 ? tabelaPerguntasDimensaoMarkdown(d11) : '_Sem perguntas D11 cadastradas._
 `;
 }
 
-/** Garante Seção 3.11 e Seção 6 (D11) no book SATF quando a IA omitir ou o catálogo estiver incompleto. */
-export function garantirSecoesD11BookSatf(markdown, dimensoesDiagnostico = []) {
+/** Garante Seção 6 (D11) no book SATF enterprise quando a IA omitir. Não usar em books por unidade com foco SATF. */
+export function garantirSecoesD11BookSatf(markdown, dimensoesDiagnostico = [], opts = {}) {
+  const { exigeUnidade = false, unidadeComFocoSatf = false } = opts;
+  if (exigeUnidade && unidadeComFocoSatf) {
+    return String(markdown || '').trim();
+  }
+
   let out = String(markdown || '').trim();
   const d11 = encontrarDimensaoD11Satf(dimensoesDiagnostico);
-  const sec3 = contarDimensoesSecao3Book(out);
-
-  if (!sec3.has(11)) {
-    const bloco311 = blocoSecao311D11FallbackMarkdown(d11);
-    const idx4 = out.search(/^#\s+4\.\s/m);
-    if (idx4 >= 0) {
-      out = `${out.slice(0, idx4).trimEnd()}\n\n${bloco311}\n\n${out.slice(idx4)}`;
-    } else {
-      out = `${out.trimEnd()}\n\n${bloco311}`;
-    }
-  }
 
   if (!/^#\s+6\.\s/m.test(out)) {
     const bloco6 = blocoSecao6D11FallbackMarkdown(d11);

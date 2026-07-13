@@ -2,7 +2,13 @@
  * Contexto compartilhado para books IA por unidade organizacional:
  * dashboard consolidado, plano de ação por dimensão e instruções para IA.
  */
-import { parseDimensoesFocoJson, formatarDimensoesFocoDisplay } from './empresaUnidade.js';
+import {
+  parseDimensoesFocoSatfJson,
+  parseDimensoesFocoMitJson,
+  formatarDimensoesFocoSatfDisplay,
+  formatarDimensoesFocoMitDisplay
+} from './empresaUnidade.js';
+import { parseFocoUnidadePorFramework } from './bookDadosDimensao.js';
 import { NOMES_NIVEL_BLUEPRINT } from './nivelMaturidadeRubrica.js';
 import { dimensaoComScoreZero } from './bookModoRapidoMarkdown.js';
 import { FRAMEWORK_SATF_TI_V3 } from '../constants/frameworkMaturidadePolicy.js';
@@ -97,9 +103,12 @@ export function montarSecaoDashboardUnidadeMarkdown({
   const isSatf = frameworkMaturidade === FRAMEWORK_SATF_TI_V3;
   const nivel = Math.min(5, Math.max(1, Math.round(Number(scoreGeral) || 1)));
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
-  const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
-  const focoListaTxt = formatarDimensoesFocoDisplay(foco);
+  const foco = parseFocoUnidadePorFramework(unidadeMeta, isSatf ? 'satf' : 'mit');
+  const focoListaTxt = isSatf
+    ? formatarDimensoesFocoSatfDisplay(foco)
+    : formatarDimensoesFocoMitDisplay(foco);
   const focoDisplay = focoListaTxt || 'Todas as dimensões do framework (sem filtro de foco)';
+  const focoLabel = isSatf ? 'SATF (D1–D11)' : 'MIT Blueprint (BP1–BP16)';
 
   const ordenados = [...(scoresPorArea || [])].filter((a) => !dimensaoComScoreZero(a));
   ordenados.sort((a, b) => Number(b.score) - Number(a.score));
@@ -142,12 +151,12 @@ ${scoreGeralDeclarado != null ? `- Score declarado: **${Number(scoreGeralDeclara
   return `# 0. DASHBOARD DA UNIDADE ORGANIZACIONAL
 
 > Esta seção reflete **exclusivamente** os avaliadores vinculados à unidade abaixo (usuários sem unidade cadastrada entram em **Geral**).
-${focoListaTxt ? `\n> **Escopo de dimensões:** somente **${focoListaTxt}** entram neste book — demais dimensões **não são analisadas nem mencionadas**.\n` : ''}
+${focoListaTxt ? `\n> **Escopo de dimensões (${focoLabel}):** somente **${focoListaTxt}** entram neste book — demais dimensões **não são analisadas nem mencionadas**.\n` : ''}
 
 ## Unidade
 - **Nome:** ${unidadeMeta?.nome || '—'}${unidadeMeta?.ehPadrao ? ' (padrão Geral)' : ''}
 - **Descrição:** ${String(unidadeMeta?.descricao || '').trim() || '—'}
-- **Dimensões em foco:** ${focoDisplay}
+- **Dimensões em foco (${focoLabel}):** ${focoDisplay}
 - **Framework:** ${isSatf ? 'SATF TI v3' : 'SysMap Blueprint IA (16 dimensões)'}
 - **Filtro de prioridade:** ${filtroNivelMax == null ? 'Todos os níveis' : `Até nível ${filtroNivelMax}`}
 
@@ -195,15 +204,18 @@ export function montarBlocoPlanoAcaoDimensaoPrompt(planoDim) {
 
 export function instrucoesSistemaBookUnidade({ unidadeMeta, frameworkMaturidade }) {
   const isSatf = frameworkMaturidade === FRAMEWORK_SATF_TI_V3;
-  const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
-  const focoTxt = formatarDimensoesFocoDisplay(foco);
+  const foco = parseFocoUnidadePorFramework(unidadeMeta, isSatf ? 'satf' : 'mit');
+  const focoTxt = isSatf
+    ? formatarDimensoesFocoSatfDisplay(foco)
+    : formatarDimensoesFocoMitDisplay(foco);
+  const focoLabel = isSatf ? 'SATF' : 'MIT Blueprint';
 
   return `
 CONTEXTO DE UNIDADE ORGANIZACIONAL (OBRIGATÓRIO):
 - Este book é **exclusivo da unidade "${unidadeMeta?.nome || '—'}"** — scores, diagnósticos e recomendações refletem **somente** avaliadores desta unidade.
 - **Não** generalize para a empresa inteira; use linguagem "nesta unidade", "para ${unidadeMeta?.nome || 'a unidade'}".
 - Framework: ${isSatf ? 'SATF TI v3 (D1–D11)' : 'SysMap Blueprint IA (16 dimensões, referência MIT CISR)'}.
-${focoTxt ? `- Dimensões em foco desta unidade: **${focoTxt}** — analise **somente** estas dimensões. **Proibido** mencionar, listar ou referenciar dimensões fora do foco (trate-as como fora do escopo deste book).` : '- Em cada chunk de dimensão, use **somente** os dados da dimensão da vez — não misture scores ou perguntas de outras áreas.'}
+${focoTxt ? `- Dimensões em foco (${focoLabel}): **${focoTxt}** — analise **somente** estas dimensões. **Proibido** mencionar dimensões fora do foco.` : '- Em cada chunk de dimensão, use **somente** os dados da dimensão da vez — não misture scores ou perguntas de outras áreas.'}
 - A Seção 0 (Dashboard) já traz scores e plano rule-based — **complemente** com ações específicas, owners e entregáveis; não repita tabelas inteiras.
 - Em cada dimensão, responda explicitamente: **o que esta unidade deve fazer agora** (30/60/90 dias).
 `;

@@ -60,7 +60,31 @@ export function normalizarDimensoesFocoInput(valor) {
   return arr.length ? arr : null;
 }
 
-export function formatarDimensoesFocoDisplay(valor) {
-  const arr = normalizarDimensoesFocoInput(valor);
+function filtrarPrefixo(codigos, prefixo) {
+  if (!codigos?.length) return null;
+  const f = codigos.filter((c) => String(c).toUpperCase().startsWith(prefixo));
+  return f.length ? f : null;
+}
+
+export function normalizarDimensoesFocoSatfInput(valor) {
+  return filtrarPrefixo(normalizarDimensoesFocoInput(valor), 'D');
+}
+
+export function normalizarDimensoesFocoMitInput(valor) {
+  return filtrarPrefixo(normalizarDimensoesFocoInput(valor), 'BP');
+}
+
+export function formatarDimensoesFocoSatfDisplay(valor) {
+  const arr = normalizarDimensoesFocoSatfInput(valor);
   return arr?.length ? arr.join(', ') : '';
+}
+
+export function formatarDimensoesFocoMitDisplay(valor) {
+  const arr = normalizarDimensoesFocoMitInput(valor);
+  return arr?.length ? arr.join(', ') : '';
+}
+
+/** @deprecated */
+export function formatarDimensoesFocoDisplay(valor) {
+  return formatarDimensoesFocoSatfDisplay(valor) || formatarDimensoesFocoMitDisplay(valor);
 }

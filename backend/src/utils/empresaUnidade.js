@@ -8,8 +8,8 @@ export const UNIDADE_GERAL_NOME = 'Geral';
 export const UNIDADE_GERAL_DESCRICAO =
   'Consolidado enterprise — todos os colaboradores sem unidade específica ou vinculados explicitamente a Geral.';
 
-/** Templates sugeridos de dimensões em foco (códigos SATF). */
-export const TEMPLATES_DIMENSOES_FOCO_UNIDADE = {
+/** Templates sugeridos — SATF TI v3 (D1–D11). */
+export const TEMPLATES_DIMENSOES_FOCO_SATF = {
   engenharia: ['D4', 'D5', 'D10'],
   plataforma: ['D5', 'D6', 'D7'],
   governanca: ['D2', 'D11'],
@@ -18,6 +18,18 @@ export const TEMPLATES_DIMENSOES_FOCO_UNIDADE = {
   negocios: ['D1', 'D9'],
   geral: null
 };
+
+/** Templates sugeridos — MIT Blueprint (BP1–BP16). */
+export const TEMPLATES_DIMENSOES_FOCO_MIT = {
+  estrategia: ['BP1', 'BP2'],
+  governanca_operacional: ['BP1', 'BP4', 'BP7'],
+  pessoas: ['BP4'],
+  engenharia: ['BP5', 'BP6'],
+  geral: null
+};
+
+/** @deprecated use TEMPLATES_DIMENSOES_FOCO_SATF */
+export const TEMPLATES_DIMENSOES_FOCO_UNIDADE = TEMPLATES_DIMENSOES_FOCO_SATF;
 
 export function normalizarCodigoUnidade(codigo, nome) {
   const raw = String(codigo || nome || '')
@@ -99,13 +111,90 @@ export function formatarDimensoesFocoDisplay(codigos) {
   return arr?.length ? arr.join(', ') : null;
 }
 
+function filtrarCodigosPorPrefixo(codigos, prefixo) {
+  if (!codigos?.length) return null;
+  const filtrados = codigos.filter((c) => String(c).toUpperCase().startsWith(prefixo));
+  return filtrados.length ? filtrados : null;
+}
+
+export function normalizarDimensoesFocoSatfInput(valor) {
+  return filtrarCodigosPorPrefixo(normalizarDimensoesFocoInput(valor), 'D');
+}
+
+export function normalizarDimensoesFocoMitInput(valor) {
+  return filtrarCodigosPorPrefixo(normalizarDimensoesFocoInput(valor), 'BP');
+}
+
+export function formatarDimensoesFocoSatfDisplay(codigos) {
+  const arr = normalizarDimensoesFocoSatfInput(codigos);
+  return arr?.length ? arr.join(', ') : null;
+}
+
+export function formatarDimensoesFocoMitDisplay(codigos) {
+  const arr = normalizarDimensoesFocoMitInput(codigos);
+  return arr?.length ? arr.join(', ') : null;
+}
+
+function extrairCampoUnidade(rowOrValor, campo) {
+  if (rowOrValor && typeof rowOrValor === 'object' && !Array.isArray(rowOrValor)) {
+    return rowOrValor[campo] ?? null;
+  }
+  return rowOrValor;
+}
+
+function focoLegadoPorPrefixo(row, prefixo) {
+  const legado = normalizarDimensoesFocoInput(extrairCampoUnidade(row, 'dimensoesFoco'));
+  return filtrarCodigosPorPrefixo(legado, prefixo);
+}
+
+/** Foco SATF (D1–D11) — campo dedicado ou legado filtrado. */
+export function parseDimensoesFocoSatfJson(rowOrValor) {
+  const direto = normalizarDimensoesFocoSatfInput(extrairCampoUnidade(rowOrValor, 'dimensoesFocoSatf'));
+  if (direto?.length) return direto;
+  if (rowOrValor && typeof rowOrValor === 'object' && !Array.isArray(rowOrValor)) {
+    return focoLegadoPorPrefixo(rowOrValor, 'D');
+  }
+  return normalizarDimensoesFocoSatfInput(rowOrValor);
+}
+
+/** Foco MIT Blueprint (BP1–BP16) — campo dedicado ou legado filtrado. */
+export function parseDimensoesFocoMitJson(rowOrValor) {
+  const direto = normalizarDimensoesFocoMitInput(extrairCampoUnidade(rowOrValor, 'dimensoesFocoMit'));
+  if (direto?.length) return direto;
+  if (rowOrValor && typeof rowOrValor === 'object' && !Array.isArray(rowOrValor)) {
+    return focoLegadoPorPrefixo(rowOrValor, 'BP');
+  }
+  return normalizarDimensoesFocoMitInput(rowOrValor);
+}
+
+/** @deprecated use parseDimensoesFocoSatfJson / parseDimensoesFocoMitJson */
 export function parseDimensoesFocoJson(valor) {
-  return normalizarDimensoesFocoInput(valor);
+  const satf = parseDimensoesFocoSatfJson(valor);
+  if (satf?.length) return satf;
+  return parseDimensoesFocoMitJson(valor);
+}
+
+export function serializarDimensoesFocoSatf(dimensoesFoco) {
+  const arr = parseDimensoesFocoSatfJson(dimensoesFoco);
+  return arr ? JSON.stringify(arr) : null;
+}
+
+export function serializarDimensoesFocoMit(dimensoesFoco) {
+  const arr = parseDimensoesFocoMitJson(dimensoesFoco);
+  return arr ? JSON.stringify(arr) : null;
 }
 
 export function serializarDimensoesFoco(dimensoesFoco) {
   const arr = parseDimensoesFocoJson(dimensoesFoco);
   return arr ? JSON.stringify(arr) : null;
+}
+
+export function unidadeTemDimensoesFocoSatf(unidadeMeta) {
+  return Boolean(parseDimensoesFocoSatfJson(unidadeMeta)?.length);
+}
+
+export function unidadeTemDimensoesFocoMit(unidadeMeta) {
+  return Boolean(parseDimensoesFocoMitJson(unidadeMeta)?.length);
 }
 
 export function mapUnidadeEmpresaResponse(row) {
@@ -118,7 +207,10 @@ export function mapUnidadeEmpresaResponse(row) {
         : 0;
   return {
     ...row,
-    dimensoesFoco: parseDimensoesFocoJson(row.dimensoesFoco),
+    dimensoesFocoSatf: parseDimensoesFocoSatfJson(row),
+    dimensoesFocoMit: parseDimensoesFocoMitJson(row),
+    /** @deprecated union SATF+MIT — use campos específicos por framework */
+    dimensoesFoco: parseDimensoesFocoJson(row),
     usuarioCount
   };
 }
@@ -146,7 +238,13 @@ export async function ensureUnidadeEmpresaSchema() {
     await prisma.$executeRawUnsafe(
       'CREATE INDEX IF NOT EXISTS "UnidadeEmpresa_empresaId_ativo_idx" ON "UnidadeEmpresa" ("empresaId", "ativo")'
     );
-    console.log('[schema] UnidadeEmpresa tabela verificada.');
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "UnidadeEmpresa" ADD COLUMN IF NOT EXISTS "dimensoesFocoSatf" TEXT'
+    );
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "UnidadeEmpresa" ADD COLUMN IF NOT EXISTS "dimensoesFocoMit" TEXT'
+    );
+    console.log('[schema] UnidadeEmpresa dimensoesFocoSatf/Mit verificadas.');
   } catch (e) {
     console.warn('[schema] UnidadeEmpresa tabela:', e?.message || e);
   }

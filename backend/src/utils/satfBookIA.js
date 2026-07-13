@@ -22,19 +22,20 @@ import { carregarFrameworkProjeto } from './projetoFramework.js';
 import {
   filtrarAvaliacoesRelatorioProjeto,
   metadadosUnidadeDadosUsados,
-  prependCapaUnidadeAoRelatorio,
   relatorioUnidadeCacheCompativel,
   resolverContextoUnidadeRelatorioObrigatorio
 } from './relatorioUnidadeIA.js';
-import { garantirUnidadeGeralEmpresa, parseDimensoesFocoJson, formatarDimensoesFocoDisplay } from './empresaUnidade.js';
+import {
+  garantirUnidadeGeralEmpresa,
+  parseDimensoesFocoSatfJson,
+  formatarDimensoesFocoSatfDisplay
+} from './empresaUnidade.js';
 import {
   gerarPlanoAcaoPorDimensao,
   instrucoesSistemaBookUnidade,
   montarBlocoPlanoAcaoDimensaoPrompt,
-  montarBlocoPlanoAcaoUnidadeMarkdown,
   montarSecaoDashboardUnidadeMarkdown,
-  planoAcaoPorNomeDimensao,
-  prependSecaoDashboardUnidadeAoRelatorio
+  planoAcaoPorNomeDimensao
 } from './bookUnidadeContexto.js';
 import { listarAreasDoProjeto } from './areaFrameworkCatalog.js';
 import { mapaApresentacaoDimensoes } from './projetoDimensoesConfig.js';
@@ -61,13 +62,12 @@ import {
   blocoAvaliadoresConsolidadoMarkdown,
   filtroNivelRelatorioIACompativel,
   parseFiltroNivelPrioridadeMapeamentoMaturidadeMax,
-  prependCapaNivelAvaliadoresAoRelatorio,
   usuarioIncluidoNoFiltroNivelMapeamentoMaturidade
 } from './nivelPrioridadeMapeamentoMaturidade.js';
 import { resolverLogoEmpresa } from './empresaLogo.js';
 import { NOMES_NIVEL_BLUEPRINT } from './nivelMaturidadeRubrica.js';
 import { metodologiaScoreFramework } from './frameworkScoringPolicy.js';
-import { adicionarIndiceAoBookMarkdown } from './bookMarkdownIndice.js';
+import { montarPreliminaresBookSatfOrdemCanonica } from './bookMarkdownIndice.js';
 import {
   tabelaPerguntasDimensaoMarkdown,
   dimensaoComScoreZero,
@@ -88,7 +88,6 @@ import {
   blocoRegrasTaxonomiaSatfPrompt,
   blocoDadosExtrasBookRapidoSatf,
   blocoDimensaoScoreZeroSecao3Satf,
-  capaConfidencialBookSatfMarkdown,
   introducaoSecao3SatfBookMarkdown,
   validarTaxonomiaBookSatf,
   recortarConteudoChunkBookSatf,
@@ -109,6 +108,8 @@ import {
   dimensoesSecao3BookUnidade,
   filtrarDimensoesFocoUnidade,
   filtrarDimensoesFocoUnidadeComDados,
+  parseFocoUnidadePorFramework,
+  unidadeTemDimensoesFoco,
   montarBlocoDadosDimensaoUnica,
   montarInstrucaoDadosSomenteDimensao
 } from './bookDadosDimensao.js';
@@ -194,7 +195,7 @@ OBRIGATÓRIO — EVITE REPETIÇÃO, GENERICIDADE E CONTAMINAÇÃO DE TAXONOMIA:
 - **Risco:** específico desta dimensão — **proibido** repetir a mesma frase entre dimensões.
 - **Recomendações:** cada ação com título, descrição, entregável/sistema do projeto (A–H), owner sugerido e prazo (30/45/60/90 dias).${temDesejosIa ? ' **≥1 ação** deve citar Desejos IA dos DADOS quando pertinente.' : ''}
 ${exigeUnidade && dimensaoComScoreZero(dim) ? `- **Score individual 0 nesta rodada:** use score geral da unidade, contexto do projeto e perguntas [Qn] para diagnóstico. **Obrigatório** incluir Recomendações Específicas (R1–R3) e tabela de KPIs — não omita por falta de score discriminado.` : ''}
-${exigeUnidade && formatarDimensoesFocoDisplay(unidadeMeta?.dimensoesFoco) ? `- **Dimensões em foco desta unidade:** ${formatarDimensoesFocoDisplay(unidadeMeta?.dimensoesFoco)} — **proibido** mencionar dimensões SATF fora desta lista.` : ''}
+${exigeUnidade && formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta)) ? `- **Dimensões em foco desta unidade (SATF):** ${formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta))} — **proibido** mencionar dimensões SATF fora desta lista.` : ''}
 ${exigeUnidade ? `- **Unidade organizacional:** recomendações **exclusivas** para "${unidadeMeta?.nome || 'esta unidade'}".` : ''}
 ${exigeUnidade && planoDim ? `\n${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}` : ''}
 ${regrasEntregaveis}
@@ -310,13 +311,12 @@ function montarBlocoSecao3DimensaoSatf({
 }
 
 function unidadeComFocoDefinido(unidadeMeta) {
-  const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
-  return Array.isArray(foco) && foco.length > 0;
+  return unidadeTemDimensoesFoco(unidadeMeta, 'satf');
 }
 
 function dimensaoNoFocoUnidade(unidadeMeta, dimOuCodigo) {
   if (!unidadeComFocoDefinido(unidadeMeta)) return true;
-  const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
+  const foco = parseFocoUnidadePorFramework(unidadeMeta, 'satf');
   if (typeof dimOuCodigo === 'string') {
     return dimensaoCorrespondeFocoUnidade({ codigoFramework: dimOuCodigo }, foco);
   }
@@ -325,8 +325,8 @@ function dimensaoNoFocoUnidade(unidadeMeta, dimOuCodigo) {
 
 function blocoEscopoFocoUnidadeSatf(unidadeMeta) {
   if (!unidadeComFocoDefinido(unidadeMeta)) return '';
-  const foco = formatarDimensoesFocoDisplay(unidadeMeta?.dimensoesFoco);
-  return `\n> **Escopo de dimensões (unidade):** analise e mencione **somente** ${foco}. **Proibido** referenciar dimensões SATF fora deste foco (incluindo D8 se não estiver na lista).\n`;
+  const foco = formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta));
+  return `\n> **Escopo de dimensões SATF (unidade):** analise e mencione **somente** ${foco}. **Proibido** referenciar dimensões SATF fora deste foco.\n`;
 }
 
 function numSecao3BookUnidade(exigeUnidade, unidadeMeta, idxRelativo, idxCanonico) {
@@ -484,13 +484,13 @@ function montarChunksSatf({
   const regrasTaxonomia = blocoRegrasTaxonomiaSatfPrompt();
 
   const dimsParaSecao3Base = exigeUnidade
-    ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta)
+    ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
     : dimensoesDiagnostico;
   const dimsParaSecao3 =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
-      ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta)
+      ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
       : dimsParaSecao3Base;
-  const focoDisplay = formatarDimensoesFocoDisplay(unidadeMeta?.dimensoesFoco);
+  const focoDisplay = formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta));
   const focoUnidadeTxt =
     exigeUnidade && focoDisplay
       ? `\n**Escopo:** analise e mencione **somente** ${focoDisplay}. **Proibido** referenciar dimensões SATF fora do foco — especialmente dimensões explicitamente excluídas no cadastro da unidade.\n`
@@ -691,6 +691,50 @@ DADOS:\n${dados}`,
   return chunks;
 }
 
+async function resolverRelatorioJobIdBook(req, projetoId, tipoRelatorio) {
+  const jobIdParam = req.query.jobId;
+  if (!jobIdParam) return null;
+  const jid = parseInt(String(jobIdParam), 10);
+  if (Number.isNaN(jid) || jid <= 0) return null;
+
+  const jobRow = await prisma.relatorioIAJob.findFirst({
+    where: { id: jid, projetoId }
+  });
+  if (jobRow) {
+    if (jobRow.tipo !== tipoRelatorio) {
+      console.warn(
+        `[Book SATF] jobId ${jid} tipo ${jobRow.tipo} ≠ esperado ${tipoRelatorio} — progresso mesmo assim`
+      );
+    }
+    return jid;
+  }
+
+  console.warn(
+    `[Book SATF] jobId ${jid} não encontrado no projeto ${projetoId} — vinculando pela query para reportar progresso`
+  );
+  return jid;
+}
+
+async function reportarProgressoChunkJob(
+  relatorioJobId,
+  atualizarProgressoJobBook,
+  { indice, total, chunk, fase = 'geracao_ia' }
+) {
+  if (!relatorioJobId || !atualizarProgressoJobBook) return;
+  const pct = Math.min(94, 6 + Math.round(((indice + 1) / Math.max(total, 1)) * 88));
+  await atualizarProgressoJobBook(relatorioJobId, {
+    progresso: Math.max(36, pct),
+    etapa: `SATF ${indice + 1}/${total}: ${chunk.label}${fase === 'geracao_ia' ? '…' : ''}`,
+    metadata: JSON.stringify({
+      fase,
+      chunkAtual: indice + 1,
+      totalChunks: total,
+      chunkLabel: chunk.label,
+      chunkId: chunk.id
+    })
+  });
+}
+
 async function executarChunksLoop({
   chunks,
   dimensoesDiagnostico,
@@ -756,6 +800,13 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
     }
 
     const chunk = chunks[i];
+    await reportarProgressoChunkJob(relatorioJobId, atualizarProgressoJobBook, {
+      indice: i,
+      total: chunks.length,
+      chunk,
+      fase: chunk.staticContent ? 'chunk_estatico' : 'geracao_ia'
+    });
+
     if (chunk.staticContent) {
       registrar(chunk, chunk.staticContent);
       continue;
@@ -786,7 +837,7 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
             numSecao,
             dim,
             conteudoIa: resultado.content,
-            isFirst: dimIdx === primeiroIdxAtivo,
+            isFirst: false,
             totalDimensoes: totalDimsSec3,
             ordemNomes: nomesSecao3,
             modoRapido,
@@ -928,9 +979,22 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
       });
     })
     .filter(Boolean);
+
+  function stripIntroSecao3Duplicada(bloco) {
+    return String(bloco || '').replace(/^#\s+3\.\s+DIAGNÓSTICO[\s\S]*?\n\n(?=##\s+3\.)/i, '');
+  }
+
+  const blocosLimpos = blocosSec3.map(stripIntroSecao3Duplicada);
+  let secao3Completa = '';
+  if (blocosLimpos.length) {
+    const totalAtivas = blocosLimpos.length;
+    const nomesAtivos = ordemNomesSecao3Ativos || ordemNomes;
+    secao3Completa = `${introducaoSecao3SatfBookMarkdown(totalAtivas, nomesAtivos)}\n\n${blocosLimpos.join('\n\n')}`;
+  }
+
   return {
     markdown: normalizarSecoesBookSatf(
-      [...partesPreSec3, ...blocosSec3, ...partesPosSec3].join('\n\n')
+      [...partesPreSec3, secao3Completa, ...partesPosSec3].filter(Boolean).join('\n\n')
     ),
     totalTokensEntrada,
     totalTokensSaida,
@@ -964,6 +1028,15 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   const filtroNivelMax = parseFiltroNivelPrioridadeMapeamentoMaturidadeMax(req);
   const projetoVersao = await obterVersaoSelecionadaProjeto(req, projetoId);
 
+  let relatorioJobId = await resolverRelatorioJobIdBook(req, projetoId, tipoRelatorio);
+  if (relatorioJobId) {
+    await atualizarProgressoJobBook(relatorioJobId, {
+      progresso: 31,
+      etapa: 'Iniciando book SATF (vinculado ao job em background)',
+      metadata: JSON.stringify({ fase: 'inicio_rota', tipo: tipoRelatorio })
+    });
+  }
+
   let filtroUnidadeId = null;
   let unidadeMeta = null;
   let unidadeGeral = null;
@@ -982,7 +1055,6 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   }
 
   let bookClienteDesconectou = false;
-  let relatorioJobId = null;
   req.on('close', () => {
     if (!relatorioJobId) bookClienteDesconectou = true;
   });
@@ -1083,15 +1155,18 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     });
   }
 
-  const jobIdParam = req.query.jobId;
-  if (jobIdParam) {
-    const jid = parseInt(String(jobIdParam), 10);
-    if (!Number.isNaN(jid) && jid > 0) {
-      const jobRow = await prisma.relatorioIAJob.findFirst({
-        where: { id: jid, projetoId, tipo: tipoRelatorio }
-      });
-      if (jobRow) relatorioJobId = jid;
-    }
+  if (relatorioJobId) {
+    await atualizarProgressoJobBook(relatorioJobId, {
+      progresso: 32,
+      etapa: exigeUnidade
+        ? `Consolidando book SATF — unidade ${unidadeMeta?.nome || '—'}`
+        : 'Consolidando dados do book SATF',
+      metadata: JSON.stringify({
+        fase: 'preparacao',
+        tipo: tipoRelatorio,
+        empresaUnidadeId: filtroUnidadeId ?? null
+      })
+    });
   }
 
   const areas = ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projeto.id));
@@ -1150,7 +1225,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
 
   const nivel = nivelNumericoDeScore(scoreGeral);
   const dimsRelevantesUnidade = exigeUnidade
-    ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta)
+    ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
     : dimensoesDiagnostico;
   const dimsParaDados =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta) ? dimsRelevantesUnidade : dimensoesDiagnostico;
@@ -1272,9 +1347,9 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
 
   const dimsParaSecao3 =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
-      ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta)
+      ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
       : exigeUnidade
-        ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta)
+        ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
         : dimensoesDiagnostico;
   const indicesSecao3Ativos =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
@@ -1292,6 +1367,19 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   console.log(
     `[Book SATF] Projeto ${projetoId} — ${chunks.length} chunks · ${getProvider().name}`
   );
+
+  if (relatorioJobId) {
+    await atualizarProgressoJobBook(relatorioJobId, {
+      progresso: 35,
+      etapa: `Iniciando geração — ${chunks.length} blocos (1º pode levar alguns minutos)`,
+      metadata: JSON.stringify({
+        fase: 'inicio_chunks',
+        totalChunks: chunks.length,
+        chunkAtual: 0,
+        provider: getProvider().name
+      })
+    });
+  }
 
   const startTime = Date.now();
   const { markdown: markdownBruto, totalTokensEntrada, totalTokensSaida, providerUsado, modelUsado, avisosProvedor } =
@@ -1316,9 +1404,12 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     : markdownBruto;
 
   const markdown =
-    exigeUnidade && unidadeComFocoDefinido(unidadeMeta) && !dimensaoNoFocoUnidade(unidadeMeta, 'D11')
+    exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
       ? markdownBrutoRenumerado
-      : garantirSecoesD11BookSatf(markdownBrutoRenumerado, dimensoesDiagnostico);
+      : garantirSecoesD11BookSatf(markdownBrutoRenumerado, dimensoesDiagnostico, {
+          exigeUnidade,
+          unidadeComFocoSatf: unidadeComFocoDefinido(unidadeMeta)
+        });
 
   const totalDimsEsperadoSec3 =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
@@ -1357,23 +1448,16 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       ? normalizarRotulosEntregaveisEscopo(markdown, inventarioDocumentos)
       : markdown;
 
-  const comIndice = adicionarIndiceAoBookMarkdown(markdownFinal, { modo: 'satf' });
-  const comConfidencial = `${capaConfidencialBookSatfMarkdown(projeto.empresa.nome, projeto.nome)}${comIndice}`;
-  const comUnidade = exigeUnidade
-    ? prependCapaUnidadeAoRelatorio(comConfidencial, unidadeMeta)
-    : comConfidencial;
-  let relatorioComCapas = prependCapaNivelAvaliadoresAoRelatorio(comUnidade, {
-    filtroMax: filtroNivelMax,
-    avaliacoesFiltradas,
+  const relatorioComCapas = montarPreliminaresBookSatfOrdemCanonica({
+    corpoMarkdown: markdownFinal,
     empresaNome: projeto.empresa.nome,
-    projetoNome: projeto.nome
+    projetoNome: projeto.nome,
+    avaliacoesFiltradas,
+    filtroNivelMax,
+    unidadeMeta: exigeUnidade ? unidadeMeta : null,
+    secaoDashboard: exigeUnidade ? secaoDashboardUnidade : null,
+    exigeUnidade
   });
-  if (exigeUnidade && secaoDashboardUnidade) {
-    relatorioComCapas = prependSecaoDashboardUnidadeAoRelatorio(
-      relatorioComCapas,
-      secaoDashboardUnidade
-    );
-  }
   const relatorioFinal = !modoRapido
     ? posicionarApendicesMetodologicosComoUltimaSecao(relatorioComCapas, {
         framework: 'satf',

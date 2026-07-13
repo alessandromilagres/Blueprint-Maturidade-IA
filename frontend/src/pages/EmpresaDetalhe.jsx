@@ -9,7 +9,12 @@ import { labelPorteComFaixa } from '../constants/porteEmpresa';
 import { FRAMEWORK_BLUEPRINT_16 } from '../constants/frameworkMaturidade';
 import FrameworkMaturidadeSelector from '../components/FrameworkMaturidadeSelector';
 import FrameworkMaturidadeBadge from '../components/FrameworkMaturidadeBadge';
-import { normalizarDimensoesFocoInput, formatarDimensoesFocoDisplay } from '../utils/dimensoesFocoUnidade';
+import {
+  normalizarDimensoesFocoSatfInput,
+  normalizarDimensoesFocoMitInput,
+  formatarDimensoesFocoSatfDisplay,
+  formatarDimensoesFocoMitDisplay
+} from '../utils/dimensoesFocoUnidade';
 
 export default function EmpresaDetalhe() {
   const { id } = useParams();
@@ -55,12 +60,12 @@ export default function EmpresaDetalhe() {
         ativo: item?.ativo !== false,
       });
     } else if (type === 'unidade') {
-      const foco = formatarDimensoesFocoDisplay(item?.dimensoesFoco);
       setFormData({
         nome: item?.nome || '',
         codigo: item?.codigo || '',
         descricao: item?.descricao || '',
-        dimensoesFocoTexto: foco,
+        dimensoesFocoSatfTexto: formatarDimensoesFocoSatfDisplay(item?.dimensoesFocoSatf ?? item?.dimensoesFoco),
+        dimensoesFocoMitTexto: formatarDimensoesFocoMitDisplay(item?.dimensoesFocoMit),
         ordem: item?.ordem ?? 0,
         ativo: item?.ativo !== false,
       });
@@ -111,18 +116,22 @@ export default function EmpresaDetalhe() {
   async function handleSubmitUnidade(e) {
     e.preventDefault();
     try {
-      const dimensoesFoco = normalizarDimensoesFocoInput(formData.dimensoesFocoTexto);
-      if (String(formData.dimensoesFocoTexto || '').trim() && !dimensoesFoco?.length) {
-        alert(
-          'Dimensões em foco: informe códigos válidos (ex.: D1, D3, D4, D7). Anotações entre parênteses não entram — use -D8 para excluir.'
-        );
+      const dimensoesFocoSatf = normalizarDimensoesFocoSatfInput(formData.dimensoesFocoSatfTexto);
+      const dimensoesFocoMit = normalizarDimensoesFocoMitInput(formData.dimensoesFocoMitTexto);
+      if (String(formData.dimensoesFocoSatfTexto || '').trim() && !dimensoesFocoSatf?.length) {
+        alert('Dimensões SATF: use códigos D1–D11 (ex.: D1, D3, D4, D7).');
+        return;
+      }
+      if (String(formData.dimensoesFocoMitTexto || '').trim() && !dimensoesFocoMit?.length) {
+        alert('Dimensões MIT Blueprint: use códigos BP1–BP16.');
         return;
       }
       const payload = {
         nome: formData.nome,
         codigo: formData.codigo || undefined,
         descricao: formData.descricao || null,
-        dimensoesFoco: dimensoesFoco.length ? dimensoesFoco : null,
+        dimensoesFocoSatf: dimensoesFocoSatf?.length ? dimensoesFocoSatf : null,
+        dimensoesFocoMit: dimensoesFocoMit?.length ? dimensoesFocoMit : null,
         ordem: parseInt(formData.ordem, 10) || 0,
         ativo: formData.ativo !== false
       };
@@ -349,9 +358,18 @@ export default function EmpresaDetalhe() {
                   {unidade.descricao && (
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{unidade.descricao}</p>
                   )}
-                  {formatarDimensoesFocoDisplay(unidade.dimensoesFoco) && (
+                  {(formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco) ||
+                    formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit)) && (
                     <p className="text-xs text-primary-600 dark:text-primary-400 mt-1">
-                      Foco: {formatarDimensoesFocoDisplay(unidade.dimensoesFoco)}
+                      {formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco) && (
+                        <>SATF: {formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco)}</>
+                      )}
+                      {formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco) &&
+                        formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit) &&
+                        ' · '}
+                      {formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit) && (
+                        <>MIT: {formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit)}</>
+                      )}
                     </p>
                   )}
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -627,17 +645,29 @@ export default function EmpresaDetalhe() {
             />
           </div>
           <div>
-            <label className="label">Dimensões em foco (SATF / Blueprint)</label>
+            <label className="label">Dimensões em foco — SATF TI v3</label>
             <input
               type="text"
               className="input"
-              placeholder="Ex.: D1, D3, D4, D7  ou  D1, D3, D4, D7, -D8"
-              value={formData.dimensoesFocoTexto || ''}
-              onChange={(e) => setFormData({ ...formData, dimensoesFocoTexto: e.target.value })}
+              placeholder="Ex.: D1, D3, D4, D7"
+              value={formData.dimensoesFocoSatfTexto || ''}
+              onChange={(e) => setFormData({ ...formData, dimensoesFocoSatfTexto: e.target.value })}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Somente códigos D1–D11 (SATF) ou BP1–BP16 (Blueprint), separados por vírgula. Use{' '}
-              <code className="text-xs">-D8</code> para excluir. Anotações vão na descrição, não aqui.
+              Códigos <strong>D1–D11</strong> para books/relatórios SATF por unidade. Use <code className="text-xs">-D8</code> para excluir.
+            </p>
+          </div>
+          <div>
+            <label className="label">Dimensões em foco — MIT Blueprint</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="Ex.: BP1, BP4, BP7"
+              value={formData.dimensoesFocoMitTexto || ''}
+              onChange={(e) => setFormData({ ...formData, dimensoesFocoMitTexto: e.target.value })}
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Códigos <strong>BP1–BP16</strong> para books/relatórios MIT Blueprint por unidade.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-4">

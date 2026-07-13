@@ -2,15 +2,35 @@
  * Dados isolados por dimensão para prompts de book IA —
  * evita enviar scores/perguntas de todas as dimensões em cada chunk.
  */
-import { parseDimensoesFocoJson } from './empresaUnidade.js';
+import {
+  parseDimensoesFocoSatfJson,
+  parseDimensoesFocoMitJson
+} from './empresaUnidade.js';
 import { dimensaoComScoreZero, tabelaPerguntasDimensaoMarkdown } from './bookModoRapidoMarkdown.js';
 import { NOMES_NIVEL_BLUEPRINT } from './nivelMaturidadeRubrica.js';
 import { nivelNumericoDeScore } from './scoresConsolidadoProjetoMaturidade.js';
 
+export function codigoEfetivoDimensaoFramework(dim) {
+  const cod = String(dim?.codigoFramework || '').trim().toUpperCase();
+  if (cod) return cod;
+  if (dim?.ordem != null) {
+    const o = Number(dim.ordem);
+    if (o >= 1 && o <= 11) return `D${o}`;
+    if (o >= 1 && o <= 16) return `BP${o}`;
+  }
+  return '';
+}
+
+export function parseFocoUnidadePorFramework(unidadeMeta, framework = 'satf') {
+  return framework === 'mit'
+    ? parseDimensoesFocoMitJson(unidadeMeta)
+    : parseDimensoesFocoSatfJson(unidadeMeta);
+}
+
 export function dimensaoCorrespondeFocoUnidade(dim, focoCodigos) {
   if (!focoCodigos?.length) return true;
 
-  const cod = String(dim.codigoFramework || '').trim().toUpperCase();
+  const cod = codigoEfetivoDimensaoFramework(dim);
   if (cod && focoCodigos.includes(cod)) return true;
 
   for (const f of focoCodigos) {
@@ -24,32 +44,34 @@ export function dimensaoCorrespondeFocoUnidade(dim, focoCodigos) {
   return false;
 }
 
-/** Filtra dimensões pelo cadastro de foco da unidade (D4, D5…). Sem foco = todas. Com foco = só códigos válidos. */
-export function filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta) {
-  const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
+/** Filtra dimensões pelo cadastro de foco da unidade (D4, D5… / BP4…). Sem foco = todas. */
+export function filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta, framework = 'satf') {
+  const foco = parseFocoUnidadePorFramework(unidadeMeta, framework);
   if (!foco?.length) return dimensoes || [];
   return (dimensoes || []).filter((d) => dimensaoCorrespondeFocoUnidade(d, foco));
 }
 
 /** Dimensões em foco com score consolidado > 0 (ranking/plano de ação). */
-export function filtrarDimensoesFocoUnidadeComDados(dimensoes, unidadeMeta) {
-  return filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta).filter((d) => !dimensaoComScoreZero(d));
+export function filtrarDimensoesFocoUnidadeComDados(dimensoes, unidadeMeta, framework = 'satf') {
+  return filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta, framework).filter(
+    (d) => !dimensaoComScoreZero(d)
+  );
 }
 
 /**
  * Dimensões da Seção 3 em books por unidade — sempre o foco cadastrado,
  * mesmo quando o score individual da dimensão ainda não está discriminado.
  */
-export function dimensoesSecao3BookUnidade(dimensoes, unidadeMeta) {
-  if (!unidadeTemDimensoesFoco(unidadeMeta)) return dimensoes || [];
-  return filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta);
+export function dimensoesSecao3BookUnidade(dimensoes, unidadeMeta, framework = 'satf') {
+  if (!unidadeTemDimensoesFoco(unidadeMeta, framework)) return dimensoes || [];
+  return filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta, framework);
 }
 
 /** Índices (0-based) em `dimensoes` que permanecem após filtro de foco — null se todas. */
-export function indicesDimensoesFocoUnidade(dimensoes, unidadeMeta) {
-  const foco = parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco);
+export function indicesDimensoesFocoUnidade(dimensoes, unidadeMeta, framework = 'satf') {
+  const foco = parseFocoUnidadePorFramework(unidadeMeta, framework);
   if (!foco?.length) return null;
-  const ids = new Set(filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta).map((d) => d.areaId));
+  const ids = new Set(filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta, framework).map((d) => d.areaId));
   const indices = new Set();
   (dimensoes || []).forEach((d, idx) => {
     if (ids.has(d.areaId)) indices.add(idx);
@@ -57,8 +79,8 @@ export function indicesDimensoesFocoUnidade(dimensoes, unidadeMeta) {
   return indices.size ? indices : null;
 }
 
-export function unidadeTemDimensoesFoco(unidadeMeta) {
-  return Boolean(parseDimensoesFocoJson(unidadeMeta?.dimensoesFoco)?.length);
+export function unidadeTemDimensoesFoco(unidadeMeta, framework = 'satf') {
+  return Boolean(parseFocoUnidadePorFramework(unidadeMeta, framework)?.length);
 }
 
 export function detalhePerguntasUmaDimensaoMarkdown(dim, { maxPerguntas = 0 } = {}) {

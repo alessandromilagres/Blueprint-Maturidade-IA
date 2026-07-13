@@ -3,6 +3,10 @@
  */
 
 import { extrairEntradasIndiceMarkdown } from './markdownSlug.js';
+import { capaConfidencialBookSatfMarkdown } from './satfBookTaxonomia.js';
+import { capaNivelAvaliadoresRelatorioIAMarkdown } from './nivelPrioridadeMapeamentoMaturidade.js';
+import { blocoUnidadeRelatorioMarkdown } from './relatorioUnidadeIA.js';
+import { prependSecaoDashboardUnidadeAoRelatorio } from './bookUnidadeContexto.js';
 
 /**
  * @param {string} conteudoMd — corpo do book (sem índice)
@@ -24,4 +28,44 @@ export function adicionarIndiceAoBookMarkdown(conteudoMd, options = {}) {
   blocoIndice += '\n---\n\n';
 
   return blocoIndice + conteudoMd.trimStart();
+}
+
+/**
+ * Ordem canônica SATF: Capa confidencial → Índice → Capa avaliadores → (unidade) → corpo 0–8.
+ */
+export function montarPreliminaresBookSatfOrdemCanonica({
+  corpoMarkdown,
+  empresaNome,
+  projetoNome,
+  avaliacoesFiltradas,
+  filtroNivelMax,
+  unidadeMeta,
+  secaoDashboard,
+  exigeUnidade = false
+}) {
+  let corpo = String(corpoMarkdown || '').trim();
+  if (exigeUnidade && secaoDashboard) {
+    corpo = prependSecaoDashboardUnidadeAoRelatorio(corpo, secaoDashboard);
+  }
+
+  const indiceMaisCorpo = adicionarIndiceAoBookMarkdown(corpo, { modo: 'satf' });
+  const m = indiceMaisCorpo.match(/^(# Índice[\s\S]*?---\n\n)([\s\S]*)$/);
+  const blocoIndice = m ? m[1] : '';
+  const corpoPosIndice = m ? m[2] : indiceMaisCorpo;
+
+  const confidencial = capaConfidencialBookSatfMarkdown(empresaNome, projetoNome);
+  const avaliadores = capaNivelAvaliadoresRelatorioIAMarkdown({
+    filtroMax: filtroNivelMax,
+    avaliacoesFiltradas,
+    empresaNome,
+    projetoNome
+  });
+
+  let out = `${confidencial}${blocoIndice}${avaliadores}`;
+  if (exigeUnidade && unidadeMeta) {
+    const blocoUnidade = blocoUnidadeRelatorioMarkdown(unidadeMeta);
+    if (blocoUnidade) out += `${blocoUnidade}\n`;
+  }
+  out += corpoPosIndice.trimStart();
+  return out;
 }

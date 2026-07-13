@@ -44,17 +44,36 @@ import json, subprocess
 from pathlib import Path
 
 old_oid = "$OLD_OID"
+repo_id = "$REPO_ID"
+org = "$ORG"
 pipeline = Path("$PIPELINE_FILE").read_text(encoding="utf-8")
 
-# Usa git show --name-status (A/M) — não depende do OID remoto estar no repo local
-file_status = {}
-for line in subprocess.check_output(
-    ["git", "show", "--name-status", "--pretty=format:", "HEAD"], text=True
-).strip().splitlines():
-    if not line.strip():
-        continue
-    status, rel = line.split("\t", 1)
-    file_status[rel.strip()] = "add" if status.strip() == "A" else "edit"
+def azure_item_exists(rel_path: str) -> bool:
+    proc = subprocess.run(
+        [
+            "az", "devops", "invoke",
+            "--area", "git", "--resource", "items",
+            "--route-parameters", f"repositoryId={repo_id}",
+            "--query-parameters",
+            f"path=/{rel_path}&versionDescriptor.version={old_oid}&versionDescriptor.versionType=commit",
+            "--organization", org, "--api-version", "7.1", "-o", "json",
+        ],
+        capture_output=True, text=True,
+    )
+    return proc.returncode == 0 and "TF401174" not in (proc.stderr or "") and "TF401174" not in (proc.stdout or "")
+
+# União dos últimos commits locais — cobre catch-up se o Azure ficou atrás
+file_paths = set()
+for commit in subprocess.check_output(["git", "log", "-20", "--format=%H"], text=True).strip().splitlines():
+    for line in subprocess.check_output(
+        ["git", "show", "--name-status", "--pretty=format:", commit], text=True
+    ).strip().splitlines():
+        if not line.strip():
+            continue
+        _status, rel = line.split("\t", 1)
+        rel = rel.strip()
+        if rel and Path(rel).exists():
+            file_paths.add(rel)
 
 changes = [{
     "changeType": "edit",
@@ -62,12 +81,11 @@ changes = [{
     "newContent": {"content": pipeline, "contentType": "rawtext"}
 }]
 
-for rel, change_type in file_status.items():
+for rel in sorted(file_paths):
     if rel == "azure-pipelines.yml":
         continue
     p = Path(rel)
-    if not p.exists():
-        continue
+    change_type = "edit" if azure_item_exists(rel) else "add"
     changes.append({
         "changeType": change_type,
         "item": {"path": f"/{rel}"},

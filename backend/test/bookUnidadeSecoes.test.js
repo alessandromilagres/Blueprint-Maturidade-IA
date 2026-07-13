@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizarDimensoesFocoInput } from '../src/utils/empresaUnidade.js';
+import { normalizarDimensoesFocoSatfInput, normalizarDimensoesFocoMitInput } from '../src/utils/empresaUnidade.js';
 import { dimensoesSecao3BookUnidade } from '../src/utils/bookDadosDimensao.js';
 import {
   construirMapaRenumeracaoSecoesPrincipaisSatfUnidade,
@@ -9,12 +9,16 @@ import {
 import { extrairEntradasIndiceMarkdown } from '../src/utils/markdownSlug.js';
 
 describe('normalizarDimensoesFocoInput', () => {
-  it('extrai D1,D3,D4,D7 do template GRT', () => {
-    assert.deepEqual(normalizarDimensoesFocoInput('D1, D3, D4, D7'), ['D1', 'D3', 'D4', 'D7']);
+  it('extrai D1,D3,D4,D7 do template GRT (SATF)', () => {
+    assert.deepEqual(normalizarDimensoesFocoSatfInput('D1, D3, D4, D7'), ['D1', 'D3', 'D4', 'D7']);
+  });
+
+  it('extrai BP do MIT separado', () => {
+    assert.deepEqual(normalizarDimensoesFocoMitInput('BP1, BP4, BP7'), ['BP1', 'BP4', 'BP7']);
   });
 
   it('exclui dimensões marcadas com prefixo -', () => {
-    assert.deepEqual(normalizarDimensoesFocoInput('D1, -D8, D4'), ['D1', 'D4']);
+    assert.deepEqual(normalizarDimensoesFocoSatfInput('D1, -D8, D4'), ['D1', 'D4']);
   });
 });
 
@@ -26,7 +30,7 @@ describe('dimensoesSecao3BookUnidade', () => {
     { areaId: 7, area: 'D7', codigoFramework: 'D7', ordem: 7, score: 0 },
     { areaId: 10, area: 'D10', codigoFramework: 'D10', ordem: 10, score: 2.1 }
   ];
-  const unidade = { dimensoesFoco: '["D1","D3","D4","D7"]' };
+  const unidade = { dimensoesFocoSatf: '["D1","D3","D4","D7"]' };
 
   it('mantém dimensões em foco mesmo com score 0', () => {
     const filtradas = dimensoesSecao3BookUnidade(dimensoes, unidade);
@@ -36,7 +40,7 @@ describe('dimensoesSecao3BookUnidade', () => {
 });
 
 describe('renumeracao secoes SATF por unidade GRT', () => {
-  const unidadeGrt = { dimensoesFoco: '["D1","D3","D4","D7"]' };
+  const unidadeGrt = { dimensoesFocoSatf: '["D1","D3","D4","D7"]' };
   const noFoco = (cod) => ['D1', 'D3', 'D4', 'D7'].includes(cod);
 
   it('mapeia 4,7,8 para 4,5,6 omitindo D10 e D11', () => {

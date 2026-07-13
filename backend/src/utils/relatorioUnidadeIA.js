@@ -5,10 +5,12 @@ import { prisma } from '../lib/prisma.js';
 import {
   garantirUnidadeGeralEmpresa,
   mapUnidadeEmpresaResponse,
-  parseDimensoesFocoJson,
-  formatarDimensoesFocoDisplay,
   parseFiltroEmpresaUnidadeId,
-  usuarioIncluidoNoFiltroUnidadeEmpresa
+  usuarioIncluidoNoFiltroUnidadeEmpresa,
+  formatarDimensoesFocoSatfDisplay,
+  formatarDimensoesFocoMitDisplay,
+  parseDimensoesFocoSatfJson,
+  parseDimensoesFocoMitJson
 } from './empresaUnidade.js';
 import {
   usuarioIncluidoNoFiltroNivelMapeamentoMaturidade,
@@ -81,15 +83,18 @@ export function filtrarAvaliacoesRelatorioProjeto(
   );
 }
 
-export function blocoUnidadeRelatorioMarkdown(unidadeMeta) {
+export function blocoUnidadeRelatorioMarkdown(unidadeMeta, { framework = 'satf' } = {}) {
   if (!unidadeMeta) return '';
-  const focoTxt = formatarDimensoesFocoDisplay(parseDimensoesFocoJson(unidadeMeta.dimensoesFoco)) || '— (não definido no cadastro)';
+  const isSatf = framework === 'satf';
+  const focoSatf = formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta));
+  const focoMit = formatarDimensoesFocoMitDisplay(parseDimensoesFocoMitJson(unidadeMeta));
   const desc = String(unidadeMeta.descricao || '').trim() || '—';
   return `## Unidade organizacional — escopo deste relatório
 
 - **Unidade:** ${unidadeMeta.nome}${unidadeMeta.ehPadrao ? ' (padrão Geral)' : ''}
 - **Descrição:** ${desc}
-- **Dimensões em foco (SATF):** ${focoTxt}
+- **Dimensões em foco (SATF):** ${focoSatf || '— (não definido)'}
+- **Dimensões em foco (MIT Blueprint):** ${focoMit || '— (não definido)'}
 
 > Scores e recomendações refletem **somente** avaliadores vinculados a esta unidade (usuários sem unidade entram em Geral).
 

@@ -97,12 +97,16 @@ import {
   validarSecoesDuplicadasBookSatf,
   garantirSecoesD11BookSatf,
   encontrarDimensaoD11Satf,
-  NOME_DIMENSAO_D11_SATF
+  NOME_DIMENSAO_D11_SATF,
+  construirMapaRenumeracaoSecoesPrincipaisSatfUnidade,
+  numeroSecaoPrincipalSatfUnidade,
+  renumerarSecoesPrincipaisBookSatfUnidade
 } from './satfBookTaxonomia.js';
 import { validarFatosCanonicosBook } from './projetoContextoFatos.js';
 import { posicionarApendicesMetodologicosComoUltimaSecao } from './bookApendicesMetodologicos.js';
 import {
   dimensaoCorrespondeFocoUnidade,
+  dimensoesSecao3BookUnidade,
   filtrarDimensoesFocoUnidade,
   filtrarDimensoesFocoUnidadeComDados,
   montarBlocoDadosDimensaoUnica,
@@ -189,6 +193,7 @@ OBRIGATÓRIO — EVITE REPETIÇÃO, GENERICIDADE E CONTAMINAÇÃO DE TAXONOMIA:
 - **Evidências Críticas:** separe fatores que elevaram vs puxaram o score; cite [Qn] e documentos do contexto (Entregáveis A–H) quando existirem.
 - **Risco:** específico desta dimensão — **proibido** repetir a mesma frase entre dimensões.
 - **Recomendações:** cada ação com título, descrição, entregável/sistema do projeto (A–H), owner sugerido e prazo (30/45/60/90 dias).${temDesejosIa ? ' **≥1 ação** deve citar Desejos IA dos DADOS quando pertinente.' : ''}
+${exigeUnidade && dimensaoComScoreZero(dim) ? `- **Score individual 0 nesta rodada:** use score geral da unidade, contexto do projeto e perguntas [Qn] para diagnóstico. **Obrigatório** incluir Recomendações Específicas (R1–R3) e tabela de KPIs — não omita por falta de score discriminado.` : ''}
 ${exigeUnidade && formatarDimensoesFocoDisplay(unidadeMeta?.dimensoesFoco) ? `- **Dimensões em foco desta unidade:** ${formatarDimensoesFocoDisplay(unidadeMeta?.dimensoesFoco)} — **proibido** mencionar dimensões SATF fora desta lista.` : ''}
 ${exigeUnidade ? `- **Unidade organizacional:** recomendações **exclusivas** para "${unidadeMeta?.nome || 'esta unidade'}".` : ''}
 ${exigeUnidade && planoDim ? `\n${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}` : ''}
@@ -471,7 +476,8 @@ function montarChunksSatf({
   modoRapido,
   exigeUnidade = false,
   unidadeMeta = null,
-  planoAcao = null
+  planoAcao = null,
+  mapaRenumeracaoSecoes = null
 }) {
   const chunks = [];
   const dados = modoRapido ? dadosBlockRapido : dadosBlock;
@@ -482,7 +488,7 @@ function montarChunksSatf({
     : dimensoesDiagnostico;
   const dimsParaSecao3 =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
-      ? filtrarDimensoesFocoUnidadeComDados(dimensoesDiagnostico, unidadeMeta)
+      ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta)
       : dimsParaSecao3Base;
   const focoDisplay = formatarDimensoesFocoDisplay(unidadeMeta?.dimensoesFoco);
   const focoUnidadeTxt =
@@ -533,8 +539,8 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
     });
     if (dimensaoComScoreZero(dim)) {
       if (exigeUnidade && unidadeComFocoDefinido(unidadeMeta)) {
-        return;
-      }
+        // Book por unidade: gera análise completa mesmo sem score individual discriminado.
+      } else {
       chunks.push({
         id: `sec_3_${idx + 1}`,
         label: `Registro — ${dim.area}`,
@@ -553,6 +559,7 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
         })()
       });
       return;
+      }
     }
 
     chunks.push({
@@ -583,13 +590,19 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
     });
   });
 
+  const n4 = numeroSecaoPrincipalSatfUnidade(4, mapaRenumeracaoSecoes);
+  const n5 = numeroSecaoPrincipalSatfUnidade(5, mapaRenumeracaoSecoes);
+  const n6 = numeroSecaoPrincipalSatfUnidade(6, mapaRenumeracaoSecoes);
+  const n7 = numeroSecaoPrincipalSatfUnidade(7, mapaRenumeracaoSecoes);
+  const n8 = numeroSecaoPrincipalSatfUnidade(8, mapaRenumeracaoSecoes);
+
   chunks.push({
     id: 'sec_4',
     label: 'Roadmap engenharia 30-60-90',
     prompt: `${regrasTaxonomia}
-# 4. ROADMAP ENGENHARIA & PLATAFORMA (30-60-90 dias)
+# ${n4}. ROADMAP ENGENHARIA & PLATAFORMA (30-60-90 dias)
 
-Gere **SOMENTE** a Seção 4 em Markdown (subseções 4.1–4.5). **PARE** antes de "# 5." — não gere Fábrica Agêntica, Conformidade, Capacitação nem Próximos Passos aqui (há chunks dedicados).
+Gere **SOMENTE** a Seção ${n4} em Markdown (subseções ${n4}.1–${n4}.5). **PARE** antes de "# ${n4 + 1}." — não gere Fábrica Agêntica, Conformidade, Capacitação nem Próximos Passos aqui (há chunks dedicados).
 
 Conteúdo: visão por horizonte (30/60/90), foco SDLC agêntico, plataforma, dados e governança técnica. Tabela resumo.
 Ao referenciar gaps e iniciativas, use **somente** dimensões SATF D1–D11 com nomes oficiais do bloco DADOS.${focoUnidadeTxt}
@@ -603,9 +616,9 @@ DADOS:\n${dados}`,
       id: 'sec_5',
       label: 'Fábrica Agêntica (D10)',
       prompt: `${regrasTaxonomia}
-# 5. Fábrica Agêntica de Software (D10)
+# ${n5}. Fábrica Agêntica de Software (D10)
 
-Gere **SOMENTE** a Seção 5 (subseções 5.1–5.5). **PARE** antes de "# 6." — não antecipe Conformidade Regulatória.
+Gere **SOMENTE** a Seção ${n5} (subseções ${n5}.1–${n5}.5). **PARE** antes de "# ${n5 + 1}." — não antecipe Conformidade Regulatória.
 
 Se D10 estiver nos dados com score > 0, analise maturidade de fábrica agêntica. Senão, nota curta "fora de escopo ou sem dados".
 Ao citar entregáveis do escopo use **rótulos canônicos**: E = Roteiro de Pilotos; H = Diagnóstico de Clientes; G = Capacitação e Gestão de Mudança.
@@ -621,9 +634,9 @@ DADOS:\n${dados}`,
       id: 'sec_6',
       label: 'Conformidade TI (D11)',
       prompt: `${regrasTaxonomia}
-# 6. Conformidade Regulatória de IA (D11)
+# ${n6}. Conformidade Regulatória de IA (D11)
 
-Gere **SOMENTE** a Seção 6 (subseções 6.1–6.4). **PARE** antes de "# 7." — não antecipe Capacitação nem Próximos Passos.
+Gere **SOMENTE** a Seção ${n6} (subseções ${n6}.1–${n6}.4). **PARE** antes de "# ${n6 + 1}." — não antecipe Capacitação nem Próximos Passos.
 
 **Obrigatório:** esta seção **sempre** deve existir no book SATF completo — mesmo se D11 estiver desativada ou sem score consolidado.
 ${(() => {
@@ -649,9 +662,9 @@ DADOS:\n${dados}`,
     id: 'sec_7',
     label: 'Capacitação e governança',
     prompt: `${regrasTaxonomia}
-# 7. Capacitação, Papéis e Governança de Times
+# ${n7}. Capacitação, Papéis e Governança de Times
 
-Gere **SOMENTE** a Seção 7 (subseções 7.1–7.5). **PARE** antes de "# 8." — não antecipe Próximos Passos.
+Gere **SOMENTE** a Seção ${n7} (subseções ${n7}.1–${n7}.5). **PARE** antes de "# ${n8}." — não antecipe Próximos Passos.
 
 Skills, chapter leads, guildas de IA, operating model de engenharia.
 Ancorar em **D3 Pessoas, Cultura & Capacitação** e **D2 Governança, Risco & Conformidade** (SATF) — não use taxonomia Blueprint.${focoUnidadeTxt}
@@ -664,9 +677,9 @@ DADOS:\n${dados}`,
     id: 'sec_8',
     label: 'Próximos passos 30 dias',
     prompt: `${regrasTaxonomia}
-# 8. Próximos Passos e Encerramento
+# ${n8}. Próximos Passos e Encerramento
 
-Gere **SOMENTE** a Seção 8 (subseções 8.1–8.4). **Não** gere seção 9+ nem Apêndice numerado como seção principal.
+Gere **SOMENTE** a Seção ${n8} (subseções ${n8}.1–${n8}.4). **Não** gere seção 9+ nem Apêndice numerado como seção principal.
 
 7–10 ações numeradas com responsável, entregável e prazo. Foco TI.
 Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).${focoUnidadeTxt}
@@ -878,7 +891,6 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
       if (indicesSecao3Ativos && !indicesSecao3Ativos.has(idx)) return null;
       if (bloco) return bloco;
       const dim = dimensoesDiagnostico[idx];
-      if (indicesSecao3Ativos && dimensaoComScoreZero(dim)) return null;
       const idxRel = indicesOrdenadosFallback ? indicesOrdenadosFallback.indexOf(idx) : idx;
       const numSecao =
         indicesOrdenadosFallback && idxRel >= 0 ? `3.${idxRel + 1}` : `3.${idx + 1}`;
@@ -1230,6 +1242,12 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     nomesNivel: NOMES_NIVEL_BLUEPRINT
   })}`;
 
+  const mapaRenumeracaoSecoes = construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(
+    exigeUnidade,
+    unidadeMeta,
+    { dimensaoNoFoco: (cod) => dimensaoNoFocoUnidade(unidadeMeta, cod) }
+  );
+
   const chunks = montarChunksSatf({
     dimensoesDiagnostico,
     dadosBlock,
@@ -1248,12 +1266,13 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     modoRapido,
     exigeUnidade,
     unidadeMeta,
-    planoAcao: planoAcaoUnidade
+    planoAcao: planoAcaoUnidade,
+    mapaRenumeracaoSecoes
   });
 
   const dimsParaSecao3 =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
-      ? filtrarDimensoesFocoUnidadeComDados(dimensoesDiagnostico, unidadeMeta)
+      ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta)
       : exigeUnidade
         ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta)
         : dimensoesDiagnostico;
@@ -1292,10 +1311,14 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       ordemNomesSecao3Ativos: indicesSecao3Ativos ? ordemNomesSecao3Ativos : null
     });
 
+  const markdownBrutoRenumerado = mapaRenumeracaoSecoes
+    ? renumerarSecoesPrincipaisBookSatfUnidade(markdownBruto, mapaRenumeracaoSecoes)
+    : markdownBruto;
+
   const markdown =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta) && !dimensaoNoFocoUnidade(unidadeMeta, 'D11')
-      ? markdownBruto
-      : garantirSecoesD11BookSatf(markdownBruto, dimensoesDiagnostico);
+      ? markdownBrutoRenumerado
+      : garantirSecoesD11BookSatf(markdownBrutoRenumerado, dimensoesDiagnostico);
 
   const totalDimsEsperadoSec3 =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
@@ -1305,7 +1328,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta) && indicesSecao3Ativos
       ? (() => {
           const encontrados = contarDimensoesSecao3Book(markdown);
-          const esperados = [...indicesSecao3Ativos].map((i) => i + 1);
+          const esperados = Array.from({ length: dimsParaSecao3.length }, (_, i) => i + 1);
           const faltando = esperados.filter((i) => !encontrados.has(i));
           return { ok: faltando.length === 0, faltando, total: encontrados.size };
         })()

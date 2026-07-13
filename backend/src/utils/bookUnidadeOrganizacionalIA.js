@@ -54,7 +54,7 @@ import {
 } from './bookUnidadeContexto.js';
 import {
   filtrarDimensoesFocoUnidade,
-  filtrarDimensoesFocoUnidadeComDados,
+  dimensoesSecao3BookUnidade,
   montarBlocoDadosDimensaoUnica,
   montarCabecalhoDadosUnidade,
   montarResumoScoresDimensoes
@@ -177,9 +177,7 @@ export async function executarGeracaoBookUnidadeBlueprint(req, res, deps) {
   const temDesejosIa = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);
 
   const dimensoesRelevantes = filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta);
-  const dimsComDados = filtrarDimensoesFocoUnidadeComDados(dimensoesDiagnostico, unidadeMeta);
-  const dimsParaChunks =
-    dimsComDados.length > 0 ? dimsComDados : dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d));
+  const dimsParaChunks = dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta);
   const planoAcaoRelevante = gerarPlanoAcaoPorDimensao(
     dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d))
   );
@@ -230,9 +228,7 @@ Gere SOMENTE o conteúdo solicitado em Markdown. A Seção 0 (Dashboard) já exi
   let modelUsado = getProvider().defaultModel;
   const partesSumario = [];
   const partesDimensoes = [];
-  const dimsComDadosLoop = dimsParaChunks.length
-    ? dimsParaChunks
-    : dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d));
+  const dimsComDadosLoop = dimsParaChunks.length ? dimsParaChunks : dimensoesRelevantes;
   const totalChunks = dimsComDadosLoop.length + 2;
 
   let relatorioJobId = null;
@@ -343,6 +339,7 @@ Parágrafo denso: score ${Number(dim.score).toFixed(2)}, nível N${dim.nivel || 
 
 ### 2.${num}.4 KPIs de acompanhamento
 Tabela compacta: KPI | Baseline | Meta 90d (mínimo 2 linhas).
+${dimensaoComScoreZero(dim) ? `\n> **Score individual 0 nesta rodada:** use score geral da unidade (${scoreGeral.toFixed(2)}) e contexto do projeto. **Obrigatório** incluir ações A1–A5 e tabela de KPIs — não omita por falta de score discriminado.` : ''}
 
 ${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}
 

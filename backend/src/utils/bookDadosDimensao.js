@@ -31,9 +31,18 @@ export function filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta) {
   return (dimensoes || []).filter((d) => dimensaoCorrespondeFocoUnidade(d, foco));
 }
 
-/** Dimensões em foco com score consolidado > 0 (books por unidade). */
+/** Dimensões em foco com score consolidado > 0 (ranking/plano de ação). */
 export function filtrarDimensoesFocoUnidadeComDados(dimensoes, unidadeMeta) {
   return filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta).filter((d) => !dimensaoComScoreZero(d));
+}
+
+/**
+ * Dimensões da Seção 3 em books por unidade — sempre o foco cadastrado,
+ * mesmo quando o score individual da dimensão ainda não está discriminado.
+ */
+export function dimensoesSecao3BookUnidade(dimensoes, unidadeMeta) {
+  if (!unidadeTemDimensoesFoco(unidadeMeta)) return dimensoes || [];
+  return filtrarDimensoesFocoUnidade(dimensoes, unidadeMeta);
 }
 
 /** Índices (0-based) em `dimensoes` que permanecem após filtro de foco — null se todas. */

@@ -592,4 +592,80 @@ Ver `docs/ESTRUTURA_OBRIGATORIA_BOOKS_IA.md` para árvore completa das seções.
 
 ---
 
-*Documento gerado para continuidade entre agentes. Atualizar após commit SHA definitivo da release.*
+## 17. Books por unidade — foco GRT, Seção 3, índice e KPIs (2026-07-13)
+
+> **Critério de aceite adicional:** book SATF por unidade com foco definido deve ter Seção 3 completa, numeração sequencial no índice e recomendações/KPIs por dimensão.
+
+### Problema corrigido (book GRT / Governança Operacional)
+
+| Sintoma | Causa | Correção |
+|---------|-------|----------|
+| Índice `1, 2, 4, 7, 8` (lacunas 3, 5, 6) | Seção 3 omitida quando dims em foco tinham score individual 0; sec 5/6 (D10/D11) fora do foco mantinham números 7/8 | `dimensoesSecao3BookUnidade()` inclui dims em foco mesmo com score 0; `renumerarSecoesPrincipaisBookSatfUnidade()` compacta 4→5→6 |
+| Seção 3 ausente | Early return em chunk quando `dimensaoComScoreZero` | Book por unidade gera análise completa + prompt exige R1–R3 e KPIs |
+| Foco corrompido (`ESTRATÉGIA`, `C-LEVEL`…) | Split agressivo no cadastro | `normalizarDimensoesFocoInput()` — commit `a301c75` |
+| D8 aparecia indevidamente | Anotação “NÃO APARECE” em segmento separado | Exclusão por contexto após código (`NÃO, APARECE`) |
+
+### Commits desta release (books)
+
+| SHA | Mensagem |
+|-----|----------|
+| `ee691f2` | Apêndices finais + filtro básico por `dimensoesFoco` |
+| `a301c75` | Normalizador de foco + numeração 3.N relativa + UI EmpresaDetalhe |
+| `285df68` | Seção 3 score-zero + renumeração índice + testes |
+
+### Arquivos (além da seção 16)
+
+| Arquivo | Função |
+|---------|--------|
+| `backend/src/utils/satfBookTaxonomia.js` | `construirMapaRenumeracaoSecoesPrincipaisSatfUnidade`, `renumerarSecoesPrincipaisBookSatfUnidade` |
+| `backend/src/utils/bookDadosDimensao.js` | `dimensoesSecao3BookUnidade()` |
+| `backend/test/bookUnidadeSecoes.test.js` | Testes normalizador + renumeração + índice |
+
+### Numeração esperada — GRT (foco D1, D3, D4, D7)
+
+```
+1. Metodologia
+2. Sumário executivo
+3. Diagnóstico por dimensão
+   3.1 D1 — …
+   3.2 D3 — …
+   3.3 D4 — …
+   3.4 D7 — …
+   (cada uma: diagnóstico, recomendações R1–R3, KPIs)
+4. Roadmap 30-60-90
+5. Capacitação e governança   (antes era 7)
+6. Próximos passos             (antes era 8)
+APÊNDICES METODOLÓGICOS
+```
+
+Índice: **1, 2, 3, 3.1–3.4, 4, 5, 6** — sem lacunas.
+
+### Smoke pós-deploy (obrigatório para books unidade)
+
+```bash
+cd backend && node --test test/bookUnidadeSecoes.test.js
+# Esperado: 6 pass, 0 fail
+```
+
+**Manual (GRT):**
+1. Empresa → Unidade **Governança Operacional** → salvar foco `D1, D3, D4, D7` (ou reabrir/salvar — normalizador limpa JSON antigo)
+2. Gerar **book SATF por unidade** (`book_unidade_satf` ou completo SATF com filtro unidade) — **reuse=false**, job background
+3. Validar no documento:
+   - Seção 3 presente com 4 subseções
+   - Cada subseção com recomendações e tabela KPI
+   - Índice sem saltos 1,2,4,7,8
+   - Sem D8, D10, D11 no corpo
+   - Apêndices por último
+4. Books **já na biblioteca** mantêm versão antiga até **regenerar**
+
+### Ordem para agente de release (atualizada)
+
+1. Ler seções **2** (reuse) e **17** (books GRT)
+2. Confirmar branch `release/prd-20260701` com commits `ee691f2`, `a301c75`, `285df68`
+3. `./scripts/publish-prd-release.sh` (ou pipeline habitual + `./scripts/sync-github-main.sh HEAD`)
+4. Smoke seção 2.3 + seção 17
+5. Avisar usuário: **regenerar book GRT** após deploy
+
+---
+
+*Documento gerado para continuidade entre agentes. Atualizar SHA final após commit.*

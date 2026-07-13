@@ -9,6 +9,7 @@ import {
   aplicarNumSecaoRotuloDimensao,
   contarDimensoesSecao3Book
 } from './bookModoRapidoMarkdown.js';
+import { unidadeTemDimensoesFoco } from './bookDadosDimensao.js';
 
 /** Dimensões oficiais SATF (código + nome). */
 export const SATF_DIMENSOES_CANONICAS = SATF_FRAMEWORK_SEED.map((d) => ({
@@ -231,6 +232,65 @@ export function validarSecoesDuplicadasBookSatf(markdown) {
 /** Aplica recorte por chunk + deduplicação global das seções finais. */
 export function normalizarSecoesBookSatf(markdown) {
   return deduplicarSecoesFinaisBookSatf(String(markdown || '').trim());
+}
+
+/**
+ * Mapa de renumeração das seções principais 4–8 em books SATF por unidade com foco.
+ * Seções 5 (D10) e 6 (D11) omitidas quando fora do foco; demais renumeradas sem lacunas.
+ * @returns {{ canonParaSeq: Record<number, number> } | null}
+ */
+export function construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(
+  exigeUnidade,
+  unidadeMeta,
+  { dimensaoNoFoco } = {}
+) {
+  if (!exigeUnidade || !unidadeTemDimensoesFoco(unidadeMeta)) return null;
+
+  const noFoco = (cod) => (typeof dimensaoNoFoco === 'function' ? dimensaoNoFoco(cod) : true);
+  const incluir = {
+    4: true,
+    5: noFoco('D10'),
+    6: noFoco('D11'),
+    7: true,
+    8: true
+  };
+
+  const canonParaSeq = {};
+  let seq = 4;
+  for (const canon of [4, 5, 6, 7, 8]) {
+    if (!incluir[canon]) continue;
+    canonParaSeq[canon] = seq;
+    seq += 1;
+  }
+  return { canonParaSeq };
+}
+
+/** Número efetivo da seção principal (canônica 4–8 → sequencial sem lacunas). */
+export function numeroSecaoPrincipalSatfUnidade(canon, mapaRenumeracao) {
+  const n = mapaRenumeracao?.canonParaSeq?.[canon];
+  return n != null ? n : canon;
+}
+
+/**
+ * Renumera títulos # N. e subseções ### N.M no corpo do book por unidade.
+ * Processa canônicos do maior para o menor para evitar substituições parciais.
+ */
+export function renumerarSecoesPrincipaisBookSatfUnidade(markdown, mapaRenumeracao) {
+  const mapa = mapaRenumeracao?.canonParaSeq;
+  if (!mapa) return String(markdown || '');
+
+  let out = String(markdown || '');
+  const canones = Object.keys(mapa)
+    .map((k) => parseInt(k, 10))
+    .filter((canon) => mapa[canon] !== canon)
+    .sort((a, b) => b - a);
+
+  for (const canon of canones) {
+    const seq = mapa[canon];
+    out = out.replace(new RegExp(`^(#\\s+)${canon}(\\.\\s+)`, 'gm'), `$1${seq}$2`);
+    out = out.replace(new RegExp(`^(#{3,4}\\s+)${canon}(\\.\\d+)`, 'gm'), `$1${seq}$2`);
+  }
+  return out;
 }
 
 export const NOME_DIMENSAO_D11_SATF = 'Conformidade Regulatória de IA';

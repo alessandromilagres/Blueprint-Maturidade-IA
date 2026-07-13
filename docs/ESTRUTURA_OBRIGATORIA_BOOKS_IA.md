@@ -139,13 +139,15 @@ Seções condensadas (4+5, 6+7, 8–11, 12+13). Apêndices metodológicos **não
 | — | Capa unidade | |
 | 0 | Dashboard da unidade | Scores/plano só dims em foco |
 | 1 | Metodologia SATF + sumário | Contexto da unidade |
-| 3 | Diagnóstico por dimensão | **Somente** dims em foco (numeração canônica 3.N) |
+| 3 | Diagnóstico por dimensão | **Somente** dims em foco — numeração **relativa** 3.1 … 3.N (ex. GRT: 3.1–3.4 para D1,D3,D4,D7). Cada subseção: diagnóstico, recomendações R1–R3, KPIs — **mesmo se score individual = 0** |
 | 4 | Roadmap engenharia 30-60-90 | Referencia só dims em foco |
 | 5 | Fábrica Agêntica (D10) | Omitida se D10 fora do foco |
 | 6 | Conformidade (D11) | Omitida se D11 fora do foco |
-| 7 | Capacitação e governança | |
-| 8 | Próximos passos | |
+| 7 | Capacitação e governança | Renumerada para **5** se 5 e 6 omitidas (ex. GRT) |
+| 8 | Próximos passos | Renumerada para **6** se 5 e 6 omitidas |
 | **∴** | **APÊNDICES METODOLÓGICOS** | SATF A + B (modo completo) |
+
+> **Índice:** seções principais **sequenciais sem lacunas** (`1,2,3,3.1…,4,5,6`). Função: `renumerarSecoesPrincipaisBookSatfUnidade()` em `satfBookTaxonomia.js`.
 
 ---
 
@@ -158,7 +160,9 @@ Seções condensadas (4+5, 6+7, 8–11, 12+13). Apêndices metodológicos **não
 | `backend/src/utils/bookUnidadeContexto.js` | Dashboard Seção 0, instruções IA unidade |
 | `backend/src/index.js` | Book MIT completo |
 | `backend/src/utils/satfBookIA.js` | Book SATF completo e por unidade |
+| `backend/src/utils/satfBookTaxonomia.js` | Renumeração de seções principais (book por unidade) |
 | `backend/src/utils/bookUnidadeOrganizacionalIA.js` | Book MIT por unidade |
+| `backend/test/bookUnidadeSecoes.test.js` | Testes foco + índice |
 
 ---
 
@@ -169,3 +173,5 @@ Seções condensadas (4+5, 6+7, 8–11, 12+13). Apêndices metodológicos **não
 - [ ] Seção 13 (MIT) e Seção 14 (regulatório) aparecem **antes** dos apêndices metodológicos
 - [ ] Unidade com foco: nenhuma dimensão fora da lista aparece no texto
 - [ ] Unidade com foco: Seção 3 contém **apenas** as subseções `3.N` das dims em foco
+- [ ] Unidade com foco: índice **sem lacunas** (não 1,2,4,7,8)
+- [ ] Unidade com foco: cada dimensão da Seção 3 traz recomendações e KPIs

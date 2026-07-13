@@ -691,6 +691,15 @@ DADOS:\n${dados}`,
   return chunks;
 }
 
+async function tickJobProgress(relatorioJobId, atualizarProgressoJobBook, progresso, etapa, meta = {}) {
+  if (!relatorioJobId || !atualizarProgressoJobBook) return;
+  await atualizarProgressoJobBook(relatorioJobId, {
+    progresso,
+    etapa,
+    metadata: JSON.stringify(meta)
+  });
+}
+
 async function resolverRelatorioJobIdBook(req, projetoId, tipoRelatorio) {
   const jobIdParam = req.query.jobId;
   if (!jobIdParam) return null;
@@ -1170,6 +1179,10 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   }
 
   const areas = ordenarAreasPorFramework(await listarAreasDoProjeto(prisma, projeto.id));
+  await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 33, 'Carregando dimensões e scores da unidade…', {
+    fase: 'preparacao_dimensoes'
+  });
+
   const { porAreaId: dimensoesConfig, setorRegulado } = await mapaApresentacaoDimensoes(prisma, projetoId);
   const { frameworkMaturidade } = await carregarFrameworkProjeto(prisma, projetoId);
   const metodologiaScore = metodologiaScoreFramework(frameworkMaturidade, { setorRegulado });
@@ -1213,6 +1226,9 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     todasComScore,
     dimensoesConfig
   );
+  await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 34, 'Scores SATF e certificação consolidados', {
+    fase: 'preparacao_scores'
+  });
   if (satf) {
     scoreGeralDeclarado = consolidado.scoreGeral;
     scoreGeral = satf.scoreGeralOficial;
@@ -1259,6 +1275,9 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   const setor = projeto.vertical || projeto.empresa.setor || 'Tecnologia';
   const porte = projeto.empresa.porte || 'Não informado';
   const blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
+  await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 34, 'Contexto do projeto carregado', {
+    fase: 'preparacao_contexto'
+  });
   const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId);
   let inventarioDocumentos = await carregarInventarioDocumentosContexto(prisma, projetoId);
   if (!inventarioDocumentos.entregaveis.length && blocoContexto) {
@@ -1274,14 +1293,27 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     );
   }
   const mediaSetor = mediaSetorTiBenchmark(setor);
-  const comparativoVersoes = await montarComparativoVersoesProjeto(prisma, {
-    projetoId,
-    versaoAtualId: projetoVersao.id,
-    avaliacoesFinalizadas: projeto.avaliacoes,
-    areas,
-    filtroNivelMax,
-    usuarioIncluidoNoFiltro: usuarioIncluidoNoFiltroNivelMapeamentoMaturidade
-  });
+  const comparativoVersoes = exigeUnidade
+    ? {
+        disponivel: false,
+        mensagem:
+          'Comparativo entre versões da pesquisa (enterprise) omitido no book por unidade — foco exclusivo na unidade.'
+      }
+    : await montarComparativoVersoesProjeto(prisma, {
+        projetoId,
+        versaoAtualId: projetoVersao.id,
+        avaliacoesFinalizadas: projeto.avaliacoes,
+        areas,
+        filtroNivelMax,
+        usuarioIncluidoNoFiltro: usuarioIncluidoNoFiltroNivelMapeamentoMaturidade
+      });
+  await tickJobProgress(
+    relatorioJobId,
+    atualizarProgressoJobBook,
+    34,
+    exigeUnidade ? 'Montando blocos do book por unidade…' : 'Comparativo de versões processado',
+    { fase: 'preparacao_blocos' }
+  );
   const blocoEvolucao = blocoEvolucaoVersoesMarkdown(comparativoVersoes);
   const ordemNomes = dimsParaDados.map((d) => d.area);
 

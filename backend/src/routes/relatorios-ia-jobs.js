@@ -175,17 +175,25 @@ async function processarJobRelatorioIA({
       try {
         const snap = await prisma.relatorioIAJob.findUnique({
           where: { id: jobId },
-          select: { progresso: true, status: true }
+          select: { progresso: true, status: true, updatedAt: true, etapa: true }
         });
         if (!snap || !['queued', 'running'].includes(snap.status)) return;
-        if (Number(snap.progresso) > 31) return;
+        const pct = Number(snap.progresso);
+        const semProgressoBook =
+          pct <= 35 &&
+          snap.updatedAt &&
+          Date.now() - new Date(snap.updatedAt).getTime() > 90_000;
+        if (pct > 35 && !semProgressoBook) return;
         const min = Math.max(1, Math.round((Date.now() - heartbeatInicio) / 60_000));
         await prisma.relatorioIAJob.update({
           where: { id: jobId },
           data: {
-            progresso: Math.min(29, 12 + min * 2),
-            etapa: `Gerador ativo (${min} min) — aguardando resposta do book…`,
-            metadata: JSON.stringify({ fase: 'heartbeat_worker', minutos: min })
+            progresso: pct <= 31 ? Math.min(29, 12 + min * 2) : pct,
+            etapa:
+              pct <= 35
+                ? `Gerador ativo (${min} min) — ${snap.etapa || 'preparando book…'}`
+                : snap.etapa,
+            metadata: JSON.stringify({ fase: 'heartbeat_worker', minutos: min, progressoBook: pct })
           }
         });
       } catch {

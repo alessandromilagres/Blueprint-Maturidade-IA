@@ -34,7 +34,7 @@ Quando a unidade organizacional tem `dimensoesFoco` cadastrado (ex.: `["D4","D5"
 | Elemento | Comportamento |
 |----------|---------------|
 | Dashboard (Seção 0) | Tabela, top 3, gaps e plano só das dims em foco |
-| Seção 3 / 2 (diagnóstico) | Chunks gerados **somente** para dims em foco |
+| Seção 2 (diagnóstico; §3 no book enterprise) | Chunks gerados **somente** para dims em foco |
 | Prompts / dadosBlock | Scores e perguntas **somente** das dims em foco |
 | IA | **Proibido** mencionar, listar ou referenciar dims fora do foco |
 | Fallback | **Sem** fallback para “todas as dimensões” |
@@ -116,12 +116,15 @@ Seções condensadas (4+5, 6+7, 8–11, 12+13). Apêndices metodológicos **não
 
 | Ordem | Seção | Conteúdo |
 |:-----:|-------|----------|
-| — | Capa unidade | Nome, descrição, foco |
+| — | Capa confidencial | Banner restrito |
+| — | Índice | Links para seções 1–4 e dims `2.N` |
 | — | Capa avaliadores | Filtro prioridade |
+| — | Capa unidade | Nome, descrição, foco |
 | 0 | Dashboard da unidade | Score, tabela dims, top 3, plano rule-based |
-| 1 | Sumário executivo da unidade | Panorama, tabela, 5 prioridades 30d |
-| 2 | Ações por dimensão | **2.1 … 2.N** — só dims em foco (ou todas) |
-| 3 | Roadmap 90 dias da unidade | Cronograma, rituais |
+| 1 | Metodologia aplicada (Blueprint / MIT) | Instrumento + panorama + prioridades (sem Sumário como §2) |
+| 2 | Diagnóstico por dimensão | **2.1 … 2.N** — só dims em foco (ou todas); ações 30/60–90 + KPIs |
+| 3 | Roadmap engenharia 30-60-90 | Cronograma, rituais |
+| 4 | Próximos passos e encerramento | Ações prioritárias 30 dias |
 | **∴** | **APÊNDICES METODOLÓGICOS** | Blueprint A + B (modo completo) |
 
 ---
@@ -138,16 +141,13 @@ Seções condensadas (4+5, 6+7, 8–11, 12+13). Apêndices metodológicos **não
 | — | Capa confidencial + índice + capas | Como book SATF completo |
 | — | Capa unidade | |
 | 0 | Dashboard da unidade | Scores/plano só dims em foco |
-| 1 | Metodologia SATF + sumário | Contexto da unidade |
-| 3 | Diagnóstico por dimensão | **Somente** dims em foco — numeração **relativa** 3.1 … 3.N (ex. GRT: 3.1–3.4 para D1,D3,D4,D7). Cada subseção: diagnóstico, recomendações R1–R3, KPIs — **mesmo se score individual = 0** |
-| 4 | Roadmap engenharia 30-60-90 | Referencia só dims em foco |
-| 5 | Fábrica Agêntica (D10) | Omitida se D10 fora do foco |
-| 6 | Conformidade (D11) | Omitida se D11 fora do foco |
-| 7 | Capacitação e governança | Renumerada para **5** se 5 e 6 omitidas (ex. GRT) |
-| 8 | Próximos passos | Renumerada para **6** se 5 e 6 omitidas |
+| 1 | Metodologia SATF | Instrumento + panorama curto da unidade (sem Sumário como §2) |
+| 2 | Diagnóstico por dimensão | **Somente** dims em foco — numeração **relativa** **2.1 … 2.N** (ou 2.1–2.11 se sem foco). Cada subseção: diagnóstico, recomendações R1–R3, KPIs — **mesmo se score individual = 0**. D10/D11/Capacitação **não** têm seção dedicada (ficam em 2.N se no foco) |
+| 3 | Roadmap engenharia 30-60-90 | Referencia só dims em foco |
+| 4 | Próximos passos e encerramento | Ações TI da unidade |
 | **∴** | **APÊNDICES METODOLÓGICOS** | SATF A + B (modo completo) |
 
-> **Índice:** seções principais **sequenciais sem lacunas** (`1,2,3,3.1…,4,5,6`). Função: `renumerarSecoesPrincipaisBookSatfUnidade()` em `satfBookTaxonomia.js`.
+> **Índice:** seções principais **sequenciais** (`1,2,2.1…,3,4`). Mapa canônico enterprise→unidade: Roadmap `4→3`, Próximos `8→4` (`construirMapaRenumeracaoSecoesPrincipaisSatfUnidade`).
 
 ---
 
@@ -172,6 +172,7 @@ Seções condensadas (4+5, 6+7, 8–11, 12+13). Apêndices metodológicos **não
 - [ ] Não há `# 12. APÊNDICES` com Apêndice A/B gerado pela IA (MIT completo)
 - [ ] Seção 13 (MIT) e Seção 14 (regulatório) aparecem **antes** dos apêndices metodológicos
 - [ ] Unidade com foco: nenhuma dimensão fora da lista aparece no texto
-- [ ] Unidade com foco: Seção 3 contém **apenas** as subseções `3.N` das dims em foco
-- [ ] Unidade com foco: índice **sem lacunas** (não 1,2,4,7,8)
-- [ ] Unidade com foco: cada dimensão da Seção 3 traz recomendações e KPIs
+- [ ] Unidade: Seção 2 contém **apenas** as subseções `2.N` das dims em foco
+- [ ] Unidade: índice **sequencial** (`1,2,3,4` — sem lacunas nem skip do 3)
+- [ ] Unidade: cada dimensão da Seção 2 traz recomendações e KPIs
+- [ ] Book SATF enterprise completo permanece com diagnóstico em §3 e seções 1–8

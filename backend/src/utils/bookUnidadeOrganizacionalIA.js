@@ -32,6 +32,8 @@ import {
   carregarRegrasFatosContextoProjeto
 } from './projetoContexto.js';
 import { posicionarApendicesMetodologicosComoUltimaSecao } from './bookApendicesMetodologicos.js';
+import { adicionarIndiceAoBookMarkdown } from './bookMarkdownIndice.js';
+import { capaConfidencialBookSatfMarkdown } from './satfBookTaxonomia.js';
 import {
   blocoDesejosIaMarkdown,
   projetoTemDesejosIaCadastrados
@@ -226,10 +228,10 @@ Gere SOMENTE o conteúdo solicitado em Markdown. A Seção 0 (Dashboard) já exi
   let totalTokensSaida = 0;
   let providerUsado = getProvider().name;
   let modelUsado = getProvider().defaultModel;
-  const partesSumario = [];
+  const partesMetodologia = [];
   const partesDimensoes = [];
   const dimsComDadosLoop = dimsParaChunks.length ? dimsParaChunks : dimensoesRelevantes;
-  const totalChunks = dimsComDadosLoop.length + 2;
+  const totalChunks = dimsComDadosLoop.length + 3;
 
   let relatorioJobId = null;
   const jobIdParam = req.query.jobId;
@@ -275,36 +277,39 @@ Gere SOMENTE o conteúdo solicitado em Markdown. A Seção 0 (Dashboard) já exi
     return resultado.content || '';
   }
 
-  // Chunk 1 — Sumário da unidade
+  // Chunk 1 — Metodologia MIT / Blueprint
   try {
-  await reportarProgresso(0, 'Sumário executivo da unidade');
-  partesSumario.push(
+  await reportarProgresso(0, 'Metodologia MIT da unidade');
+  partesMetodologia.push(
     await chamarIa(
       `${dadosResumoBase}
 
 Gere SOMENTE:
 
-# 1. SUMÁRIO EXECUTIVO DA UNIDADE
+# 1. METODOLOGIA APLICADA (SysMap Blueprint IA)
 
-## 1.1 Panorama
-1 parágrafo sobre a maturidade de IA **desta unidade** (${unidadeMeta.nome}), citando score ${scoreGeral.toFixed(2)} e contexto setorial.
+## 1.1 Instrumento
+Brief: framework SysMap Blueprint IA com **16 dimensões** (referência metodológica MIT CISR), escala de maturidade e leitura de score consolidado **desta unidade** (${unidadeMeta.nome}).
 
-## 1.2 Tabela consolidada
+## 1.2 Panorama da unidade
+1 parágrafo sobre a maturidade de IA desta unidade, citando score ${scoreGeral.toFixed(2)} e contexto setorial.
+
+## 1.3 Tabela consolidada
 | Métrica | Valor |
 |---------|:-----:|
 | Score da unidade | ${scoreGeral.toFixed(2)} |
 | Nível | ${nomesNivel[nivel - 1]} |
 | Avaliadores | ${avaliacoesFiltradas.length} |
 
-## 1.3 Cinco prioridades imediatas
-Bullets numerados — o que a unidade deve fazer nos próximos 30 dias (específico, não genérico).
+## 1.4 Cinco prioridades imediatas
+Bullets numerados — o que a unidade deve fazer nos próximos 30 dias (específico, não genérico). **Não** crie "# 2." — o Diagnóstico será a Seção 2.
 
 ${temContexto ? 'Use o contexto do cliente quando disponível.' : ''}`,
       modoRapido ? 2500 : 4000
     )
   );
 
-  // Chunks por dimensão — ações específicas
+  // Chunks por dimensão — diagnóstico acionável
   for (let i = 0; i < dimsComDadosLoop.length; i++) {
     const dim = dimsComDadosLoop[i];
     const num = i + 1;
@@ -326,7 +331,7 @@ ${blocoDim}
 
 Gere SOMENTE a subseção da dimensão **${dim.area}**:
 
-## 2.${num} ${dim.area}
+## 2.${num} Dimensão — ${dim.area}
 
 ### 2.${num}.1 Diagnóstico da unidade
 Parágrafo denso: score ${Number(dim.score).toFixed(2)}, nível N${dim.nivel || nivel}, cite perguntas [Qn] quando relevante.
@@ -349,9 +354,9 @@ ${temDesejosIa ? 'Ancore ≥1 ação em Desejos IA quando pertinente.' : ''}`,
     );
   }
 
-  const secao2 = `# 2. AÇÕES POR DIMENSÃO — UNIDADE ${unidadeMeta.nome}\n\n${partesDimensoes.join('\n\n')}`;
+  const secao2 = `# 2. DIAGNÓSTICO POR DIMENSÃO — UNIDADE ${unidadeMeta.nome}\n\n${partesDimensoes.join('\n\n')}`;
 
-  await reportarProgresso(totalChunks - 1, 'Roadmap 90 dias da unidade');
+  await reportarProgresso(totalChunks - 2, 'Roadmap 30-60-90 da unidade');
   const secao3 = await chamarIa(
     `${dadosResumoBase}
 
@@ -360,20 +365,39 @@ ${planoAcaoRelevante.map((p) => `- ${p.area} (${p.score}): ${p.acoes30Dias[0]}`)
 
 Gere SOMENTE:
 
-# 3. ROADMAP 90 DIAS DA UNIDADE
+# 3. ROADMAP ENGENHARIA 30-60-90 DIAS DA UNIDADE
 
 ## 3.1 Visão integrada
-Parágrafo conectando gaps da unidade ${unidadeMeta.nome} ao plano trimestral.
+Parágrafo conectando gaps da unidade ${unidadeMeta.nome} ao plano 30/60/90.
 
 ## 3.2 Cronograma
-Tabela: Semana | Iniciativa | Dimensão | Owner | Entregável | Status
+Tabela: Horizonte (30/60/90) | Iniciativa | Dimensão | Owner | Entregável | Status
 
 ## 3.3 Rituais de governança
 Bullets: cadência de acompanhamento, métricas de revisão, critério de sucesso da unidade.`,
     modoRapido ? 2200 : 3500
   );
 
-  markdown = `${secaoDashboard}\n\n${partesSumario.join('\n\n')}\n\n${secao2}\n\n${secao3}`;
+  await reportarProgresso(totalChunks - 1, 'Próximos passos da unidade');
+  const secao4 = await chamarIa(
+    `${dadosResumoBase}
+
+Gere SOMENTE:
+
+# 4. Próximos Passos e Encerramento
+
+## 4.1 Ações prioritárias (30 dias)
+7–10 ações numeradas com responsável, entregável e prazo — exclusivas da unidade ${unidadeMeta.nome}.
+
+## 4.2 Critérios de sucesso
+Bullets objetivos para a próxima rodada de avaliação.
+
+## 4.3 Encerramento
+1 parágrafo de fechamento executivo.`,
+    modoRapido ? 2000 : 3200
+  );
+
+  markdown = `${secaoDashboard}\n\n${partesMetodologia.join('\n\n')}\n\n${secao2}\n\n${secao3}\n\n${secao4}`;
   await reportarProgresso(totalChunks, 'Finalizando book da unidade');
   } catch (iaErr) {
     console.error('[Book Unidade Blueprint] Falha na geração IA:', iaErr);
@@ -392,12 +416,15 @@ Bullets: cadência de acompanhamento, métricas de revisão, critério de sucess
     empresaNome: projeto.empresa.nome,
     projetoNome: projeto.nome
   });
-  const relatorioFinal = !modoRapido
+  let relatorioFinal = !modoRapido
     ? posicionarApendicesMetodologicosComoUltimaSecao(relatorioComCapas, {
         framework: 'blueprint',
         glossarioProjeto: regrasFatos.glossario
       })
     : relatorioComCapas;
+
+  const comIndice = adicionarIndiceAoBookMarkdown(relatorioFinal, { modo: 'completo' });
+  relatorioFinal = `${capaConfidencialBookSatfMarkdown(projeto.empresa.nome, projeto.nome)}${comIndice}`;
 
   const tempoTotal = Date.now() - startTime;
   const logoMeta = await resolverLogoEmpresa(projeto.empresa);

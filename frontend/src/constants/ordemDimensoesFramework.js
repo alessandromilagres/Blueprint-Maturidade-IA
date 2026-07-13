@@ -33,7 +33,7 @@ export function ordenarDimensoesPorFramework(dimensoes) {
 
 export function contarDimensoesSecao3Book(markdown) {
   const encontrados = new Set();
-  for (const m of String(markdown || '').matchAll(/^## 3\.(\d+)\s+Dimens[aã]o\s*[—–-]/gim)) {
+  for (const m of String(markdown || '').matchAll(/^## [23]\.(\d+)\s+Dimens[aã]o\s*[—–-]/gim)) {
     encontrados.add(parseInt(m[1], 10));
   }
   return encontrados;

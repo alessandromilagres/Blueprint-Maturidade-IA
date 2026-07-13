@@ -8,7 +8,6 @@ import {
   dimensaoComScoreZero,
   aplicarNumSecaoRotuloDimensao
 } from './bookModoRapidoMarkdown.js';
-import { unidadeTemDimensoesFoco } from './bookDadosDimensao.js';
 
 /** Dimensões oficiais SATF (código + nome). */
 export const SATF_DIMENSOES_CANONICAS = SATF_FRAMEWORK_SEED.map((d) => ({
@@ -124,7 +123,9 @@ REGRAS DE TAXONOMIA SATF (CRÍTICO — NUNCA VIOLAR):
 
 /** Última seção permitida por id de chunk (recorte pós-IA). */
 const SECAO_MAX_POR_CHUNK_SATF = {
+  sec_1: 1,
   sec_1_2: 2,
+  sec_3: 3,
   sec_4: 4,
   sec_5: 5,
   sec_6: 6,
@@ -164,8 +165,8 @@ export function recortarConteudoChunkBookSatf(conteudo, chunkId) {
 }
 
 /**
- * Remove blocos duplicados de seções 4–8 (h1 `# N.`).
- * Mantém a primeira ocorrência de cada número.
+ * Remove blocos duplicados de seções 3–8 (h1 `# N.`).
+ * Mantém a primeira ocorrência de cada número (enterprise 4–8; unidade roadmap 3 / próximos 4).
  */
 export function deduplicarSecoesFinaisBookSatf(markdown) {
   const linhas = String(markdown || '').split('\n');
@@ -191,7 +192,8 @@ export function deduplicarSecoesFinaisBookSatf(markdown) {
   const vistos = new Set();
   const saida = [];
   for (const b of blocos) {
-    if (b.sec != null && b.sec >= 4 && b.sec <= 8) {
+    // Enterprise: 4–8; unidade: 3 (roadmap) e 4 (próximos).
+    if (b.sec != null && b.sec >= 3 && b.sec <= 8) {
       if (vistos.has(b.sec)) continue;
       vistos.add(b.sec);
     }
@@ -201,24 +203,25 @@ export function deduplicarSecoesFinaisBookSatf(markdown) {
   return saida.join('\n').trim();
 }
 
-/** Remove headings ## 3.N gerados indevidamente fora da Seção 3 (spillover de chunks 4+). */
+/** Remove headings ## 2.N / ## 3.N gerados indevidamente fora do diagnóstico (spillover). */
 export function removerSpilloverSecao3BookSatf(markdown) {
   const linhas = String(markdown || '').split('\n');
   const saida = [];
-  let dentroSec3 = false;
+  let dentroDiagnostico = false;
 
   for (const linha of linhas) {
-    if (/^#\s+3\.\s+DIAGNÓSTICO/i.test(linha.trim())) {
-      dentroSec3 = true;
+    const t = linha.trim();
+    if (/^#\s+[23]\.\s+DIAGNÓSTICO/i.test(t)) {
+      dentroDiagnostico = true;
       saida.push(linha);
       continue;
     }
-    if (/^#\s+[4-9]\.\s+/m.test(linha)) {
-      dentroSec3 = false;
+    if (/^#\s+\d+\.\s+/.test(t) && !/^#\s+[23]\.\s+DIAGNÓSTICO/i.test(t)) {
+      dentroDiagnostico = false;
       saida.push(linha);
       continue;
     }
-    if (!dentroSec3 && /^##\s+3\.\d+\s+/i.test(linha.trim())) {
+    if (!dentroDiagnostico && /^##\s+[23]\.\d+\s+/i.test(t)) {
       continue;
     }
     saida.push(linha);
@@ -261,34 +264,25 @@ export function normalizarSecoesBookSatf(markdown) {
 }
 
 /**
- * Mapa de renumeração das seções principais 4–8 em books SATF por unidade com foco.
- * Seções 5 (D10) e 6 (D11) omitidas quando fora do foco; demais renumeradas sem lacunas.
- * @returns {{ canonParaSeq: Record<number, number> } | null}
+ * Outline fixo do book SATF por unidade:
+ * 1 Metodologia · 2 Diagnóstico (2.1–2.N) · 3 Roadmap · 4 Próximos · Apêndices.
+ * Sem Sumário §2, sem seções D10/D11/Capacitação dedicadas (ficam no diagnóstico 2.N).
+ * Mapa canônico enterprise → unidade: Roadmap 4→3, Próximos 8→4.
+ * @returns {{ canonParaSeq: Record<number, number>, outlineUnidade: true } | null}
  */
 export function construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(
   exigeUnidade,
-  unidadeMeta,
-  { dimensaoNoFoco } = {}
+  _unidadeMeta,
+  _opts = {}
 ) {
-  if (!exigeUnidade || !unidadeTemDimensoesFoco(unidadeMeta, 'satf')) return null;
-
-  const noFoco = (cod) => (typeof dimensaoNoFoco === 'function' ? dimensaoNoFoco(cod) : true);
-  const incluir = {
-    4: true,
-    5: noFoco('D10'),
-    6: noFoco('D11'),
-    7: true,
-    8: true
+  if (!exigeUnidade) return null;
+  return {
+    outlineUnidade: true,
+    canonParaSeq: {
+      4: 3,
+      8: 4
+    }
   };
-
-  const canonParaSeq = {};
-  let seq = 4;
-  for (const canon of [4, 5, 6, 7, 8]) {
-    if (!incluir[canon]) continue;
-    canonParaSeq[canon] = seq;
-    seq += 1;
-  }
-  return { canonParaSeq };
 }
 
 /** Número efetivo da seção principal (canônica 4–8 → sequencial sem lacunas). */
@@ -299,7 +293,7 @@ export function numeroSecaoPrincipalSatfUnidade(canon, mapaRenumeracao) {
 
 /**
  * Renumera títulos # N. e subseções ### N.M no corpo do book por unidade.
- * Processa canônicos do maior para o menor para evitar substituições parciais.
+ * Usa placeholders em duas fases para evitar colisão em cascata (ex.: 8→4 depois 4→3).
  */
 export function renumerarSecoesPrincipaisBookSatfUnidade(markdown, mapaRenumeracao) {
   const mapa = mapaRenumeracao?.canonParaSeq;
@@ -311,10 +305,15 @@ export function renumerarSecoesPrincipaisBookSatfUnidade(markdown, mapaRenumerac
     .filter((canon) => mapa[canon] !== canon)
     .sort((a, b) => b - a);
 
+  const placeholders = new Map();
   for (const canon of canones) {
-    const seq = mapa[canon];
-    out = out.replace(new RegExp(`^(#\\s+)${canon}(\\.\\s+)`, 'gm'), `$1${seq}$2`);
-    out = out.replace(new RegExp(`^(#{3,4}\\s+)${canon}(\\.\\d+)`, 'gm'), `$1${seq}$2`);
+    const token = `__SEC_RENUM_${canon}__`;
+    placeholders.set(token, mapa[canon]);
+    out = out.replace(new RegExp(`^(#\\s+)${canon}(\\.\\s+)`, 'gm'), `$1${token}$2`);
+    out = out.replace(new RegExp(`^(#{3,4}\\s+)${canon}(\\.\\d+)`, 'gm'), `$1${token}$2`);
+  }
+  for (const [token, seq] of placeholders) {
+    out = out.split(token).join(String(seq));
   }
   return out;
 }
@@ -375,10 +374,10 @@ ${d11 ? tabelaPerguntasDimensaoMarkdown(d11) : '_Sem perguntas D11 cadastradas._
 `;
 }
 
-/** Garante Seção 6 (D11) no book SATF enterprise quando a IA omitir. Não usar em books por unidade com foco SATF. */
+/** Garante Seção 6 (D11) no book SATF enterprise quando a IA omitir. Não usar em books por unidade. */
 export function garantirSecoesD11BookSatf(markdown, dimensoesDiagnostico = [], opts = {}) {
-  const { exigeUnidade = false, unidadeComFocoSatf = false } = opts;
-  if (exigeUnidade && unidadeComFocoSatf) {
+  const { exigeUnidade = false } = opts;
+  if (exigeUnidade) {
     return String(markdown || '').trim();
   }
 
@@ -398,15 +397,16 @@ export function garantirSecoesD11BookSatf(markdown, dimensoesDiagnostico = [], o
   return out;
 }
 
-export function introducaoSecao3SatfBookMarkdown(totalDimensoes, ordemNomes) {
+export function introducaoSecao3SatfBookMarkdown(totalDimensoes, ordemNomes, { numPai = 3 } = {}) {
   const listaOrdem = ordemNomes.map((nome, idx) => `${idx + 1}. ${nome}`).join('\n');
-  return `# 3. DIAGNÓSTICO POR DIMENSÃO (SATF TI v3)
+  const n = Number(numPai) === 2 ? 2 : 3;
+  return `# ${n}. DIAGNÓSTICO POR DIMENSÃO (SATF TI v3)
 
 Este capítulo apresenta as **${totalDimensoes} dimensões** do instrumento SATF TI v3 na ordem abaixo. Dimensões com **score 0** constam apenas para registro.
 
 ${listaOrdem}
 
-**Numeração:** **3.N** = dimensão (##); **3.N.1**, **3.N.2**… = subseções (###).
+**Numeração:** **${n}.N** = dimensão (##); **${n}.N.1**, **${n}.N.2**… = subseções (###).
 
 **Scores:** use o **score oficial** (certificado ou com teto por evidência). Quando o bloco DADOS indicar gap entre declarado e oficial, mencione na análise.
 
@@ -416,11 +416,11 @@ ${listaOrdem}
 export function blocoDimensaoScoreZeroSecao3Satf(
   numSecao,
   dim,
-  { isFirst = false, totalDimensoes = 11, ordemNomes = [], modoRapido = true } = {}
+  { isFirst = false, totalDimensoes = 11, ordemNomes = [], modoRapido = true, numPai = 3 } = {}
 ) {
   let md = '';
   if (isFirst) {
-    md += `${introducaoSecao3SatfBookMarkdown(totalDimensoes, ordemNomes)}\n\n`;
+    md += `${introducaoSecao3SatfBookMarkdown(totalDimensoes, ordemNomes, { numPai })}\n\n`;
   }
   md += `${aplicarNumSecaoRotuloDimensao(numSecao, dim, { bookCompleto: !modoRapido })}\n\n`;
   md += `### ${numSecao}.1 Status da dimensão\n\n`;

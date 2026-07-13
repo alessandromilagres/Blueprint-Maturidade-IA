@@ -188,19 +188,20 @@ export function montarBlocoSecao3Dimensao({
 }
 
 export function instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst) {
+  const pai = String(numSecao || '').startsWith('2.') ? 2 : 3;
   if (isFirst) {
-    return `Esta é a **primeira dimensão** da Seção 3. **NÃO** gere "# 3. DIAGNÓSTICO POR DIMENSÃO" nem "## ${numSecao} Dimensão — …" — o sistema insere esses títulos automaticamente.\n\nComece **diretamente** com ### ${numSecao}.1\n\n`;
+    return `Esta é a **primeira dimensão** da Seção ${pai}. **NÃO** gere "# ${pai}. DIAGNÓSTICO POR DIMENSÃO" nem "## ${numSecao} Dimensão — …" — o sistema insere esses títulos automaticamente.\n\nComece **diretamente** com ### ${numSecao}.1\n\n`;
   }
-  return `Gere **somente** o conteúdo da dimensão **${numSecao}**. **NÃO** gere "# 3." nem "## ${numSecao}" — comece diretamente com ### ${numSecao}.1\n\n`;
+  return `Gere **somente** o conteúdo da dimensão **${numSecao}**. **NÃO** gere "# ${pai}." nem "## ${numSecao}" — comece diretamente com ### ${numSecao}.1\n\n`;
 }
 
 /**
  * Bloco fixo da Seção 3 para dimensões com score 0 — consta no book, sem análise IA.
  */
-/** Conta cabeçalhos ## 3.N Dimensão — … no book montado. */
+/** Conta cabeçalhos ## 2.N / ## 3.N Dimensão — … no book montado. */
 export function contarDimensoesSecao3Book(markdown) {
   const encontrados = new Set();
-  for (const m of String(markdown || '').matchAll(/^## 3\.(\d+)\s+Dimens[aã]o\s*[—–-]/gim)) {
+  for (const m of String(markdown || '').matchAll(/^## [23]\.(\d+)\s+Dimens[aã]o\s*[—–-]/gim)) {
     encontrados.add(parseInt(m[1], 10));
   }
   return encontrados;

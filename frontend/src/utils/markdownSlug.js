@@ -38,22 +38,22 @@ export function detectarBookSatf(conteudoMd) {
   const md = String(conteudoMd);
   return (
     /^#\s+1\.\s+METODOLOGIA SATF/im.test(md) ||
-    /^#\s+3\.\s+DIAGNÓSTICO POR DIMENSÃO \(SATF/im.test(md) ||
+    /^#\s+[23]\.\s+DIAGNÓSTICO POR DIMENSÃO \(SATF/im.test(md) ||
     (/SATF TI v3/i.test(md) && /^#\s+[1-8]\.\s+/m.test(md))
   );
 }
 
 export function encurtarTituloDimensaoSecao3(titulo) {
-  const m = String(titulo).match(/^3\.(\d+)\s+Dimens[aã]o\s*[—–-]\s*(.+)$/i);
+  const m = String(titulo).match(/^([23])\.(\d+)\s+Dimens[aã]o\s*[—–-]\s*(.+)$/i);
   if (!m) return null;
-  let nome = m[2].trim();
+  let nome = m[3].trim();
   nome = nome
     .split(/\s*[—–-]\s*oficial\b/i)[0]
     .split(/\s*\(oficial\b/i)[0]
     .split(/\s*·\s*N[ií]vel\b/i)[0]
     .split(/\s*·\s*Score\b/i)[0]
     .trim();
-  return `3.${m[1]} — ${nome}`;
+  return `${m[1]}.${m[2]} — ${nome}`;
 }
 
 function resolverModoIndice(conteudoMd, options = {}) {
@@ -67,7 +67,7 @@ function deveIncluirNoIndice(modo, depth, titulo) {
   if (/^índice$/i.test(titulo)) return false;
   if (modo !== 'satf') return depth <= 2;
   if (depth === 1) return /^[1-8]\.\s+/.test(titulo);
-  if (depth === 2) return /^3\.\d+\s+Dimens[aã]o\b/i.test(titulo);
+  if (depth === 2) return /^[23]\.\d+\s+Dimens[aã]o\b/i.test(titulo);
   return false;
 }
 

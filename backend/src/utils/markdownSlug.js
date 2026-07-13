@@ -35,40 +35,40 @@ export function detectarBookSatf(conteudoMd) {
   const md = String(conteudoMd);
   return (
     /^#\s+1\.\s+METODOLOGIA SATF/im.test(md) ||
-    /^#\s+3\.\s+DIAGNÓSTICO POR DIMENSÃO \(SATF/im.test(md) ||
+    /^#\s+[23]\.\s+DIAGNÓSTICO POR DIMENSÃO \(SATF/im.test(md) ||
     (/SATF TI v3/i.test(md) && /^#\s+[1-8]\.\s+/m.test(md))
   );
 }
 
-/** Título curto para dimensões da seção 3 no índice (slug continua vindo do título completo). */
+/** Título curto para dimensões do diagnóstico no índice (slug continua vindo do título completo). */
 export function encurtarTituloDimensaoSecao3(titulo) {
-  const mDim = String(titulo).match(/^3\.(\d+)\s+Dimens[aã]o\s*[—–-]\s*(.+)$/i);
+  const mDim = String(titulo).match(/^([23])\.(\d+)\s+Dimens[aã]o\s*[—–-]\s*(.+)$/i);
   if (mDim) {
-    let nome = mDim[2].trim();
+    let nome = mDim[3].trim();
     nome = nome
       .split(/\s*[—–-]\s*oficial\b/i)[0]
       .split(/\s*\(oficial\b/i)[0]
       .split(/\s*·\s*N[ií]vel\b/i)[0]
       .split(/\s*·\s*Score\b/i)[0]
       .trim();
-    return `3.${mDim[1]} — ${nome}`;
+    return `${mDim[1]}.${mDim[2]} — ${nome}`;
   }
-  const mCod = String(titulo).match(/^3\.(\d+)\s+(D(?:10|11|[1-9]))\s+[—–-]\s*(.+)$/i);
+  const mCod = String(titulo).match(/^([23])\.(\d+)\s+(D(?:10|11|[1-9]))\s+[—–-]\s*(.+)$/i);
   if (mCod) {
-    let nome = mCod[3].trim();
+    let nome = mCod[4].trim();
     nome = nome
       .split(/\s*[—–-]\s*Score\b/i)[0]
       .split(/\s*·\s*N[ií]vel\b/i)[0]
       .trim();
-    return `3.${mCod[1]} — ${nome}`;
+    return `${mCod[1]}.${mCod[2]} — ${nome}`;
   }
   return null;
 }
 
-function tituloEhSecao3Dimensao(titulo) {
+function tituloEhSecaoDiagnosticoDimensao(titulo) {
   return (
-    /^3\.\d+\s+Dimens[aã]o\b/i.test(titulo) ||
-    /^3\.\d+\s+D(?:10|11|[1-9])\s+[—–-]/i.test(titulo)
+    /^[23]\.\d+\s+Dimens[aã]o\b/i.test(titulo) ||
+    /^[23]\.\d+\s+D(?:10|11|[1-9])\s+[—–-]/i.test(titulo)
   );
 }
 
@@ -83,7 +83,7 @@ function deveIncluirNoIndice(modo, depth, titulo) {
   if (/^índice$/i.test(titulo)) return false;
   if (modo !== 'satf') return depth <= 2;
   if (depth === 1) return /^[1-8]\.\s+/.test(titulo);
-  if (depth === 2) return tituloEhSecao3Dimensao(titulo);
+  if (depth === 2) return tituloEhSecaoDiagnosticoDimensao(titulo);
   return false;
 }
 

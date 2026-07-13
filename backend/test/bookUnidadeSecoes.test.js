@@ -39,40 +39,44 @@ describe('dimensoesSecao3BookUnidade', () => {
   });
 });
 
-describe('renumeracao secoes SATF por unidade GRT', () => {
-  const unidadeGrt = { dimensoesFocoSatf: '["D1","D3","D4","D7"]' };
-  const noFoco = (cod) => ['D1', 'D3', 'D4', 'D7'].includes(cod);
-
-  it('mapeia 4,7,8 para 4,5,6 omitindo D10 e D11', () => {
-    const mapa = construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(true, unidadeGrt, {
-      dimensaoNoFoco: noFoco
+describe('renumeracao secoes SATF por unidade', () => {
+  it('mapeia Roadmap 4→3 e Próximos 8→4 (outline 1–4)', () => {
+    const mapa = construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(true, {
+      dimensoesFocoSatf: '["D1","D3","D4","D7"]'
     });
-    assert.deepEqual(mapa.canonParaSeq, { 4: 4, 7: 5, 8: 6 });
+    assert.equal(mapa.outlineUnidade, true);
+    assert.deepEqual(mapa.canonParaSeq, { 4: 3, 8: 4 });
   });
 
-  it('renumera headings no markdown', () => {
-    const mapa = construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(true, unidadeGrt, {
-      dimensaoNoFoco: noFoco
-    });
-    const md = `# 1. METODOLOGIA\n# 2. SUMÁRIO\n# 3. DIAGNÓSTICO\n## 3.1 Dimensão — D1\n# 4. ROADMAP\n# 7. Capacitação\n### 7.1 Papéis\n# 8. Próximos Passos`;
+  it('renumera headings canônicos 4 e 8 no markdown', () => {
+    const mapa = construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(true, {});
+    const md = `# 1. METODOLOGIA
+# 2. DIAGNÓSTICO
+## 2.1 Dimensão — D1
+# 4. ROADMAP
+### 4.1 Visão
+# 8. Próximos Passos
+### 8.1 Ações`;
     const out = renumerarSecoesPrincipaisBookSatfUnidade(md, mapa);
-    assert.match(out, /^# 5\. Capacitação/m);
-    assert.match(out, /^### 5\.1 Papéis/m);
-    assert.match(out, /^# 6\. Próximos Passos/m);
-    assert.doesNotMatch(out, /^# 7\./m);
+    assert.match(out, /^# 3\. ROADMAP/m);
+    assert.match(out, /^### 3\.1 Visão/m);
+    assert.match(out, /^# 4\. Próximos Passos/m);
+    assert.match(out, /^### 4\.1 Ações/m);
+    assert.doesNotMatch(out, /^# 8\./m);
   });
 
-  it('índice SATF fica sequencial sem lacunas', () => {
+  it('índice SATF unidade fica 1,2,3,4 com dims 2.N', () => {
     const md = `# 1. METODOLOGIA SATF TI v3
-# 2. SUMÁRIO EXECUTIVO
-# 3. DIAGNÓSTICO POR DIMENSÃO (SATF TI v3)
-## 3.1 Dimensão — D1 — Score 1.59 · Nível 1
-## 3.2 Dimensão — D3 — Score 1.59 · Nível 1
-# 4. ROADMAP ENGENHARIA & PLATAFORMA
-# 5. Capacitação, Papéis e Governança de Times
-# 6. Próximos Passos e Encerramento`;
+# 2. DIAGNÓSTICO POR DIMENSÃO (SATF TI v3)
+## 2.1 Dimensão — D1 — Score 1.59 · Nível 1
+## 2.2 Dimensão — D3 — Score 1.59 · Nível 1
+# 3. ROADMAP ENGENHARIA & PLATAFORMA
+# 4. Próximos Passos e Encerramento`;
     const entradas = extrairEntradasIndiceMarkdown(md, { modo: 'satf' });
     const nums = entradas.filter((e) => e.level === 1).map((e) => parseInt(e.titulo, 10));
-    assert.deepEqual(nums, [1, 2, 3, 4, 5, 6]);
+    assert.deepEqual(nums, [1, 2, 3, 4]);
+    const dims = entradas.filter((e) => e.level === 2).map((e) => e.tituloIndice || e.titulo);
+    assert.match(dims[0], /^2\.1\b/);
+    assert.match(dims[1], /^2\.2\b/);
   });
 });

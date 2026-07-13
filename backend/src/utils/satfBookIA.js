@@ -35,7 +35,6 @@ import {
   instrucoesSistemaBookUnidade,
   montarBlocoPlanoAcaoDimensaoPrompt,
   montarBlocoPlanoAcaoUnidadeMarkdown,
-  montarSecaoDashboardUnidadeMarkdown,
   planoAcaoPorNomeDimensao
 } from './bookUnidadeContexto.js';
 import { listarAreasDoProjeto } from './areaFrameworkCatalog.js';
@@ -202,7 +201,7 @@ ${exigeUnidade ? `- **Unidade organizacional:** recomendações **exclusivas** p
 ${exigeUnidade && planoDim ? `\n${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}` : ''}
 ${regrasEntregaveis}
 ${temContexto ? '- **Contexto cadastrado:** cite ≥2 elementos concretos do bloco "Contexto do cliente" em Análise, Risco e Recomendações. **Proibido** "empresa de tecnologia de médio porte" como narrativa principal.' : `- Contextualize ao setor **${setor}** e porte **${porte}** com exemplos de engenharia/plataforma reais.`}
-- Numere **exatamente** as subseções pedidas com ### (três #). **Não** gere "## ${numSecao}" nem "# ${String(numSecao).startsWith('2.') ? 2 : 3}.".
+- Numere **exatamente** as subseções pedidas com ### (três #). **Não** gere "## ${numSecao}" nem "# 3.".
 `;
 
   const contextoDim = `
@@ -216,7 +215,10 @@ DETALHE DESTA DIMENSÃO (perguntas consolidadas):
 ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
 `;
 
-  if (modoRapido) {
+  // Book por unidade: template canônico 3.x.1–3.x.6 (mesmo do modo completo).
+  const usarTemplateUnidadeOuCompleto = exigeUnidade || !modoRapido;
+
+  if (!usarTemplateUnidadeOuCompleto) {
     return `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.7 em Markdown.
 
 ### ${numSecao}.1 Diagnóstico (1 parágrafo denso: cite [Qn], score oficial, gap declarado→oficial se houver, e ≥1 fato do contexto do projeto)
@@ -254,7 +256,7 @@ ${tabelaDim}`;
 - **Fatores que elevaram o score** (bullets com [Qn] e justificativa)
 - **Fatores que puxaram o score para baixo** (bullets com [Qn])
 - **Evidências documentadas** e status de certificação consultor (qualidade, lacunas)
-### ${numSecao}.3 Risco de Negócio e Técnico (1 parágrafo — consequências se mantiver este nível; específico de ${dim.area} e da operação do cliente)
+### ${numSecao}.3 Risco de Negócio (1 parágrafo — consequências se mantiver este nível; específico de ${dim.area} e da operação do cliente)
 ### ${numSecao}.4 Benchmark Setorial (1 parágrafo — posição vs média TI ${mediaSetor.toFixed(1)} e expectativa de clientes/mercado para esta capacidade)
 ### ${numSecao}.5 Recomendações Específicas (3–4 ações numeradas${temDesejosIa ? '; ≥1 ancorada em Desejos IA dos DADOS' : ''}: título + parágrafo com entregável, sistema, squad, prazo; ancoradas no escopo e documentação do projeto)
 ### ${numSecao}.6 KPIs de Acompanhamento (tabela: KPI | Baseline | Meta 6m | Meta 12m — mínimo 4 linhas; inclua score SATF da dimensão como KPI de evolução)
@@ -333,11 +335,11 @@ function blocoEscopoFocoUnidadeSatf(unidadeMeta) {
 }
 
 function numSecaoDiagnosticoBook(exigeUnidade, unidadeMeta, idxRelativo, idxCanonico) {
-  const pai = exigeUnidade ? 2 : 3;
+  // Book por unidade e enterprise: diagnóstico sempre sob a Seção 3.
   if (exigeUnidade && unidadeComFocoDefinido(unidadeMeta)) {
-    return `${pai}.${idxRelativo + 1}`;
+    return `3.${idxRelativo + 1}`;
   }
-  return `${pai}.${idxCanonico + 1}`;
+  return `3.${idxCanonico + 1}`;
 }
 
 const DADOS_BLOCK_CONTEXTO_MAX_CHARS = 48_000;
@@ -684,7 +686,7 @@ async function montarChunksSatf({
       : '';
   const ordemNomesSecao3 = dimsParaSecao3.map((d) => d.area);
 
-  const numPaiDiagnostico = exigeUnidade ? 2 : 3;
+  const numPaiDiagnostico = 3;
 
   if (exigeUnidade) {
     await yieldEventLoop();
@@ -701,17 +703,38 @@ Gere SOMENTE a Seção 1 do book SATF TI v3 por unidade, em Markdown condensado:
 - Como interpretar score **oficial** vs declarado
 - **Não** apresente MIT CISR, SysMap Blueprint IA ou 16 dimensões como metodologia deste documento
 
-## 1.1 Panorama da unidade (opcional, curto)
-1 parágrafo da situação atual da unidade "${unidadeMeta?.nome || 'esta unidade'}" + tabela compacta Score oficial | Nível | Gap vs declarado (se houver). **Não** crie "# 2." — o Diagnóstico será a Seção 2.
-
 Público: CTO / engenharia. Metodologia = **SATF TI v3** exclusivamente.
-Este book é **exclusivo da unidade "${unidadeMeta?.nome}"** — score e recomendações refletem somente avaliadores desta unidade. A Seção 0 (Dashboard) será inserida automaticamente — não duplique.
+Este book é **exclusivo da unidade "${unidadeMeta?.nome}"** — score e recomendações refletem somente avaliadores desta unidade.
+**Não** crie "# 2." (Sumário) nem "# 3." (Diagnóstico) — há chunks dedicados.
 
 DADOS:
 ${dados}
 
 Comece com "# 1. METODOLOGIA SATF TI v3". **PARE** antes de qualquer "# 2.".`,
       maxTokens: modoRapido ? 2800 : 4000
+    });
+
+    await yieldEventLoop();
+    await reportarChunkPreparado('Sumário executivo');
+    chunks.push({
+      id: 'sec_2',
+      label: 'Sumário executivo',
+      prompt: `${regrasTaxonomia}
+Gere SOMENTE a Seção 2 do book SATF por unidade:
+
+# 2. SUMÁRIO EXECUTIVO
+- 1 parágrafo diagnóstico da unidade "${unidadeMeta?.nome || 'esta unidade'}" (situação atual)${focoUnidadeTxt}
+- Tabela: Score oficial | Nível | Gap vs declarado (se houver) | Certificação pendente? | Avaliadores
+- 5 insights em bullet (foco engenharia/plataforma/SDLC; **somente** dimensões SATF em escopo nos DADOS)
+- Subseção **Evolução entre rodadas** se dados disponíveis
+
+**PARE** antes de "# 3." — o Diagnóstico vem em chunk dedicado.
+
+DADOS:
+${dados}
+
+Comece com "# 2. SUMÁRIO EXECUTIVO".`,
+      maxTokens: modoRapido ? 2800 : 4200
     });
   } else {
     await yieldEventLoop();
@@ -821,7 +844,7 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
     const nProximos = numeroSecaoPrincipalSatfUnidade(8, mapaRenumeracaoSecoes);
 
     chunks.push({
-      id: 'sec_3',
+      id: 'sec_4',
       label: 'Roadmap engenharia 30-60-90',
       prompt: `${regrasTaxonomia}
 # ${nRoadmap}. ROADMAP ENGENHARIA & PLATAFORMA (30-60-90 dias)
@@ -837,12 +860,12 @@ DADOS:\n${dados}`,
     await reportarChunkPreparado('Roadmap engenharia 30-60-90');
 
     chunks.push({
-      id: 'sec_4',
+      id: 'sec_5',
       label: 'Próximos passos 30 dias',
       prompt: `${regrasTaxonomia}
 # ${nProximos}. Próximos Passos e Encerramento
 
-Gere **SOMENTE** a Seção ${nProximos} (subseções ${nProximos}.1–${nProximos}.4). **Não** gere seção 5+ nem Apêndice numerado como seção principal.
+Gere **SOMENTE** a Seção ${nProximos} (subseções ${nProximos}.1–${nProximos}.4). **Não** gere seção 6+ nem Apêndice numerado como seção principal.
 
 7–10 ações numeradas com responsável, entregável e prazo. Foco TI e unidade "${unidadeMeta?.nome || 'esta unidade'}".
 Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).${focoUnidadeTxt}
@@ -1537,20 +1560,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   const planoAcaoUnidade = exigeUnidade
     ? gerarPlanoAcaoPorDimensao(dimsRelevantesUnidade.filter((d) => !dimensaoComScoreZero(d)))
     : null;
-  const secaoDashboardUnidade =
-    exigeUnidade && unidadeMeta
-      ? montarSecaoDashboardUnidadeMarkdown({
-          unidadeMeta,
-          frameworkMaturidade: FRAMEWORK_SATF_TI_V3,
-          scoreGeral,
-          scoreGeralDeclarado,
-          certificacaoSatf,
-          scoresPorArea: dimsRelevantesUnidade,
-          avaliacoesFiltradas,
-          planoAcao: planoAcaoUnidade,
-          filtroNivelMax
-        })
-      : null;
+  const secaoDashboardUnidade = null;
   const instrucoesUnidadeExtra = exigeUnidade
     ? instrucoesSistemaBookUnidade({ unidadeMeta, frameworkMaturidade: FRAMEWORK_SATF_TI_V3 })
     : '';
@@ -1769,7 +1779,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       temGlossarioFatos: regrasFatos.temGlossario,
       indicesSecao3Ativos,
       ordemNomesSecao3Ativos: indicesSecao3Ativos ? ordemNomesSecao3Ativos : null,
-      numPaiDiagnostico: exigeUnidade ? 2 : 3
+      numPaiDiagnostico: 3
     });
 
   const markdownBrutoRenumerado = mapaRenumeracaoSecoes

@@ -1,6 +1,6 @@
 /**
  * Book de Trabalho por unidade organizacional — SysMap Blueprint IA (16 dimensões).
- * Foco: dashboard da unidade, nota consolidada e ações específicas por dimensão.
+ * Outline: 1 Metodologia · 2 Sumário · 3 Diagnóstico 3.N (foco) · 4 Roadmap · 5 Próximos · Apêndices.
  */
 import { prisma } from '../lib/prisma.js';
 import { deveReutilizarRelatorioIASalvo } from './reutilizarRelatorioIA.js';
@@ -50,9 +50,7 @@ import {
   gerarPlanoAcaoPorDimensao,
   instrucoesSistemaBookUnidade,
   montarBlocoPlanoAcaoDimensaoPrompt,
-  montarSecaoDashboardUnidadeMarkdown,
-  planoAcaoPorNomeDimensao,
-  prependSecaoDashboardUnidadeAoRelatorio
+  planoAcaoPorNomeDimensao
 } from './bookUnidadeContexto.js';
 import {
   filtrarDimensoesFocoUnidade,
@@ -184,16 +182,6 @@ export async function executarGeracaoBookUnidadeBlueprint(req, res, deps) {
     dimensoesRelevantes.filter((d) => !dimensaoComScoreZero(d))
   );
 
-  const secaoDashboard = montarSecaoDashboardUnidadeMarkdown({
-    unidadeMeta,
-    frameworkMaturidade: FRAMEWORK_BLUEPRINT_16,
-    scoreGeral,
-    scoresPorArea: dimensoesRelevantes,
-    avaliacoesFiltradas,
-    planoAcao: planoAcaoRelevante,
-    filtroNivelMax
-  });
-
   const instrucoesUnidade = instrucoesSistemaBookUnidade({
     unidadeMeta,
     frameworkMaturidade: FRAMEWORK_BLUEPRINT_16
@@ -221,7 +209,7 @@ ${blocoContexto ? `${blocoContexto}\n` : ''}${blocoDesejosIa ? `${blocoDesejosIa
   const systemBase = modoRapido ? SYSTEM_PROMPT_PERSONA_BOOK_RAPIDO : SYSTEM_PROMPT_PERSONA_BOOK;
   const systemPrompt = `${systemBase}
 ${instrucoesUnidade}
-Gere SOMENTE o conteúdo solicitado em Markdown. A Seção 0 (Dashboard) já existe no documento — não a duplique.`;
+Gere SOMENTE o conteúdo solicitado em Markdown. Não duplique capas de avaliadores/unidade.`;
 
   const startTime = Date.now();
   let totalTokensEntrada = 0;
@@ -229,9 +217,10 @@ Gere SOMENTE o conteúdo solicitado em Markdown. A Seção 0 (Dashboard) já exi
   let providerUsado = getProvider().name;
   let modelUsado = getProvider().defaultModel;
   const partesMetodologia = [];
+  const partesSumario = [];
   const partesDimensoes = [];
   const dimsComDadosLoop = dimsParaChunks.length ? dimsParaChunks : dimensoesRelevantes;
-  const totalChunks = dimsComDadosLoop.length + 3;
+  const totalChunks = dimsComDadosLoop.length + 4;
 
   let relatorioJobId = null;
   const jobIdParam = req.query.jobId;
@@ -277,7 +266,6 @@ Gere SOMENTE o conteúdo solicitado em Markdown. A Seção 0 (Dashboard) já exi
     return resultado.content || '';
   }
 
-  // Chunk 1 — Metodologia MIT / Blueprint
   try {
   await reportarProgresso(0, 'Metodologia MIT da unidade');
   partesMetodologia.push(
@@ -289,32 +277,46 @@ Gere SOMENTE:
 # 1. METODOLOGIA APLICADA (SysMap Blueprint IA)
 
 ## 1.1 Instrumento
-Brief: framework SysMap Blueprint IA com **16 dimensões** (referência metodológica MIT CISR), escala de maturidade e leitura de score consolidado **desta unidade** (${unidadeMeta.nome}).
+Framework SysMap Blueprint IA com **16 dimensões** (referência metodológica MIT CISR), escala N1–N5 e leitura de score consolidado **desta unidade** (${unidadeMeta.nome}).
 
-## 1.2 Panorama da unidade
-1 parágrafo sobre a maturidade de IA desta unidade, citando score ${scoreGeral.toFixed(2)} e contexto setorial.
+## 1.2 Como ler o diagnóstico
+Score consolidado, nível de maturidade e escopo por dimensão em foco. **Não** crie "# 2." nem "# 3.".
 
-## 1.3 Tabela consolidada
+${temContexto ? 'Use o contexto do cliente quando disponível.' : ''}`,
+      modoRapido ? 2200 : 3500
+    )
+  );
+
+  await reportarProgresso(1, 'Sumário executivo da unidade');
+  partesSumario.push(
+    await chamarIa(
+      `${dadosResumoBase}
+
+Gere SOMENTE:
+
+# 2. SUMÁRIO EXECUTIVO
+
+## 2.1 Panorama da unidade
+1 parágrafo sobre a maturidade de IA **desta unidade** (${unidadeMeta.nome}), citando score ${scoreGeral.toFixed(2)} e contexto setorial.
+
+## 2.2 Tabela consolidada
 | Métrica | Valor |
 |---------|:-----:|
 | Score da unidade | ${scoreGeral.toFixed(2)} |
 | Nível | ${nomesNivel[nivel - 1]} |
 | Avaliadores | ${avaliacoesFiltradas.length} |
 
-## 1.4 Cinco prioridades imediatas
-Bullets numerados — o que a unidade deve fazer nos próximos 30 dias (específico, não genérico). **Não** crie "# 2." — o Diagnóstico será a Seção 2.
-
-${temContexto ? 'Use o contexto do cliente quando disponível.' : ''}`,
-      modoRapido ? 2500 : 4000
+## 2.3 Cinco prioridades imediatas
+Bullets numerados — o que a unidade deve fazer nos próximos 30 dias (específico). **PARE** antes de "# 3.".`,
+      modoRapido ? 2200 : 3500
     )
   );
 
-  // Chunks por dimensão — diagnóstico acionável
   for (let i = 0; i < dimsComDadosLoop.length; i++) {
     const dim = dimsComDadosLoop[i];
     const num = i + 1;
     await reportarProgresso(
-      i + 1,
+      i + 2,
       `Dimensão ${num}/${dimsComDadosLoop.length}: ${dim.area}`
     );
     const planoDim = planoAcaoPorNomeDimensao(planoAcaoRelevante, dim.area);
@@ -331,33 +333,40 @@ ${blocoDim}
 
 Gere SOMENTE a subseção da dimensão **${dim.area}**:
 
-## 2.${num} Dimensão — ${dim.area}
+## 3.${num} Dimensão — ${dim.area}
 
-### 2.${num}.1 Diagnóstico da unidade
-Parágrafo denso: score ${Number(dim.score).toFixed(2)}, nível N${dim.nivel || nivel}, cite perguntas [Qn] quando relevante.
+### 3.${num}.1 Análise Diagnóstica
+2–3 parágrafos: score ${Number(dim.score).toFixed(2)}, nível N${dim.nivel || nivel}, cite perguntas [Qn] quando relevante; o que o score revela para a unidade ${unidadeMeta.nome}.
 
-### 2.${num}.2 O que a unidade deve fazer (30 dias)
-3 ações numeradas A1–A3: owner sugerido, entregável concreto, prazo.
+### 3.${num}.2 Evidências Críticas
+- Fatores que elevaram o score (bullets com [Qn])
+- Fatores que puxaram o score (bullets com [Qn])
+- Lacunas de evidência
 
-### 2.${num}.3 O que a unidade deve fazer (60–90 dias)
-2 ações numeradas A4–A5: evolução estrutural para esta dimensão.
+### 3.${num}.3 Risco de Negócio
+1 parágrafo — consequências de manter este nível nesta unidade.
 
-### 2.${num}.4 KPIs de acompanhamento
-Tabela compacta: KPI | Baseline | Meta 90d (mínimo 2 linhas).
-${dimensaoComScoreZero(dim) ? `\n> **Score individual 0 nesta rodada:** use score geral da unidade (${scoreGeral.toFixed(2)}) e contexto do projeto. **Obrigatório** incluir ações A1–A5 e tabela de KPIs — não omita por falta de score discriminado.` : ''}
+### 3.${num}.4 Benchmark Setorial
+1 parágrafo — posição relativa vs expectativa de mercado/setorial para esta capacidade.
 
+### 3.${num}.5 Recomendações Específicas
+3–4 ações numeradas R1–Rn: owner, entregável, prazo 30/60/90.
 ${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}
 
-${temDesejosIa ? 'Ancore ≥1 ação em Desejos IA quando pertinente.' : ''}`,
-        modoRapido ? 1800 : 2800
+### 3.${num}.6 KPIs de Acompanhamento
+Tabela: KPI | Baseline | Meta 90d | Meta 12m (mínimo 3 linhas).
+${dimensaoComScoreZero(dim) ? `\n> **Score individual 0 nesta rodada:** use score geral da unidade (${scoreGeral.toFixed(2)}) e contexto. **Obrigatório** preencher 3.${num}.1–3.${num}.6.` : ''}
+
+${temDesejosIa ? 'Ancore ≥1 recomendação em Desejos IA quando pertinente.' : ''}`,
+        modoRapido ? 2200 : 3600
       )
     );
   }
 
-  const secao2 = `# 2. DIAGNÓSTICO POR DIMENSÃO — UNIDADE ${unidadeMeta.nome}\n\n${partesDimensoes.join('\n\n')}`;
+  const secao3 = `# 3. DIAGNÓSTICO POR DIMENSÃO — UNIDADE ${unidadeMeta.nome}\n\n${partesDimensoes.join('\n\n')}`;
 
   await reportarProgresso(totalChunks - 2, 'Roadmap 30-60-90 da unidade');
-  const secao3 = await chamarIa(
+  const secao4 = await chamarIa(
     `${dadosResumoBase}
 
 Plano rule-based prioritário (dimensões em foco):
@@ -365,39 +374,39 @@ ${planoAcaoRelevante.map((p) => `- ${p.area} (${p.score}): ${p.acoes30Dias[0]}`)
 
 Gere SOMENTE:
 
-# 3. ROADMAP ENGENHARIA 30-60-90 DIAS DA UNIDADE
+# 4. ROADMAP ENGENHARIA 30-60-90 DIAS DA UNIDADE
 
-## 3.1 Visão integrada
+## 4.1 Visão integrada
 Parágrafo conectando gaps da unidade ${unidadeMeta.nome} ao plano 30/60/90.
 
-## 3.2 Cronograma
+## 4.2 Cronograma
 Tabela: Horizonte (30/60/90) | Iniciativa | Dimensão | Owner | Entregável | Status
 
-## 3.3 Rituais de governança
+## 4.3 Rituais de governança
 Bullets: cadência de acompanhamento, métricas de revisão, critério de sucesso da unidade.`,
     modoRapido ? 2200 : 3500
   );
 
   await reportarProgresso(totalChunks - 1, 'Próximos passos da unidade');
-  const secao4 = await chamarIa(
+  const secao5 = await chamarIa(
     `${dadosResumoBase}
 
 Gere SOMENTE:
 
-# 4. Próximos Passos e Encerramento
+# 5. Próximos Passos e Encerramento
 
-## 4.1 Ações prioritárias (30 dias)
+## 5.1 Ações prioritárias (30 dias)
 7–10 ações numeradas com responsável, entregável e prazo — exclusivas da unidade ${unidadeMeta.nome}.
 
-## 4.2 Critérios de sucesso
+## 5.2 Critérios de sucesso
 Bullets objetivos para a próxima rodada de avaliação.
 
-## 4.3 Encerramento
+## 5.3 Encerramento
 1 parágrafo de fechamento executivo.`,
     modoRapido ? 2000 : 3200
   );
 
-  markdown = `${secaoDashboard}\n\n${partesMetodologia.join('\n\n')}\n\n${secao2}\n\n${secao3}\n\n${secao4}`;
+  markdown = `${partesMetodologia.join('\n\n')}\n\n${partesSumario.join('\n\n')}\n\n${secao3}\n\n${secao4}\n\n${secao5}`;
   await reportarProgresso(totalChunks, 'Finalizando book da unidade');
   } catch (iaErr) {
     console.error('[Book Unidade Blueprint] Falha na geração IA:', iaErr);

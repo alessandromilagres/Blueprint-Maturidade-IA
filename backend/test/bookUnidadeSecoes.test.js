@@ -40,43 +40,45 @@ describe('dimensoesSecao3BookUnidade', () => {
 });
 
 describe('renumeracao secoes SATF por unidade', () => {
-  it('mapeia Roadmap 4→3 e Próximos 8→4 (outline 1–4)', () => {
+  it('mapeia Roadmap 4→4 e Próximos 8→5 (outline 1–5)', () => {
     const mapa = construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(true, {
       dimensoesFocoSatf: '["D1","D3","D4","D7"]'
     });
     assert.equal(mapa.outlineUnidade, true);
-    assert.deepEqual(mapa.canonParaSeq, { 4: 3, 8: 4 });
+    assert.deepEqual(mapa.canonParaSeq, { 4: 4, 8: 5 });
   });
 
-  it('renumera headings canônicos 4 e 8 no markdown', () => {
+  it('renumera heading canônico 8→5 no markdown', () => {
     const mapa = construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(true, {});
     const md = `# 1. METODOLOGIA
-# 2. DIAGNÓSTICO
-## 2.1 Dimensão — D1
+# 2. SUMÁRIO EXECUTIVO
+# 3. DIAGNÓSTICO
+## 3.1 Dimensão — D1
 # 4. ROADMAP
 ### 4.1 Visão
 # 8. Próximos Passos
 ### 8.1 Ações`;
     const out = renumerarSecoesPrincipaisBookSatfUnidade(md, mapa);
-    assert.match(out, /^# 3\. ROADMAP/m);
-    assert.match(out, /^### 3\.1 Visão/m);
-    assert.match(out, /^# 4\. Próximos Passos/m);
-    assert.match(out, /^### 4\.1 Ações/m);
+    assert.match(out, /^# 4\. ROADMAP/m);
+    assert.match(out, /^### 4\.1 Visão/m);
+    assert.match(out, /^# 5\. Próximos Passos/m);
+    assert.match(out, /^### 5\.1 Ações/m);
     assert.doesNotMatch(out, /^# 8\./m);
   });
 
-  it('índice SATF unidade fica 1,2,3,4 com dims 2.N', () => {
+  it('índice SATF unidade fica 1,2,3,4,5 com dims 3.N', () => {
     const md = `# 1. METODOLOGIA SATF TI v3
-# 2. DIAGNÓSTICO POR DIMENSÃO (SATF TI v3)
-## 2.1 Dimensão — D1 — Score 1.59 · Nível 1
-## 2.2 Dimensão — D3 — Score 1.59 · Nível 1
-# 3. ROADMAP ENGENHARIA & PLATAFORMA
-# 4. Próximos Passos e Encerramento`;
+# 2. SUMÁRIO EXECUTIVO
+# 3. DIAGNÓSTICO POR DIMENSÃO (SATF TI v3)
+## 3.1 Dimensão — Estratégia & Postura de IA — Score 1.59 · Nível 1
+## 3.2 Dimensão — Governança, Risco & Conformidade — Score 1.59 · Nível 1
+# 4. ROADMAP ENGENHARIA & PLATAFORMA
+# 5. Próximos Passos e Encerramento`;
     const entradas = extrairEntradasIndiceMarkdown(md, { modo: 'satf' });
     const nums = entradas.filter((e) => e.level === 1).map((e) => parseInt(e.titulo, 10));
-    assert.deepEqual(nums, [1, 2, 3, 4]);
+    assert.deepEqual(nums, [1, 2, 3, 4, 5]);
     const dims = entradas.filter((e) => e.level === 2).map((e) => e.tituloIndice || e.titulo);
-    assert.match(dims[0], /^2\.1\b/);
-    assert.match(dims[1], /^2\.2\b/);
+    assert.match(dims[0], /^3\.1\b/);
+    assert.match(dims[1], /^3\.2\b/);
   });
 });

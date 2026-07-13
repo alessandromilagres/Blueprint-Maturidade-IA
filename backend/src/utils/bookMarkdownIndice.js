@@ -31,7 +31,8 @@ export function adicionarIndiceAoBookMarkdown(conteudoMd, options = {}) {
 }
 
 /**
- * Ordem canônica SATF: Capa confidencial → Índice → Capa avaliadores → (unidade) → corpo 0–8.
+ * Ordem canônica SATF: Capa confidencial → Índice → Capa avaliadores → (unidade) → corpo 1–N.
+ * Books por unidade: sem Seção 0 dashboard.
  */
 export function montarPreliminaresBookSatfOrdemCanonica({
   corpoMarkdown,

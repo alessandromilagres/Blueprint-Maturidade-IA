@@ -216,7 +216,7 @@ CONTEXTO DE UNIDADE ORGANIZACIONAL (OBRIGATÓRIO):
 - **Não** generalize para a empresa inteira; use linguagem "nesta unidade", "para ${unidadeMeta?.nome || 'a unidade'}".
 - Framework: ${isSatf ? 'SATF TI v3 (D1–D11)' : 'SysMap Blueprint IA (16 dimensões, referência MIT CISR)'}.
 ${focoTxt ? `- Dimensões em foco (${focoLabel}): **${focoTxt}** — analise **somente** estas dimensões. **Proibido** mencionar dimensões fora do foco.` : '- Em cada chunk de dimensão, use **somente** os dados da dimensão da vez — não misture scores ou perguntas de outras áreas.'}
-- A Seção 0 (Dashboard) já traz scores e plano rule-based — **complemente** com ações específicas, owners e entregáveis; não repita tabelas inteiras.
+- Em cada dimensão, use o template **3.x.1 Análise Diagnóstica · 3.x.2 Evidências Críticas · 3.x.3 Risco de Negócio · 3.x.4 Benchmark Setorial · 3.x.5 Recomendações Específicas · 3.x.6 KPIs de Acompanhamento**.
 - Em cada dimensão, responda explicitamente: **o que esta unidade deve fazer agora** (30/60/90 dias).
 `;
 }

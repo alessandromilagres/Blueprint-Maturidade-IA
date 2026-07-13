@@ -265,9 +265,9 @@ export function normalizarSecoesBookSatf(markdown) {
 
 /**
  * Outline fixo do book SATF por unidade:
- * 1 Metodologia · 2 Diagnóstico (2.1–2.N) · 3 Roadmap · 4 Próximos · Apêndices.
- * Sem Sumário §2, sem seções D10/D11/Capacitação dedicadas (ficam no diagnóstico 2.N).
- * Mapa canônico enterprise → unidade: Roadmap 4→3, Próximos 8→4.
+ * 1 Metodologia · 2 Sumário · 3 Diagnóstico (3.1–3.N, só foco) · 4 Roadmap · 5 Próximos · Apêndices.
+ * Sem Seção 0 dashboard; sem seções dedicadas D10/D11/Capacitação.
+ * Mapa canônico enterprise → unidade: Roadmap 4→4, Próximos 8→5.
  * @returns {{ canonParaSeq: Record<number, number>, outlineUnidade: true } | null}
  */
 export function construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(
@@ -279,8 +279,8 @@ export function construirMapaRenumeracaoSecoesPrincipaisSatfUnidade(
   return {
     outlineUnidade: true,
     canonParaSeq: {
-      4: 3,
-      8: 4
+      4: 4,
+      8: 5
     }
   };
 }
@@ -402,11 +402,11 @@ export function introducaoSecao3SatfBookMarkdown(totalDimensoes, ordemNomes, { n
   const n = Number(numPai) === 2 ? 2 : 3;
   return `# ${n}. DIAGNÓSTICO POR DIMENSÃO (SATF TI v3)
 
-Este capítulo apresenta as **${totalDimensoes} dimensões** do instrumento SATF TI v3 na ordem abaixo. Dimensões com **score 0** constam apenas para registro.
+Este capítulo apresenta as **${totalDimensoes} dimensões** em escopo na ordem abaixo. Dimensões com **score 0** constam para análise quando forem do foco da unidade.
 
 ${listaOrdem}
 
-**Numeração:** **${n}.N** = dimensão (##); **${n}.N.1**, **${n}.N.2**… = subseções (###).
+**Numeração:** **${n}.N** = dimensão (##); **${n}.N.1** Análise Diagnóstica · **${n}.N.2** Evidências Críticas · **${n}.N.3** Risco de Negócio · **${n}.N.4** Benchmark Setorial · **${n}.N.5** Recomendações Específicas · **${n}.N.6** KPIs de Acompanhamento.
 
 **Scores:** use o **score oficial** (certificado ou com teto por evidência). Quando o bloco DADOS indicar gap entre declarado e oficial, mencione na análise.
 

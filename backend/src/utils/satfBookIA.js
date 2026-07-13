@@ -34,6 +34,7 @@ import {
   gerarPlanoAcaoPorDimensao,
   instrucoesSistemaBookUnidade,
   montarBlocoPlanoAcaoDimensaoPrompt,
+  montarBlocoPlanoAcaoUnidadeMarkdown,
   montarSecaoDashboardUnidadeMarkdown,
   planoAcaoPorNomeDimensao
 } from './bookUnidadeContexto.js';

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Download, Printer, Loader2, AlertCircle, AlertTriangle, CheckCircle2, Cpu, Zap, File, Layers, Library, Bookmark, ChevronUp, History, Clock, Ban } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, Printer, Loader2, AlertCircle, AlertTriangle, CheckCircle2, Cpu, Zap, File, Layers, Library, Bookmark, ChevronUp, History } from 'lucide-react';
 import { dashboardApi, relatoriosIAApi, projetosApi } from '../services/api';
 import { mapRelatorioIASalvoToViewShape } from '../utils/relatorioIAViewModel';
 import {
@@ -54,6 +54,8 @@ import {
   coletarAvisosProvedorJob,
   formatarListaAvisosProvedor
 } from '../utils/aiProviderAttempts';
+import BookIAGeracaoProgresso from '../components/BookIAGeracaoProgresso';
+import { textoProgressoPrincipal } from '../utils/bookIAGeracaoProgresso';
 
 function BannerAvisosProvedor({ avisos, className = '' }) {
   const linhas = formatarListaAvisosProvedor(avisos);
@@ -73,38 +75,6 @@ function BannerAvisosProvedor({ avisos, className = '' }) {
       </p>
     </div>
   );
-}
-
-function formatDurationMs(ms) {
-  if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
-  const s = Math.round(ms / 1000);
-  if (s < 60) return `${s} s`;
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m} min ${r} s`;
-}
-
-/** Estimativa linear pelo progresso % (melhora após ~5%). */
-function estimateRemainingMs(job) {
-  if (!job?.startedAt || job.progresso == null) return null;
-  const p = Number(job.progresso);
-  if (p < 3 || p >= 100) return null;
-  const elapsed = Date.now() - new Date(job.startedAt).getTime();
-  if (elapsed < 1000) return null;
-  const totalPred = elapsed / (p / 100);
-  const rem = totalPred - elapsed;
-  return Number.isFinite(rem) && rem > 0 ? rem : null;
-}
-
-function labelStatusJob(status) {
-  const m = {
-    queued: 'Na fila',
-    running: 'Em execução',
-    completed: 'Concluído',
-    failed: 'Falhou',
-    cancelled: 'Cancelado'
-  };
-  return m[status] || status;
 }
 
 export default function RelatorioMITIACompleto() {
@@ -369,6 +339,9 @@ export default function RelatorioMITIACompleto() {
       try {
         const status = await dashboardApi.statusRelatorioIABackground(jid);
         setJobBg(status);
+        const pctJob = Math.min(99, Math.max(0, Number(status.progresso) || 0));
+        setProgresso(pctJob);
+        setMensagemProgresso(textoProgressoPrincipal(status));
         if (status.status === 'completed' || status.status === 'failed') {
           if (pollingRef.current) {
             clearInterval(pollingRef.current);
@@ -427,6 +400,8 @@ export default function RelatorioMITIACompleto() {
 
       backgroundRunningRef.current = true;
       setJobBg(job);
+      setProgresso(Math.min(99, Math.max(0, Number(job.progresso) || 0)));
+      setMensagemProgresso(textoProgressoPrincipal(job));
     } catch (err) {
       geracaoIniciadaRef.current = false;
       backgroundRunningRef.current = false;
@@ -560,6 +535,37 @@ export default function RelatorioMITIACompleto() {
     );
   }
 
+  if (!data && jobBg) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
+            <Link
+              to={`/dashboard/projeto/${id}`}
+              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Dashboard</span>
+            </Link>
+            <div className="h-6 w-px bg-slate-300" />
+            <p className="text-sm font-medium text-slate-700">Book em geração — projeto {id}</p>
+            <div className="ml-auto rounded-full bg-cyan-100 px-4 py-1.5 font-mono text-lg font-bold text-cyan-950">
+              {Math.min(100, Math.max(0, Math.round(Number(jobBg.progresso) || 0)))}%
+            </div>
+          </div>
+        </header>
+        <BookIAGeracaoProgresso
+          job={jobBg}
+          variant="fullscreen"
+          tickRelogio={tickRelogio}
+          onCancel={cancelarGeracaoBackground}
+          cancelando={cancelandoBg}
+          avisosSlot={<BannerAvisosProvedor avisos={coletarAvisosProvedorJob(jobBg)} />}
+        />
+      </div>
+    );
+  }
+
   if ((loading || (!relatorioSalvoId && frameworkCarregando)) && !jobBg) {
     const carregandoBiblioteca = Boolean(relatorioSalvoId);
     return (
@@ -597,6 +603,10 @@ export default function RelatorioMITIACompleto() {
               )}
               {carregandoBiblioteca && <div className="mb-8" />}
 
+              <p className="text-6xl font-black tabular-nums text-white mb-2" aria-live="polite">
+                {progresso}%
+              </p>
+
               <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden mb-3">
                 <div 
                   className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500 ease-out shadow-lg shadow-emerald-500/50"
@@ -605,7 +615,6 @@ export default function RelatorioMITIACompleto() {
               </div>
               <div className="flex items-center justify-between w-full text-xs">
                 <span className="text-emerald-300 font-medium">{mensagemProgresso}</span>
-                <span className="text-slate-400">{progresso}%</span>
               </div>
 
               <div className="grid grid-cols-3 gap-3 w-full mt-8">
@@ -686,45 +695,6 @@ export default function RelatorioMITIACompleto() {
             >
               Voltar ao Dashboard
             </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data && jobBg) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-            <Link
-              to={`/dashboard/projeto/${id}`}
-              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm font-medium">Dashboard</span>
-            </Link>
-            <div className="h-6 w-px bg-slate-300" />
-            <p className="text-sm font-medium text-slate-700">Book em geração — projeto {id}</p>
-          </div>
-        </header>
-        <div className="border-b border-cyan-200 bg-gradient-to-r from-cyan-50 to-teal-50">
-          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-4 text-sm text-cyan-950">
-            <div className="flex items-center gap-2 font-semibold">
-              <Loader2 className="h-5 w-5 animate-spin text-cyan-700" />
-              Book IA em background · {labelStatusJob(jobBg.status)}
-            </div>
-            <p>{jobBg.etapa || mensagemProgresso || 'Gerando...'}</p>
-            <div className="w-full max-w-xl bg-cyan-100 rounded-full h-2 overflow-hidden">
-              <div
-                className="h-full bg-cyan-600 transition-all duration-500"
-                style={{ width: `${Math.min(99, Number(jobBg.progresso) || progresso || 5)}%` }}
-              />
-            </div>
-            <p className="text-xs text-cyan-800">
-              Você pode fechar esta aba e voltar depois — o job continua no servidor. Ao reabrir esta URL, o progresso reaparece aqui.
-            </p>
-            <BannerAvisosProvedor avisos={coletarAvisosProvedorJob(jobBg)} />
           </div>
         </div>
       </div>
@@ -987,109 +957,16 @@ export default function RelatorioMITIACompleto() {
         </div>
       )}
 
-      {/* Banner de execução em background — fase, blocos, tempo e previsão */}
       {jobBg && (
-        <div className="border-b border-cyan-200 bg-gradient-to-r from-cyan-50 to-teal-50 print:hidden">
-          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-3 text-xs text-cyan-950">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-2">
-                {jobBg.status === 'failed' ? (
-                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
-                ) : jobBg.status === 'completed' ? (
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-                ) : jobBg.status === 'cancelled' ? (
-                  <Ban className="mt-0.5 h-5 w-5 shrink-0 text-slate-600" />
-                ) : (
-                  <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-cyan-700" />
-                )}
-                <div className="min-w-0 space-y-1">
-                  <p className="font-semibold text-sm text-cyan-950">
-                    Book IA em background · {labelStatusJob(jobBg.status)}
-                  </p>
-                  <p className="text-[13px] leading-snug text-cyan-900/95">
-                    {jobBg.etapa || '—'}
-                    {jobBg.status === 'failed' && jobBg.erro ? (
-                      <span className="mt-1 block text-red-700">{jobBg.erro}</span>
-                    ) : null}
-                  </p>
-                  {jobBg.metadata && typeof jobBg.metadata === 'object' && jobBg.metadata.totalChunks ? (
-                    <p className="text-[11px] uppercase tracking-wide text-cyan-700/90">
-                      Blocos do livro:{' '}
-                      <strong>
-                        {jobBg.metadata.chunkAtual ?? '—'}/{jobBg.metadata.totalChunks}
-                      </strong>
-                      {jobBg.metadata.chunkLabel ? (
-                        <span className="normal-case">
-                          {' '}
-                          · último: <em>{jobBg.metadata.chunkLabel}</em>
-                        </span>
-                      ) : null}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-cyan-900">
-                <span className="inline-flex items-center gap-1" title="Tempo desde o início do job">
-                  <Clock className="h-3.5 w-3.5" />
-                  Decorrido:{' '}
-                  <strong>
-                    {jobBg.startedAt
-                      ? formatDurationMs(Date.now() - new Date(jobBg.startedAt).getTime())
-                      : '—'}
-                  </strong>
-                </span>
-                <span className="inline-flex items-center gap-1" title="Estimativa pelo progresso (aproximada)">
-                  Restante ~:{' '}
-                  <strong>
-                    {['queued', 'running'].includes(jobBg.status)
-                      ? formatDurationMs(estimateRemainingMs(jobBg))
-                      : jobBg.finishedAt && jobBg.startedAt
-                        ? formatDurationMs(
-                            new Date(jobBg.finishedAt).getTime() - new Date(jobBg.startedAt).getTime()
-                          )
-                        : '—'}
-                  </strong>
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {jobBg && ['queued', 'running'].includes(jobBg.status) && (
-                <button
-                  type="button"
-                  onClick={cancelarGeracaoBackground}
-                  disabled={cancelandoBg}
-                  className={`${headerBtn} border border-red-200 bg-red-50 text-red-800 hover:bg-red-100`}
-                  title="Parar a geração em background"
-                >
-                  {cancelandoBg ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Ban className="h-4 w-4" />
-                  )}
-                  <span className="hidden sm:inline">Parar geração</span>
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-cyan-200/70">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    jobBg.status === 'failed'
-                      ? 'bg-red-500'
-                      : jobBg.status === 'completed'
-                        ? 'bg-emerald-500'
-                        : jobBg.status === 'cancelled'
-                          ? 'bg-slate-400'
-                          : 'bg-gradient-to-r from-cyan-500 to-teal-500'
-                  }`}
-                  style={{ width: `${Math.min(100, Math.max(0, Number(jobBg.progresso) || 0))}%` }}
-                />
-              </div>
-              <span className="w-10 shrink-0 text-right font-mono text-[11px] font-semibold text-cyan-900">
-                {Math.round(Number(jobBg.progresso) || 0)}%
-              </span>
-            </div>
-            {jobBg.status === 'completed' && (
+        <BookIAGeracaoProgresso
+          job={jobBg}
+          variant="inline"
+          tickRelogio={tickRelogio}
+          onCancel={cancelarGeracaoBackground}
+          cancelando={cancelandoBg}
+          avisosSlot={<BannerAvisosProvedor avisos={avisosProvedorJob} />}
+          footerSlot={
+            jobBg.status === 'completed' ? (
               <div className="flex justify-end">
                 <button
                   type="button"
@@ -1112,10 +989,9 @@ export default function RelatorioMITIACompleto() {
                   Recarregar versão gerada
                 </button>
               </div>
-            )}
-            <BannerAvisosProvedor avisos={avisosProvedorJob} className="mt-1" />
-          </div>
-        </div>
+            ) : null
+          }
+        />
       )}
 
       {avisosProvedorExibicao.length > 0 && (

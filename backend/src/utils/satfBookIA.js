@@ -337,6 +337,23 @@ function numSecao3BookUnidade(exigeUnidade, unidadeMeta, idxRelativo, idxCanonic
   return `3.${idxCanonico + 1}`;
 }
 
+const DADOS_BLOCK_CONTEXTO_MAX_CHARS = 48_000;
+const DADOS_BLOCK_DESEJOS_MAX_CHARS = 16_000;
+const PROMPT_CONTEXTO_DIMENSAO_MAX_CHARS = 12_000;
+
+function limitarBlocoMarkdown(bloco, maxChars, rotulo) {
+  if (!bloco || bloco.length <= maxChars) return bloco;
+  return `${bloco.slice(0, maxChars)}\n\n> *[${rotulo} truncado na preparação do book — ${bloco.length} caracteres no cadastro]*\n`;
+}
+
+function truncarBlocoMarkdownParaPrompt(bloco, maxChars = PROMPT_CONTEXTO_DIMENSAO_MAX_CHARS) {
+  return limitarBlocoMarkdown(bloco, maxChars, 'Contexto do cliente (prompt)');
+}
+
+function yieldEventLoop() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 function montarDadosBlockSatf({
   projeto,
   projetoVersao,
@@ -361,6 +378,8 @@ function montarDadosBlockSatf({
   planoAcao = null,
   dimensoesEscopo = null
 }) {
+  const ctx = limitarBlocoMarkdown(blocoContexto, DADOS_BLOCK_CONTEXTO_MAX_CHARS, 'Contexto do cliente');
+  const desejos = limitarBlocoMarkdown(blocoDesejosIa, DADOS_BLOCK_DESEJOS_MAX_CHARS, 'Desejos IA');
   const dimsLista = dimensoesEscopo || dimensoesDiagnostico;
   const nivel = nivelNumericoDeScore(scoreGeral);
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
@@ -412,11 +431,11 @@ function montarDadosBlockSatf({
 ${blocoEscopoFoco}
 ${blocoAvaliadoresConsolidadoMarkdown(avaliacoesFiltradas, filtroNivelMax)}
 
-${blocoContexto ? `${blocoContexto}\n\n` : ''}
+${ctx ? `${ctx}\n\n` : ''}
 
 ${blocoInventario ? `${blocoInventario}\n\n` : ''}
 
-${blocoDesejosIa ? `${blocoDesejosIa}\n\n` : ''}
+${desejos ? `${desejos}\n\n` : ''}
 
 ${blocoCert}
 
@@ -463,7 +482,7 @@ ${detalhePerguntasTxt}
 ${exigeUnidade && unidadeMeta ? `\n## Escopo unidade organizacional\n- **Unidade:** ${unidadeMeta.nome}\n- **Descrição:** ${String(unidadeMeta.descricao || '').trim() || '—'}${blocoEscopoFocoUnidadeSatf(unidadeMeta)}\n\n${montarBlocoPlanoAcaoUnidadeMarkdown(planoAcao)}` : ''}`;
 }
 
-function montarChunksSatf({
+async function montarChunksSatf({
   dimensoesDiagnostico,
   dadosBlock,
   dadosBlockRapido,
@@ -482,8 +501,13 @@ function montarChunksSatf({
   exigeUnidade = false,
   unidadeMeta = null,
   planoAcao = null,
-  mapaRenumeracaoSecoes = null
+  mapaRenumeracaoSecoes = null,
+  onChunkPrepared = null
 }) {
+  const reportarChunkPreparado = async (label) => {
+    if (!onChunkPrepared) return;
+    await onChunkPrepared(chunks.length + 1, label);
+  };
   const chunks = [];
   const dados = modoRapido ? dadosBlockRapido : dadosBlock;
   const regrasTaxonomia = blocoRegrasTaxonomiaSatfPrompt();
@@ -529,8 +553,10 @@ ${dados}
 Comece com "# 1. METODOLOGIA SATF TI v3".`,
     maxTokens: modoRapido ? 3200 : 5000
   });
+  await reportarChunkPreparado('Metodologia SATF + Sumário');
 
-  dimsParaSecao3.forEach((dim, idxRel) => {
+  for (let idxRel = 0; idxRel < dimsParaSecao3.length; idxRel++) {
+    const dim = dimsParaSecao3[idxRel];
     const idxOriginal = dimensoesDiagnostico.findIndex(
       (d) => d.areaId === dim.areaId && d.area === dim.area
     );
@@ -563,7 +589,8 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
           return md;
         })()
       });
-      return;
+      await reportarChunkPreparado(`Registro — ${dim.area}`);
+      continue;
       }
     }
 
@@ -593,7 +620,8 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
       }),
       maxTokens: modoRapido ? 3600 : 6000
     });
-  });
+    await reportarChunkPreparado(`Diagnóstico — ${dim.area}`);
+  }
 
   const n4 = numeroSecaoPrincipalSatfUnidade(4, mapaRenumeracaoSecoes);
   const n5 = numeroSecaoPrincipalSatfUnidade(5, mapaRenumeracaoSecoes);
@@ -615,6 +643,7 @@ Ao referenciar gaps e iniciativas, use **somente** dimensões SATF D1–D11 com 
 DADOS:\n${dados}`,
     maxTokens: 4000
   });
+  await reportarChunkPreparado('Roadmap engenharia 30-60-90');
 
   if (!exigeUnidade || !unidadeComFocoDefinido(unidadeMeta) || dimensaoNoFocoUnidade(unidadeMeta, 'D10')) {
     chunks.push({
@@ -632,6 +661,7 @@ Ao citar entregáveis do escopo use **rótulos canônicos**: E = Roteiro de Pilo
 DADOS:\n${dados}`,
       maxTokens: 3500
     });
+    await reportarChunkPreparado('Fábrica Agêntica (D10)');
   }
 
   if (!exigeUnidade || !unidadeComFocoDefinido(unidadeMeta) || dimensaoNoFocoUnidade(unidadeMeta, 'D11')) {
@@ -661,6 +691,7 @@ Referencie **D11** e, se pertinente, **D2 Governança, Risco & Conformidade** �
 DADOS:\n${dados}`,
       maxTokens: 3500
     });
+    await reportarChunkPreparado('Conformidade TI (D11)');
   }
 
   chunks.push({
@@ -677,6 +708,7 @@ Ancorar em **D3 Pessoas, Cultura & Capacitação** e **D2 Governança, Risco & C
 DADOS:\n${dados}`,
     maxTokens: 3500
   });
+  await reportarChunkPreparado('Capacitação e governança');
 
   chunks.push({
     id: 'sec_8',
@@ -692,6 +724,7 @@ Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).${foco
 DADOS:\n${dados}`,
     maxTokens: 4000
   });
+  await reportarChunkPreparado('Próximos passos 30 dias');
 
   return chunks;
 }
@@ -1319,6 +1352,9 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     exigeUnidade ? 'Montando blocos do book por unidade…' : 'Comparativo de versões processado',
     { fase: 'preparacao_blocos' }
   );
+  const blocoEvolucao = blocoEvolucaoVersoesMarkdown(comparativoVersoes);
+  const ordemNomes = dimsParaDados.map((d) => d.area);
+
   await tickJobProgress(
     relatorioJobId,
     atualizarProgressoJobBook,
@@ -1326,8 +1362,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     exigeUnidade ? 'Montando pacote de dados da unidade…' : 'Montando pacote de dados do book…',
     { fase: 'preparacao_dados_block' }
   );
-  const blocoEvolucao = blocoEvolucaoVersoesMarkdown(comparativoVersoes);
-  const ordemNomes = dimsParaDados.map((d) => d.area);
+  await yieldEventLoop();
 
   const dadosBlock = montarDadosBlockSatf({
     projeto,
@@ -1358,6 +1393,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     fase: 'preparacao_dados_ok',
     bytesDados: dadosBlock.length
   });
+  await yieldEventLoop();
 
   const dadosBlockRapido = `${dadosBlock}\n\n${blocoDadosExtrasBookRapidoSatf({
     scoresPorArea: dimsParaDados,
@@ -1372,7 +1408,8 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     { dimensaoNoFoco: (cod) => dimensaoNoFocoUnidade(unidadeMeta, cod) }
   );
 
-  const chunks = montarChunksSatf({
+  const blocoContextoPrompt = truncarBlocoMarkdownParaPrompt(blocoContexto);
+  const chunks = await montarChunksSatf({
     dimensoesDiagnostico,
     dadosBlock,
     dadosBlockRapido,
@@ -1383,7 +1420,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     nivel,
     temContexto,
     temDesejosIa,
-    blocoContextoClienteBook: blocoContexto,
+    blocoContextoClienteBook: blocoContextoPrompt,
     inventarioDocumentos,
     mediaSetor,
     ordemNomes,
@@ -1391,7 +1428,23 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     exigeUnidade,
     unidadeMeta,
     planoAcao: planoAcaoUnidade,
-    mapaRenumeracaoSecoes
+    mapaRenumeracaoSecoes,
+    onChunkPrepared: relatorioJobId
+      ? async (atual, label) => {
+          await tickJobProgress(
+            relatorioJobId,
+            atualizarProgressoJobBook,
+            36,
+            `Preparando blocos IA (${atual}) — ${label}`,
+            {
+              fase: 'preparacao_chunks_montagem',
+              chunkPrepAtual: atual,
+              chunkPrepLabel: label
+            }
+          );
+          await yieldEventLoop();
+        }
+      : null
   });
 
   await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 37, `${chunks.length} blocos IA preparados`, {

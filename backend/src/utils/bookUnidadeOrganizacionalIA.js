@@ -67,6 +67,12 @@ import {
   montarCabecalhoDadosUnidade,
   montarResumoScoresDimensoes
 } from './bookDadosDimensao.js';
+import {
+  PROMPT_CONTEXTO_DIMENSAO_SAFE_CHARS,
+  limitarBlocoMarkdown,
+  shrinkPromptToCharBudget,
+  softAiFailureMessageForBook
+} from './aiPromptBudget.js';
 
 function tipoRelatorioBookUnidadeBlueprint(modoRapido) {
   return modoRapido ? 'book_unidade_rapido' : 'book_unidade';
@@ -274,11 +280,21 @@ Gere SOMENTE o conteúdo solicitado em Markdown. Não duplique capas de avaliado
     return resultado.content || '';
   }
 
+  /** Soft-fail: não aborta o book nem grava JSON bruto do provedor no markdown. */
+  async function chamarIaComEsqueleto(userPrompt, maxTokens, { label, esqueleto }) {
+    try {
+      return await chamarIa(userPrompt, maxTokens);
+    } catch (err) {
+      console.error(`[Book Unidade Blueprint] Erro em ${label}:`, err?.message || err);
+      return esqueleto(softAiFailureMessageForBook(err));
+    }
+  }
+
   try {
   await reportarProgresso(0, 'Metodologia MIT da unidade');
   partesMetodologia.push(
     sanitizarChunkSecaoPrincipalBookUnidade(
-      await chamarIa(
+      await chamarIaComEsqueleto(
         `${dadosResumoBase}
 
 Gere SOMENTE o corpo das subseções abaixo (o sistema já insere "# 1. …"). **Proibido** criar "# 2.", "# 3.", "# 4.", outras seções, títulos BP12/BPN como heading, ou outline enterprise.
@@ -290,7 +306,19 @@ Framework SysMap Blueprint IA com **16 dimensões** (referência metodológica M
 Score consolidado, nível de maturidade e escopo por dimensão em foco.
 
 ${temContexto ? 'Use o contexto do cliente quando disponível.' : ''}`,
-        modoRapido ? 2200 : 3500
+        modoRapido ? 2200 : 3500,
+        {
+          label: 'metodologia',
+          esqueleto: (msg) => `## 1.1 Instrumento
+
+> ⚠️ ${msg}
+
+Framework SysMap Blueprint IA (16 dimensões) — unidade **${unidadeMeta.nome}**.
+
+## 1.2 Como ler o diagnóstico
+
+Score consolidado da unidade: **${scoreGeral.toFixed(2)}** (Nível ${nomesNivel[nivel - 1]}).`
+        }
       ),
       { num: 1, tituloPreferido: 'METODOLOGIA' }
     )
@@ -299,7 +327,7 @@ ${temContexto ? 'Use o contexto do cliente quando disponível.' : ''}`,
   await reportarProgresso(1, 'Sumário executivo da unidade');
   partesSumario.push(
     sanitizarChunkSecaoPrincipalBookUnidade(
-      await chamarIa(
+      await chamarIaComEsqueleto(
         `${dadosResumoBase}
 
 Gere SOMENTE o corpo das subseções (o sistema insere "# 2. SUMÁRIO EXECUTIVO"). **Proibido** "# 3.", "# 4.", seções enterprise ou códigos BP como número de seção.
@@ -316,7 +344,27 @@ Gere SOMENTE o corpo das subseções (o sistema insere "# 2. SUMÁRIO EXECUTIVO"
 
 ## 2.3 Cinco prioridades imediatas
 Bullets numerados — o que a unidade deve fazer nos próximos 30 dias (específico).`,
-        modoRapido ? 2200 : 3500
+        modoRapido ? 2200 : 3500,
+        {
+          label: 'sumário',
+          esqueleto: (msg) => `## 2.1 Panorama da unidade
+
+> ⚠️ ${msg}
+
+Unidade **${unidadeMeta.nome}** — score **${scoreGeral.toFixed(2)}**.
+
+## 2.2 Tabela consolidada
+| Métrica | Valor |
+|---------|:-----:|
+| Score da unidade | ${scoreGeral.toFixed(2)} |
+| Nível | ${nomesNivel[nivel - 1]} |
+| Avaliadores | ${avaliacoesFiltradas.length} |
+
+## 2.3 Cinco prioridades imediatas
+1. Revisar dimensões com menor score desta unidade.
+2. Definir owners e entregáveis em 30 dias.
+3. Regenerar esta seção quando a IA estiver disponível.`
+        }
       ),
       { num: 2, tituloPreferido: 'SUMÁRIO' }
     )
@@ -344,10 +392,15 @@ Bullets numerados — o que a unidade deve fazer nos próximos 30 dias (específ
       papelUnidade !== PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA
         ? labelPapelDimensaoUnidade(papelUnidade)
         : '';
+    const dadosResumoDim = limitarBlocoMarkdown(
+      dadosResumoBase,
+      PROMPT_CONTEXTO_DIMENSAO_SAFE_CHARS + 4_000,
+      'Dados resumo (prompt dimensão)'
+    );
 
     try {
-      const bruto = await chamarIa(
-        `${dadosResumoBase}
+      const promptDim = shrinkPromptToCharBudget(
+        `${dadosResumoDim}
 
 ${blocoDim}
 ${blocoPapel}
@@ -379,8 +432,9 @@ Tabela: KPI | Baseline | Meta 90d | Meta 12m (mínimo 3 linhas).
 ${dimensaoComScoreZero(dim) ? `\n> **Score individual 0 nesta rodada:** use score geral da unidade (${scoreGeral.toFixed(2)}) e contexto. **Obrigatório** preencher 3.${num}.1–3.${num}.6.` : ''}
 
 ${temDesejosIa ? 'Ancore ≥1 recomendação em Desejos IA quando pertinente.' : ''}`,
-        modoRapido ? 2200 : 3600
-      );
+        22_000
+      ).prompt;
+      const bruto = await chamarIa(promptDim, modoRapido ? 2200 : 3600);
       partesDimensoes.push(
         sanitizarChunkDimensaoBookUnidadeBlueprint(bruto, {
           num,
@@ -393,9 +447,34 @@ ${temDesejosIa ? 'Ancore ≥1 recomendação em Desejos IA quando pertinente.' :
         `[Book Unidade Blueprint] Erro na dimensão ${dim.area} (${num}/${dimsComDadosLoop.length}):`,
         dimErr?.message || dimErr
       );
+      const msgUsuario = softAiFailureMessageForBook(dimErr);
+      const score = Number(dim.score ?? 0).toFixed(2);
       partesDimensoes.push(
         sanitizarChunkDimensaoBookUnidadeBlueprint(
-          `> **Geração parcial:** falha ao gerar esta dimensão (${dimErr?.message || 'erro de IA'}). Regenerar o book ou esta seção se necessário.`,
+          `### 3.${num}.1 Análise Diagnóstica
+
+> ⚠️ ${msgUsuario}
+
+Score oficial: **${score}**.
+
+### 3.${num}.2 Evidências Críticas
+- Revisar respostas [Qn] na tabela consolidada do projeto.
+
+### 3.${num}.3 Risco de Negócio
+> Manter este nível pode atrasar iniciativas da unidade ${unidadeMeta.nome} nesta dimensão.
+
+### 3.${num}.4 Benchmark Setorial
+> Benchmark narrativo não gerado nesta montagem.
+
+### 3.${num}.5 Recomendações Específicas
+1. Revisar evidências e owners em até 30 dias.
+2. Definir entregável da dimensão.
+3. Acompanhar evolução do score oficial.
+
+### 3.${num}.6 KPIs de Acompanhamento
+| KPI | Baseline | Meta 90d | Meta 12m |
+|-----|----------|----------|----------|
+| Score ${dim.area} | ${score} | — | — |`,
           { num, nomeDimensao: dim.area, papelLabel }
         )
       );
@@ -406,7 +485,7 @@ ${temDesejosIa ? 'Ancore ≥1 recomendação em Desejos IA quando pertinente.' :
 
   await reportarProgresso(totalChunks - 2, 'Roadmap 30-60-90 da unidade');
   const secao4 = sanitizarChunkSecaoPrincipalBookUnidade(
-    await chamarIa(
+    await chamarIaComEsqueleto(
       `${dadosResumoBase}
 
 Plano rule-based prioritário (dimensões em foco):
@@ -425,14 +504,30 @@ Tabela: Horizonte (30/60/90) | Iniciativa | Dimensão | Owner | Entregável | St
 
 ## 4.3 Rituais de governança
 Bullets: cadência de acompanhamento, métricas de revisão, critério de sucesso da unidade.`,
-      modoRapido ? 2200 : 3500
+      modoRapido ? 2200 : 3500,
+      {
+        label: 'roadmap',
+        esqueleto: (msg) => `# 4. ROADMAP ENGENHARIA 30-60-90 DIAS DA UNIDADE
+
+## 4.1 Visão integrada
+
+> ⚠️ ${msg}
+
+## 4.2 Cronograma
+| Horizonte | Iniciativa | Dimensão | Owner | Entregável | Status |
+|-----------|------------|----------|-------|------------|--------|
+| 30 dias | Revisar gaps prioritários | — | Unidade | Plano revisado | Pendente |
+
+## 4.3 Rituais de governança
+- Cadência semanal de acompanhamento dos scores da unidade.`
+      }
     ),
     { num: 4, tituloPreferido: 'ROADMAP' }
   );
 
   await reportarProgresso(totalChunks - 1, 'Próximos passos da unidade');
   const secao5 = sanitizarChunkSecaoPrincipalBookUnidade(
-    await chamarIa(
+    await chamarIaComEsqueleto(
       `${dadosResumoBase}
 
 Gere SOMENTE "# 5. Próximos Passos e Encerramento" + ## 5.1–5.3.
@@ -448,7 +543,24 @@ Bullets objetivos para a próxima rodada de avaliação.
 
 ## 5.3 Encerramento
 1 parágrafo de fechamento executivo.`,
-      modoRapido ? 2000 : 3200
+      modoRapido ? 2000 : 3200,
+      {
+        label: 'próximos passos',
+        esqueleto: (msg) => `# 5. Próximos Passos e Encerramento
+
+## 5.1 Ações prioritárias (30 dias)
+
+> ⚠️ ${msg}
+
+1. Regenerar este book quando a fila de IA estiver disponível.
+2. Revisar scores oficiais da unidade com o time.
+
+## 5.2 Critérios de sucesso
+- Book regenerado com análise completa por dimensão.
+
+## 5.3 Encerramento
+Documento parcial da unidade **${unidadeMeta.nome}** — scores oficiais preservados.`
+      }
     ),
     { num: 5, tituloPreferido: 'Próximos' }
   );

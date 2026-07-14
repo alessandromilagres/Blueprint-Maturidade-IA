@@ -4,7 +4,7 @@ import {
   blocoTrajetoriaMitMarkdown
 } from './mitTrajetoriaFinanceira.js';
 import { ORDEM_DIMENSOES_FRAMEWORK } from './ordemDimensoesFramework.js';
-import { formatProviderFailureForMarkdown } from './aiProviderAttempts.js';
+import { softAiFailureMessageForBook } from './aiPromptBudget.js';
 
 function resumirPergunta(texto, max = 90) {
   const t = String(texto || '').trim();
@@ -246,11 +246,50 @@ export function blocoFallbackErroSecao3Dimensao(
   erroOuMsg,
   { isFirst = false, totalDimensoes = 16, modoRapido = false } = {}
 ) {
-  const msg = formatProviderFailureForMarkdown(erroOuMsg).slice(0, 500);
+  const msg = softAiFailureMessageForBook(erroOuMsg);
+  const score = Number(dim?.score ?? 0).toFixed(2);
+  const perguntasBaixas = (dim?.perguntas || [])
+    .filter((p) => p.totalRespostas > 0)
+    .sort((a, b) => Number(a.score || 0) - Number(b.score || 0))
+    .slice(0, 4)
+    .map((p) => `- [Q${p.numero}] score ${p.score}`)
+    .join('\n');
   return montarBlocoSecao3Dimensao({
     numSecao,
     dim,
-    conteudoIa: `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ **Esta seção não pôde ser gerada pela IA** (${msg}).\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
+    conteudoIa: `### ${numSecao}.1 Análise Diagnóstica
+
+> ⚠️ ${msg}
+
+Score oficial desta dimensão: **${score}**. Use a tabela de perguntas para leitura imediata.
+
+### ${numSecao}.2 Evidências Críticas
+
+${perguntasBaixas || '- Sem respostas discriminadas nesta montagem.'}
+
+### ${numSecao}.3 Risco de Negócio
+
+> Revisar com o time da dimensão **${dim.area}** o impacto de manter o score atual.
+
+### ${numSecao}.4 Benchmark Setorial
+
+> Benchmark narrativo não gerado nesta montagem.
+
+### ${numSecao}.5 Recomendações Específicas
+
+1. Revisar evidências das [Qn] de menor score.
+2. Definir owner e entregável em até 30 dias.
+3. Acompanhar evolução do score oficial.
+
+### ${numSecao}.6 KPIs de Acompanhamento
+
+| KPI | Baseline | Meta 6m | Meta 12m |
+|-----|----------|---------|----------|
+| Score ${dim.area} | ${score} | — | — |
+
+### ${numSecao}.7 Registro de scores por pergunta
+
+${tabelaPerguntasDimensaoMarkdown(dim)}`,
     isFirst,
     totalDimensoes,
     modoRapido

@@ -10,6 +10,12 @@
 
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma.js';
+import {
+  fitPromptToProviderBudget,
+  isRequestTooLargeError,
+  nextShrinkCharBudget,
+  shrinkPromptToCharBudget
+} from '../utils/aiPromptBudget.js';
 
 // Configurações dos provedores
 const PROVIDERS = {
@@ -283,7 +289,8 @@ async function callAnthropic(prompt, systemPrompt, options = {}) {
   
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Erro na API Anthropic: ${response.status} - ${error}`);
+    const detail = String(error || '').trim() || `(corpo vazio; content-type=${response.headers.get('content-type') || 'n/a'})`;
+    throw new Error(`Erro na API Anthropic: ${response.status} - ${detail.slice(0, 800)}`);
   }
   
   const data = await response.json();
@@ -291,9 +298,15 @@ async function callAnthropic(prompt, systemPrompt, options = {}) {
   // Anthropic stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use'
   const stopReasonRaw = data.stop_reason;
   const truncated = stopReasonRaw === 'max_tokens';
+  const text = data.content?.[0]?.text;
+  if (text == null || text === '') {
+    throw new Error(
+      `Erro na API Anthropic: resposta sem texto (stop_reason=${stopReasonRaw || 'n/a'})`
+    );
+  }
 
   return {
-    content: data.content[0].text,
+    content: text,
     model: data.model,
     tokensEntrada: data.usage?.input_tokens || 0,
     tokensSaida: data.usage?.output_tokens || 0,
@@ -355,7 +368,8 @@ async function callOpenAI(prompt, systemPrompt, options = {}) {
   
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Erro na API OpenAI: ${response.status} - ${error}`);
+    const detail = String(error || '').trim() || `(corpo vazio; content-type=${response.headers.get('content-type') || 'n/a'})`;
+    throw new Error(`Erro na API OpenAI: ${response.status} - ${detail.slice(0, 800)}`);
   }
   
   const data = await response.json();
@@ -414,7 +428,8 @@ async function callGroq(prompt, systemPrompt, options = {}) {
   
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Erro na API Groq: ${response.status} - ${error}`);
+    const detail = String(error || '').trim() || `(corpo vazio; content-type=${response.headers.get('content-type') || 'n/a'})`;
+    throw new Error(`Erro na API Groq: ${response.status} - ${detail.slice(0, 800)}`);
   }
   
   const data = await response.json();
@@ -435,9 +450,23 @@ async function callGroq(prompt, systemPrompt, options = {}) {
   };
 }
 
+async function invokeProvider(providerId, prompt, systemPrompt, options) {
+  switch (providerId) {
+    case 'anthropic':
+      return callAnthropic(prompt, systemPrompt, options);
+    case 'openai':
+      return callOpenAI(prompt, systemPrompt, options);
+    case 'groq':
+      return callGroq(prompt, systemPrompt, options);
+    default:
+      throw new Error(`Provedor desconhecido: ${providerId}`);
+  }
+}
+
 /**
  * Função principal - chama o provedor configurado
- * Faz fallback automático se o provedor principal falhar
+ * Faz fallback automático se o provedor principal falhar.
+ * Em 413/TPM/"request too large": encolhe o prompt e retenta antes de falhar o chunk.
  */
 async function callAI(prompt, systemPrompt, options = {}) {
   const startTime = Date.now();
@@ -472,73 +501,102 @@ async function callAI(prompt, systemPrompt, options = {}) {
   
   let lastError = null;
   const providerAttempts = [];
+  const originalPrompt = String(prompt || '');
+  let promptWasShrunk = false;
+  const maxShrinkRetriesPerProvider = 3;
   
   for (const providerId of providersToTry) {
-    try {
-      console.log(`[AI] Tentando provedor: ${PROVIDERS[providerId].name}`);
-      
-      let result;
-      
-      switch (providerId) {
-        case 'anthropic':
-          result = await callAnthropic(prompt, systemPrompt, options);
-          break;
-        case 'openai':
-          result = await callOpenAI(prompt, systemPrompt, options);
-          break;
-        case 'groq':
-          result = await callGroq(prompt, systemPrompt, options);
-          break;
-        default:
-          throw new Error(`Provedor desconhecido: ${providerId}`);
-      }
-      
-      result.tempoResposta = Date.now() - startTime;
-      result.provider = providerId;
-      result.configuredProvider = configuredProvider;
-      result.providerAttempts = [...providerAttempts];
-      result.usedFallback = providerAttempts.length > 0;
+    let shrinkRetries = 0;
+    // Cada provedor recomeça do prompt original — evita herdar shrink agressivo do Groq no fallback Anthropic/OpenAI.
+    let workingPrompt = originalPrompt;
+    let fitted = fitPromptToProviderBudget(workingPrompt, systemPrompt, options, providerId);
+    workingPrompt = fitted.prompt;
+    if (fitted.shrunk) promptWasShrunk = true;
+    let callOptions = fitted.options;
 
-      if (result.usedFallback) {
-        const falhas = providerAttempts.map((a) => `${a.name}: ${a.error}`).join(' → ');
-        console.warn(
-          `[AI] Fallback: ${PROVIDERS[configuredProvider]?.name || configuredProvider} falhou (${falhas}); sucesso com ${PROVIDERS[providerId].name} em ${result.tempoResposta}ms`
+    while (true) {
+      try {
+        console.log(
+          `[AI] Tentando provedor: ${PROVIDERS[providerId].name}` +
+            (promptWasShrunk ? ` (prompt ${workingPrompt.length} chars)` : '')
         );
-      } else {
-        console.log(`[AI] Sucesso com ${PROVIDERS[providerId].name} em ${result.tempoResposta}ms`);
+
+        const result = await invokeProvider(providerId, workingPrompt, systemPrompt, callOptions);
+
+        result.tempoResposta = Date.now() - startTime;
+        result.provider = providerId;
+        result.configuredProvider = configuredProvider;
+        result.providerAttempts = [...providerAttempts];
+        result.usedFallback = providerAttempts.length > 0;
+        result.promptShrunk = promptWasShrunk;
+
+        if (result.usedFallback) {
+          const falhas = providerAttempts.map((a) => `${a.name}: ${a.error}`).join(' → ');
+          console.warn(
+            `[AI] Fallback: ${PROVIDERS[configuredProvider]?.name || configuredProvider} falhou (${falhas}); sucesso com ${PROVIDERS[providerId].name} em ${result.tempoResposta}ms`
+          );
+        } else {
+          console.log(`[AI] Sucesso com ${PROVIDERS[providerId].name} em ${result.tempoResposta}ms`);
+        }
+
+        return result;
+      } catch (error) {
+        const msg = error?.message || String(error);
+        console.error(`[AI] Erro com ${PROVIDERS[providerId].name}:`, msg);
+        if (error.cause) {
+          console.error(`[AI] Causa do erro:`, error.cause);
+        }
+        lastError = error;
+
+        if (isRequestTooLargeError(error) && shrinkRetries < maxShrinkRetriesPerProvider) {
+          shrinkRetries += 1;
+          const nextBudget = nextShrinkCharBudget(workingPrompt.length, providerId);
+          const shrunk = shrinkPromptToCharBudget(workingPrompt, nextBudget);
+          if (shrunk.prompt.length >= workingPrompt.length - 50) {
+            // Não conseguiu reduzir de forma útil — sai do retry deste provedor.
+            providerAttempts.push({
+              providerId,
+              name: PROVIDERS[providerId].name,
+              error: msg
+            });
+            break;
+          }
+          workingPrompt = shrunk.prompt;
+          promptWasShrunk = true;
+          callOptions = {
+            ...callOptions,
+            maxTokens: Math.min(callOptions.maxTokens || 2500, Math.max(1200, Math.floor((callOptions.maxTokens || 2500) * 0.75)))
+          };
+          console.warn(
+            `[AI] Payload grande demais em ${PROVIDERS[providerId].name}; retry ${shrinkRetries}/${maxShrinkRetriesPerProvider} com prompt ${workingPrompt.length} chars, maxTokens=${callOptions.maxTokens}`
+          );
+          continue;
+        }
+
+        providerAttempts.push({
+          providerId,
+          name: PROVIDERS[providerId].name,
+          error: msg
+        });
+        break;
       }
-      
-      return result;
-      
-    } catch (error) {
-      providerAttempts.push({
-        providerId,
-        name: PROVIDERS[providerId].name,
-        error: error.message
-      });
-      console.error(`[AI] Erro com ${PROVIDERS[providerId].name}:`, error.message);
-      if (error.cause) {
-        console.error(`[AI] Causa do erro:`, error.cause);
-      }
-      lastError = error;
-      
-      // Se não há mais provedores para tentar, lança o erro
-      if (providersToTry.indexOf(providerId) === providersToTry.length - 1) {
-        const finalError = new Error(
-          lastError?.message || 'Falha em todos os provedores de IA'
-        );
-        finalError.providerAttempts = [...providerAttempts];
-        finalError.configuredProvider = configuredProvider;
-        throw finalError;
-      }
-      
-      console.log(`[AI] Tentando próximo provedor (${PROVIDERS[providerId].name} falhou)...`);
     }
+
+    if (providersToTry.indexOf(providerId) === providersToTry.length - 1) {
+      const finalError = new Error(lastError?.message || 'Falha em todos os provedores de IA');
+      finalError.providerAttempts = [...providerAttempts];
+      finalError.configuredProvider = configuredProvider;
+      finalError.promptShrunk = promptWasShrunk;
+      throw finalError;
+    }
+
+    console.log(`[AI] Tentando próximo provedor (${PROVIDERS[providerId].name} falhou)...`);
   }
   
   const finalError = new Error(lastError?.message || 'Falha em todos os provedores de IA');
   finalError.providerAttempts = [...providerAttempts];
   finalError.configuredProvider = configuredProvider;
+  finalError.promptShrunk = promptWasShrunk;
   throw finalError;
 }
 

@@ -6,6 +6,7 @@ import { prisma } from '../lib/prisma.js';
 import { deveReutilizarRelatorioIASalvo } from './reutilizarRelatorioIA.js';
 import { salvarRelatorioIA } from '../routes/relatorios-ia.js';
 import { callAIWithContinuation, getProvider, loadPersistedAIConfig } from '../services/ai-provider.js';
+import { shrinkPromptToCharBudget } from './aiPromptBudget.js';
 import { SYSTEM_PROMPT_PERSONA_EXECUTIVO } from '../constants/consultorRelatorioIA.js';
 import { listarAreasDoProjeto } from './areaFrameworkCatalog.js';
 import { mapaApresentacaoDimensoes } from './projetoDimensoesConfig.js';
@@ -206,7 +207,8 @@ ${temDesejosIaExec ? blocoInstrucoesDesejosIaSistemaExecutivo() : ''}
 Escopo: relatório exclusivo da unidade "${unidadeMeta.nome}" — não generalize para toda a enterprise.`;
 
   await loadPersistedAIConfig();
-  const resultado = await callAIWithContinuation(userPrompt, systemPrompt, {
+  const promptExec = shrinkPromptToCharBudget(userPrompt, 48_000).prompt;
+  const resultado = await callAIWithContinuation(promptExec, systemPrompt, {
     temperature: 0.55,
     maxTokens: 8000
   }, { maxContinuations: 2, minContentTail: 800 });

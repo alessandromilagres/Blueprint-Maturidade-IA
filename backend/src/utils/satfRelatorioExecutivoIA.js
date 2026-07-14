@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { deveReutilizarRelatorioIASalvo } from './reutilizarRelatorioIA.js';
 import { salvarRelatorioIA } from '../routes/relatorios-ia.js';
 import { callAIWithContinuation, getProvider, loadPersistedAIConfig } from '../services/ai-provider.js';
+import { shrinkPromptToCharBudget } from './aiPromptBudget.js';
 import { SYSTEM_PROMPT_PERSONA_BOOK_SATF } from '../constants/consultorRelatorioIA.js';
 import { FRAMEWORK_SATF_TI_V3 } from '../constants/frameworkMaturidadePolicy.js';
 import { listarAreasDoProjeto } from './areaFrameworkCatalog.js';
@@ -412,7 +413,8 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps, opts
     regrasFatos.temGlossario ? blocoInstrucoesPrioridadeGlossario() : ''
   }`;
 
-  const resultado = await callAIWithContinuation(userPrompt, systemPromptExecutivo, {
+  const promptExec = shrinkPromptToCharBudget(userPrompt, 48_000).prompt;
+  const resultado = await callAIWithContinuation(promptExec, systemPromptExecutivo, {
     temperature: 0.55,
     maxTokens: 8000
   }, { maxContinuations: 2, minContentTail: 800 });

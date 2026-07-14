@@ -11,7 +11,6 @@ import {
   buildChunkFailureAviso,
   formatProviderAttemptsLogLine,
   formatProviderFailureForMarkdown,
-  formatSecaoErroGenerico,
   formatEtapaFallbackSucesso,
   formatEtapaFalhaTotalChunk,
   metadataFalhasProvedorChunk
@@ -120,6 +119,11 @@ import {
   montarResumoScoresDimensoes,
   codigoEfetivoDimensaoFramework
 } from './bookDadosDimensao.js';
+import {
+  PROMPT_CONTEXTO_DIMENSAO_SAFE_CHARS,
+  softAiFailureMessageForBook,
+  shrinkPromptToCharBudget
+} from './aiPromptBudget.js';
 
 function mediaSetorTiBenchmark(setor) {
   const s = String(setor || '').toLowerCase();
@@ -187,7 +191,15 @@ function montarPromptSecao3DimensaoSatf({
   const instrucoesDesejos = blocoInstrucoesDesejosIaSecao3Dimensao(dim.area, temDesejosIa);
   const instrucoesEntregaveis = blocoInstrucoesEntregaveisDimensaoSatf(dim.area, inventarioDocumentos);
   const regrasNomenclatura = blocoRegrasNomenclaturaEntregaveisMarkdown(inventarioDocumentos);
-  const guia = blocoGuiaProgressaoDimensaoSatf(dim.area, dim.nivel || dim.score);
+  const guia = limitarBlocoMarkdown(
+    blocoGuiaProgressaoDimensaoSatf(dim.area, dim.nivel || dim.score),
+    PROMPT_GUIA_DIMENSAO_MAX_CHARS,
+    'Guia de progressão (prompt)'
+  );
+  const blocoContextoPrompt = truncarBlocoMarkdownParaPrompt(
+    blocoContextoClienteBook,
+    PROMPT_CONTEXTO_DIMENSAO_MAX_CHARS
+  );
   const papelUnidade = exigeUnidade
     ? resolverPapelDimensaoUnidade(unidadeMeta, dim, 'satf')
     : PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA;
@@ -236,8 +248,9 @@ ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
   // Book por unidade (SATF/MIT): sempre o template canônico 3.x.1–3.x.6.
   const usarTemplateUnidadeOuCompleto = exigeUnidade || !modoRapido;
 
+  let promptOut;
   if (!usarTemplateUnidadeOuCompleto) {
-    return `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.7 em Markdown.
+    promptOut = `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.7 em Markdown.
 
 ### ${numSecao}.1 Diagnóstico (1 parágrafo denso: cite [Qn], score oficial, gap declarado→oficial se houver, e ≥1 fato do contexto do projeto)
 ### ${numSecao}.2 Tabela de scores por pergunta
@@ -262,13 +275,12 @@ ${instrucoesContexto}
 
 ${instrucoesDesejos}
 
-${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${dadosDimensao || montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor, unidadeNome: unidadeMeta?.nome })}
+${blocoContextoPrompt ? `${blocoContextoPrompt}\n\n` : ''}${dadosDimensao || montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor, unidadeNome: unidadeMeta?.nome })}
 
 TABELA OBRIGATÓRIA (copie integralmente em ${numSecao}.2):
 ${tabelaDim}`;
-  }
-
-  return `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.6 em Markdown.
+  } else {
+    promptOut = `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.6 em Markdown.
 
 ### ${numSecao}.1 Análise Diagnóstica (2–3 parágrafos profundos: cite [Qn] com scores; explique o que o score oficial revela; gap declarado→oficial; ligue a entregáveis e pilotos do contexto)
 ### ${numSecao}.2 Evidências Críticas
@@ -294,7 +306,11 @@ ${instrucoesContexto}
 
 ${instrucoesDesejos}
 
-${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${dadosDimensao || montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor, unidadeNome: unidadeMeta?.nome })}`;
+${blocoContextoPrompt ? `${blocoContextoPrompt}\n\n` : ''}${dadosDimensao || montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor, unidadeNome: unidadeMeta?.nome })}`;
+  }
+
+  const capped = shrinkPromptToCharBudget(promptOut, PROMPT_SECAO3_DIMENSAO_MAX_CHARS);
+  return capped.prompt;
 }
 
 function rotuloDimensaoSatfBookMarkdown(dim, numSecao) {
@@ -342,27 +358,39 @@ function esqueletoAnaliseDimensaoSatf(numSecao, dim, motivo = '') {
   const aviso = motivo
     ? `> ⚠️ ${motivo}\n\n`
     : '';
+  const scoreTxt = rotuloScoreDimensaoSatf(dim);
+  const perguntasCriticas = (dim.perguntas || [])
+    .filter((p) => p.totalRespostas > 0)
+    .sort((a, b) => Number(a.score || 0) - Number(b.score || 0))
+    .slice(0, 4)
+    .map((p) => `- [Q${p.numero}] score ${p.score} — ${String(p.texto || '').substring(0, 120)}`);
+  const evidencias =
+    perguntasCriticas.length > 0
+      ? perguntasCriticas.join('\n')
+      : '- Sem respostas consolidadas discriminadas nesta montagem.';
+
   return `${aviso}### ${numSecao}.1 Análise Diagnóstica
 
-> Conteúdo incompleto — regenere o book para análise completa. Score: ${rotuloScoreDimensaoSatf(dim)}.
+Score oficial **${scoreTxt}** na dimensão **${dim.area}**. Análise narrativa da IA indisponível nesta rodada; use a tabela de perguntas e as evidências abaixo para calibração imediata com o time.
 
 ### ${numSecao}.2 Evidências Críticas
 
-- Lacuna de evidências documentadas nesta montagem.
+**Perguntas com menor score (amostra automática):**
+${evidencias}
 
 ### ${numSecao}.3 Risco de Negócio
 
-> Risco não detalhado automaticamente — revisar com o time da dimensão **${dim.area}**.
+Manter este nível nesta dimensão pode atrasar iniciativas de engenharia/plataforma dependentes de **${dim.area}** — priorizar revisão de evidências e owners nos próximos 30 dias.
 
 ### ${numSecao}.4 Benchmark Setorial
 
-> Benchmark não gerado nesta montagem.
+Posição relativa não calibrada por IA nesta montagem; comparar o score **${scoreTxt}** com a meta interna da unidade/projeto.
 
 ### ${numSecao}.5 Recomendações Específicas
 
-1. Revisar evidências e prioridades desta dimensão com a unidade.
+1. Revisar evidências e prioridades desta dimensão com a unidade (foco nas [Qn] de menor score).
 2. Definir entregável e owner em até 30 dias.
-3. Incluir KPI de evolução do score oficial.
+3. Incluir KPI de evolução do score oficial no ritual de acompanhamento.
 
 ### ${numSecao}.6 KPIs de Acompanhamento
 
@@ -403,7 +431,12 @@ function numSecaoDiagnosticoBook(exigeUnidade, unidadeMeta, idxRelativo, idxCano
 const DADOS_BLOCK_CONTEXTO_MAX_CHARS = 48_000;
 const DADOS_BLOCK_DESEJOS_MAX_CHARS = 16_000;
 const DADOS_BLOCK_INVENTARIO_MAX_CHARS = 24_000;
-const PROMPT_CONTEXTO_DIMENSAO_MAX_CHARS = 12_000;
+/** Contexto cliente injetado em cada chunk 3.x — alinhado ao orçamento Groq TPM. */
+const PROMPT_CONTEXTO_DIMENSAO_MAX_CHARS = PROMPT_CONTEXTO_DIMENSAO_SAFE_CHARS;
+/** Guia de progressão injetado no prompt de dimensão (chars). */
+const PROMPT_GUIA_DIMENSAO_MAX_CHARS = 4_000;
+/** Teto preventivo do prompt completo de dimensão antes da chamada IA. */
+const PROMPT_SECAO3_DIMENSAO_MAX_CHARS = 22_000;
 
 function limitarBlocoMarkdown(bloco, maxChars, rotulo) {
   if (!bloco || bloco.length <= maxChars) return bloco;
@@ -1277,7 +1310,9 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
         })
       });
 
-      const msgErro = formatProviderFailureForMarkdown(err);
+      // Detalhe técnico só em log/job; markdown do book usa mensagem amigável.
+      console.error(`[Book SATF] Detalhe falha chunk ${chunk.id}:`, formatProviderFailureForMarkdown(err));
+      const msgUsuario = softAiFailureMessageForBook(err);
       const m = String(chunk.id || '').match(/^sec_3_(\d+)$/);
       if (m) {
         const dimIdx = parseInt(m[1], 10) - 1;
@@ -1300,12 +1335,8 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
             numSecao,
             dim,
             conteudoIa: usarEsqueletoAnalise
-              ? esqueletoAnaliseDimensaoSatf(
-                  numSecao,
-                  dim,
-                  `Falha na geração IA desta dimensão (${msgErro.slice(0, 280)}).`
-                )
-              : `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ **Esta seção não pôde ser gerada pela IA** (${msgErro.slice(0, 500)}).\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
+              ? esqueletoAnaliseDimensaoSatf(numSecao, dim, msgUsuario)
+              : `### ${numSecao}.1 Status da dimensão\n\n> ⚠️ ${msgUsuario}\n\n### ${numSecao}.2 Registro de scores por pergunta\n\n${tabelaPerguntasDimensaoMarkdown(dim)}`,
             isFirst: dimIdx === primeiroIdxAtivo,
             totalDimensoes: totalDimsSec3,
             ordemNomes: nomesSecao3,
@@ -1316,7 +1347,10 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
           })
         );
       } else {
-        registrar(chunk, formatSecaoErroGenerico(chunk, err));
+        registrar(
+          chunk,
+          `> ⚠️ **Nota:** Esta seção (${chunk.label}) não pôde ser gerada automaticamente. ${msgUsuario}`
+        );
       }
     }
   }

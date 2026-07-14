@@ -105,6 +105,11 @@ import {
 } from './utils/bookModoRapidoMarkdown.js';
 import { montarBlocoDadosDimensaoUnica } from './utils/bookDadosDimensao.js';
 import {
+  PROMPT_CONTEXTO_DIMENSAO_SAFE_CHARS,
+  limitarBlocoMarkdown,
+  shrinkPromptToCharBudget
+} from './utils/aiPromptBudget.js';
+import {
   parseAreasRecusadas,
   parseAreasSelecionadas,
   respostasParaCalculo,
@@ -6413,9 +6418,10 @@ Gere agora o Relatório Executivo completo em Markdown, seguindo rigorosamente a
 
     await loadPersistedAIConfig();
     console.log(`[Relatório IA] Gerando para projeto ${projetoId} usando ${getProvider().name}`);
-    
+
+    const promptExecutivo = shrinkPromptToCharBudget(userPrompt, 48_000).prompt;
     const resultado = await callAIWithContinuation(
-      userPrompt,
+      promptExecutivo,
       systemPrompt,
       {
         temperature: 0.7,
@@ -6761,6 +6767,11 @@ app.post('/api/dashboard/projeto/:id/relatorio-ia-completo', async (req, res) =>
     }[setor.toLowerCase()] || 2.8;
 
     const blocoContextoClienteBook = await blocoContextoProjetoMarkdown(prisma, projetoId);
+    const blocoContextoClienteBookDim = limitarBlocoMarkdown(
+      blocoContextoClienteBook,
+      PROMPT_CONTEXTO_DIMENSAO_SAFE_CHARS,
+      'Contexto do cliente (prompt dimensão)'
+    );
     const regrasFatosBook = await carregarRegrasFatosContextoProjeto(prisma, projetoId);
     const temContextoProjeto = projetoTemContextoCadastrado(blocoContextoClienteBook);
     const blocoDesejosIaBook = blocoDesejosIaMarkdown(avaliacoesFiltradas);
@@ -6946,10 +6957,8 @@ Comece com "# 1. METODOLOGIA APLICADA".`,
           });
           return;
         }
-        chunks.push({
-          id: `sec_3_${idx + 1}`,
-          label: `Diagnóstico — ${dim.area} (modo rápido)`,
-          prompt: `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.7 em Markdown.
+        const promptRapidoDim = shrinkPromptToCharBudget(
+          `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.7 em Markdown.
 
 ### ${numSecao}.1 Diagnóstico (1 parágrafo, específico da dimensão **${dim.area}**${temContextoProjeto ? ' e do contexto do cliente' : ' e do setor'})
 ### ${numSecao}.2 Tabela de scores por pergunta
@@ -6968,16 +6977,22 @@ ${temContextoProjeto ? '- **Com contexto cadastrado:** proibido texto genérico 
 
 CONTEXTO GERAL: ${projeto.empresa.nome} · ${setor} · porte ${porte} · score geral ${scoreGeral.toFixed(2)} (Nível ${nivel})
 
-${blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score)}
+${limitarBlocoMarkdown(blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score), 4000, 'Guia progressão')}
 
-${blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBook)}
+${blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBookDim)}
 
 ${blocoInstrucoesDesejosIaSecao3Dimensao(dim.area, temDesejosIa)}
 
 ${montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor })}
 
-TABELA OBRIGATÓRIA (copie integralmente em ${numSecao}.2):
+${blocoContextoClienteBookDim ? `${blocoContextoClienteBookDim}\n\n` : ''}TABELA OBRIGATÓRIA (copie integralmente em ${numSecao}.2):
 ${tabelaPerguntasDimensaoMarkdown(dim)}`,
+          22_000
+        ).prompt;
+        chunks.push({
+          id: `sec_3_${idx + 1}`,
+          label: `Diagnóstico — ${dim.area} (modo rápido)`,
+          prompt: promptRapidoDim,
           maxTokens: 3600
         });
       });
@@ -7098,10 +7113,8 @@ Gere SOMENTE as seções 1 e 2. Comece direto com "# 1. METODOLOGIA APLICADA".`,
             }`
         )
         .join('\n');
-      chunks.push({
-        id: `sec_3_${idx + 1}`,
-        label: `Diagnóstico — ${dim.area}`,
-        prompt: `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.6 em Markdown.
+      const promptCompletoDim = shrinkPromptToCharBudget(
+        `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.6 em Markdown.
 
 ### ${numSecao}.1 Análise Diagnóstica (2–3 parágrafos profundos sobre o que o score revela)
 ### ${numSecao}.2 Evidências Críticas (bullets — quais perguntas puxaram score para cima/baixo)
@@ -7127,17 +7140,23 @@ ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
 
 ${montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor })}
 
-${blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score)}
+${limitarBlocoMarkdown(blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score), 4000, 'Guia progressão')}
 
-${blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBook)}
+${blocoInstrucoesPromptSecao3Dimensao(dim.area, blocoContextoClienteBookDim)}
 
 ${blocoInstrucoesDesejosIaSecao3Dimensao(dim.area, temDesejosIa)}
 
-${blocoContextoClienteBook ? `${blocoContextoClienteBook}\n\n` : ''}${
+${blocoContextoClienteBookDim ? `${blocoContextoClienteBookDim}\n\n` : ''}${
   temContextoProjeto
     ? 'Personalize com o **contexto do cliente** acima — cenário real deste projeto. Não use narrativa genérica de mercado.'
     : `Seja profundo, contextualizado e use exemplos REAIS do setor ${setor}.`
 }`,
+        22_000
+      ).prompt;
+      chunks.push({
+        id: `sec_3_${idx + 1}`,
+        label: `Diagnóstico — ${dim.area}`,
+        prompt: promptCompletoDim,
         maxTokens: 6000
       });
     });
@@ -7395,8 +7414,12 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
         const contOpts = modoRapido
           ? { maxContinuations: 2, minContentTail: 400 }
           : { maxContinuations: 3, minContentTail: 800 };
+        // Caps preventivos também em chunks não-dimensão (dadosBlock completo).
+        const promptChunk = chunk.id?.startsWith('sec_3_')
+          ? chunk.prompt
+          : shrinkPromptToCharBudget(chunk.prompt, 28_000).prompt;
         const resultado = await callAIWithContinuation(
-          chunk.prompt,
+          promptChunk,
           systemUsado,
           {
             temperature: chunk.id.startsWith('sec_3_') ? 0.45 : modoRapido ? 0.5 : 0.6,
@@ -7504,7 +7527,7 @@ Gere SOMENTE a seção 13. Comece direto com "# 13. PRÓXIMOS PASSOS IMEDIATOS (
                     totalDimensoes: dimensoesDiagnostico.length,
                     modoRapido
                   })
-                : blocoFallbackErroSecao3Dimensao(numSecao, dim, chunkError.message, {
+                : blocoFallbackErroSecao3Dimensao(numSecao, dim, chunkError, {
                     isFirst: dimIdx === 0,
                     totalDimensoes: dimensoesDiagnostico.length,
                     modoRapido

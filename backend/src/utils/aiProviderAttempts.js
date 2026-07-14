@@ -3,6 +3,7 @@
  */
 
 import { PROVIDERS } from '../services/ai-provider.js';
+import { softAiFailureMessageForBook } from './aiPromptBudget.js';
 
 function truncateMsg(msg, max = 180) {
   const s = String(msg || '')
@@ -87,8 +88,8 @@ export function metadataFalhasProvedorChunk(error, chunk) {
 }
 
 export function formatSecaoErroGenerico(chunk, error) {
-  const detalhe = formatProviderFailureForMarkdown(error);
-  return `> ⚠️ **Nota:** Esta seção (${chunk.label}) não pôde ser gerada. ${detalhe} Regenere o relatório se necessário.`;
+  // Detalhe técnico fica em logs/job metadata; o markdown do book permanece legível.
+  return `> ⚠️ **Nota:** Esta seção (${chunk.label}) não pôde ser gerada automaticamente. ${softAiFailureMessageForBook(error)}`;
 }
 
 /** Texto curto para etapa do job em background (visível na UI durante geração). */

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizarDimensoesFocoSatfInput, normalizarDimensoesFocoMitInput } from '../src/utils/empresaUnidade.js';
+import { normalizarDimensoesFocoSatfInput, normalizarDimensoesFocoMitInput, resolverPapelDimensaoUnidade, blocoInstrucaoPapelDimensaoPrompt, PAPEIS_DIMENSAO_UNIDADE, normalizarDimensoesPapelInput } from '../src/utils/empresaUnidade.js';
 import { dimensoesSecao3BookUnidade, dimensaoCorrespondeFocoUnidade } from '../src/utils/bookDadosDimensao.js';
 import {
   construirMapaRenumeracaoSecoesPrincipaisSatfUnidade,
@@ -109,5 +109,96 @@ texto dim
     assert.match(out, /^# 3\. DIAGNÓSTICO/m);
     assert.match(out, /^## 3\.1 Dimensão — D1/m);
     assert.doesNotMatch(out, /## 3\.9 Dimensão — spillover/);
+  });
+});
+
+describe('normalizacao book unidade Blueprint', () => {
+  it('sanitiza chunk de dimensão removendo H1/H2 vazados e BP no heading', async () => {
+    const { sanitizarChunkDimensaoBookUnidadeBlueprint, normalizarSecoesBookUnidadeBlueprint } =
+      await import('../src/utils/bookUnidadeBlueprintNormalizar.js');
+    const bruto = `# 4. Consolidação Estratégica e Roadmap
+## 3.5 BP5 — Cultura e Gestão
+### 3.5.1 Análise Diagnóstica
+texto
+# 12. Dimensão BP12 — Governança`;
+    const out = sanitizarChunkDimensaoBookUnidadeBlueprint(bruto, {
+      num: 5,
+      nomeDimensao: 'Cultura e Gestão da Mudança',
+      papelLabel: 'Proprietário'
+    });
+    assert.match(out, /^## 3\.5 Dimensão — Cultura e Gestão da Mudança \(Proprietário\)/m);
+    assert.match(out, /### 3\.5\.1 Análise Diagnóstica/);
+    assert.doesNotMatch(out, /^# 4\./m);
+    assert.doesNotMatch(out, /BP5/);
+    assert.doesNotMatch(out, /^# 12\./m);
+  });
+
+  it('deduplica dois #4 e remove 3.16 perdido sob o roadmap', async () => {
+    const { normalizarSecoesBookUnidadeBlueprint } = await import(
+      '../src/utils/bookUnidadeBlueprintNormalizar.js'
+    );
+    const md = `# 1. METODOLOGIA APLICADA (SysMap Blueprint IA)
+## 1.1 Instrumento
+# 2. SUMÁRIO EXECUTIVO
+## 2.1 Panorama
+# 3. DIAGNÓSTICO POR DIMENSÃO — UNIDADE Tech
+## 3.1 Dimensão — Estratégia e Liderança
+### 3.1.1 Análise
+# 4. Consolidação Estratégica e Roadmap de Transformação
+## 4.1 Visão Integrada dos Scores
+## 3.16 — Eficácia de IA (MIT CISR)
+# 4. ROADMAP ENGENHARIA 30-60-90 DIAS DA UNIDADE
+## 4.1 Visão integrada
+# 5. Próximos Passos e Encerramento
+## 5.1 Ações
+# 12. Dimensão BP12 — Governança de Dados`;
+    const out = normalizarSecoesBookUnidadeBlueprint(md);
+    const h1Fours = [...out.matchAll(/^# 4\.\s+(.+)$/gm)].map((m) => m[1]);
+    assert.equal(h1Fours.length, 1);
+    assert.match(h1Fours[0], /ROADMAP/i);
+    assert.doesNotMatch(out, /## 3\.16/);
+    assert.doesNotMatch(out, /^# 12\./m);
+    const entradas = extrairEntradasIndiceMarkdown(out, { modo: 'unidade' });
+    const nums = entradas.filter((e) => e.level === 1).map((e) => parseInt(e.titulo, 10));
+    assert.deepEqual(nums, [1, 2, 3, 4, 5]);
+  });
+});
+
+describe('papel dimensao unidade', () => {
+  it('normaliza mapa SATF proprietario/consumidor', () => {
+    const mapa = normalizarDimensoesPapelInput(
+      { D1: 'proprietario', D4: 'consumer', D7: 'nao_se_aplica' },
+      { prefixo: 'D' }
+    );
+    assert.equal(mapa.D1, PAPEIS_DIMENSAO_UNIDADE.PROPRIETARIO);
+    assert.equal(mapa.D4, PAPEIS_DIMENSAO_UNIDADE.CONSUMIDOR);
+    assert.equal(mapa.D7, PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA);
+  });
+
+  it('resolve papel e gera prompt só para proprietario/consumidor', () => {
+    const unidade = {
+      nome: 'GRT',
+      dimensoesPapelSatf: JSON.stringify({ D1: 'consumidor', D4: 'proprietario' })
+    };
+    assert.equal(
+      resolverPapelDimensaoUnidade(unidade, { codigoFramework: 'D1' }, 'satf'),
+      PAPEIS_DIMENSAO_UNIDADE.CONSUMIDOR
+    );
+    assert.equal(
+      resolverPapelDimensaoUnidade(unidade, { codigoFramework: 'D8' }, 'satf'),
+      PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA
+    );
+    assert.match(
+      blocoInstrucaoPapelDimensaoPrompt({
+        papel: 'proprietario',
+        unidadeNome: 'GRT',
+        nomeDimensao: 'Engenharia'
+      }),
+      /PROPRIETÁRIO/
+    );
+    assert.equal(
+      blocoInstrucaoPapelDimensaoPrompt({ papel: 'nao_se_aplica' }),
+      ''
+    );
   });
 });

@@ -21,7 +21,6 @@ import { dimensaoComScoreZero } from './bookModoRapidoMarkdown.js';
 import { ordenarAreasPorFramework } from './ordemDimensoesFramework.js';
 import {
   parseFiltroNivelPrioridadeMapeamentoMaturidadeMax,
-  prependCapaNivelAvaliadoresAoRelatorio,
   blocoAvaliadoresConsolidadoMarkdown
 } from './nivelPrioridadeMapeamentoMaturidade.js';
 import { resolverLogoEmpresa } from './empresaLogo.js';
@@ -32,8 +31,12 @@ import {
   carregarRegrasFatosContextoProjeto
 } from './projetoContexto.js';
 import { posicionarApendicesMetodologicosComoUltimaSecao } from './bookApendicesMetodologicos.js';
-import { adicionarIndiceAoBookMarkdown } from './bookMarkdownIndice.js';
-import { capaConfidencialBookSatfMarkdown } from './satfBookTaxonomia.js';
+import { montarPreliminaresBookSatfOrdemCanonica } from './bookMarkdownIndice.js';
+import {
+  sanitizarChunkDimensaoBookUnidadeBlueprint,
+  sanitizarChunkSecaoPrincipalBookUnidade,
+  normalizarSecoesBookUnidadeBlueprint
+} from './bookUnidadeBlueprintNormalizar.js';
 import {
   blocoDesejosIaMarkdown,
   projetoTemDesejosIaCadastrados
@@ -41,11 +44,16 @@ import {
 import {
   filtrarAvaliacoesRelatorioProjeto,
   metadadosUnidadeDadosUsados,
-  prependCapaUnidadeAoRelatorio,
   relatorioUnidadeCacheCompativel,
   resolverContextoUnidadeRelatorioObrigatorio
 } from './relatorioUnidadeIA.js';
 import { garantirUnidadeGeralEmpresa } from './empresaUnidade.js';
+import {
+  resolverPapelDimensaoUnidade,
+  blocoInstrucaoPapelDimensaoPrompt,
+  labelPapelDimensaoUnidade,
+  PAPEIS_DIMENSAO_UNIDADE
+} from './empresaUnidade.js';
 import {
   gerarPlanoAcaoPorDimensao,
   instrucoesSistemaBookUnidade,
@@ -269,32 +277,32 @@ Gere SOMENTE o conteúdo solicitado em Markdown. Não duplique capas de avaliado
   try {
   await reportarProgresso(0, 'Metodologia MIT da unidade');
   partesMetodologia.push(
-    await chamarIa(
-      `${dadosResumoBase}
+    sanitizarChunkSecaoPrincipalBookUnidade(
+      await chamarIa(
+        `${dadosResumoBase}
 
-Gere SOMENTE:
-
-# 1. METODOLOGIA APLICADA (SysMap Blueprint IA)
+Gere SOMENTE o corpo das subseções abaixo (o sistema já insere "# 1. …"). **Proibido** criar "# 2.", "# 3.", "# 4.", outras seções, títulos BP12/BPN como heading, ou outline enterprise.
 
 ## 1.1 Instrumento
 Framework SysMap Blueprint IA com **16 dimensões** (referência metodológica MIT CISR), escala N1–N5 e leitura de score consolidado **desta unidade** (${unidadeMeta.nome}).
 
 ## 1.2 Como ler o diagnóstico
-Score consolidado, nível de maturidade e escopo por dimensão em foco. **Não** crie "# 2." nem "# 3.".
+Score consolidado, nível de maturidade e escopo por dimensão em foco.
 
 ${temContexto ? 'Use o contexto do cliente quando disponível.' : ''}`,
-      modoRapido ? 2200 : 3500
+        modoRapido ? 2200 : 3500
+      ),
+      { num: 1, tituloPreferido: 'METODOLOGIA' }
     )
   );
 
   await reportarProgresso(1, 'Sumário executivo da unidade');
   partesSumario.push(
-    await chamarIa(
-      `${dadosResumoBase}
+    sanitizarChunkSecaoPrincipalBookUnidade(
+      await chamarIa(
+        `${dadosResumoBase}
 
-Gere SOMENTE:
-
-# 2. SUMÁRIO EXECUTIVO
+Gere SOMENTE o corpo das subseções (o sistema insere "# 2. SUMÁRIO EXECUTIVO"). **Proibido** "# 3.", "# 4.", seções enterprise ou códigos BP como número de seção.
 
 ## 2.1 Panorama da unidade
 1 parágrafo sobre a maturidade de IA **desta unidade** (${unidadeMeta.nome}), citando score ${scoreGeral.toFixed(2)} e contexto setorial.
@@ -307,8 +315,10 @@ Gere SOMENTE:
 | Avaliadores | ${avaliacoesFiltradas.length} |
 
 ## 2.3 Cinco prioridades imediatas
-Bullets numerados — o que a unidade deve fazer nos próximos 30 dias (específico). **PARE** antes de "# 3.".`,
-      modoRapido ? 2200 : 3500
+Bullets numerados — o que a unidade deve fazer nos próximos 30 dias (específico).`,
+        modoRapido ? 2200 : 3500
+      ),
+      { num: 2, tituloPreferido: 'SUMÁRIO' }
     )
   );
 
@@ -320,20 +330,31 @@ Bullets numerados — o que a unidade deve fazer nos próximos 30 dias (específ
       `Dimensão ${num}/${dimsComDadosLoop.length}: ${dim.area}`
     );
     const planoDim = planoAcaoPorNomeDimensao(planoAcaoRelevante, dim.area);
+    const papelUnidade = resolverPapelDimensaoUnidade(unidadeMeta, dim, 'mit');
+    const blocoPapel = blocoInstrucaoPapelDimensaoPrompt({
+      papel: papelUnidade,
+      unidadeNome: unidadeMeta.nome,
+      nomeDimensao: dim.area
+    });
     const blocoDim = montarBlocoDadosDimensaoUnica(dim, {
       scoreGeral,
       unidadeNome: unidadeMeta.nome
     });
+    const papelLabel =
+      papelUnidade !== PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA
+        ? labelPapelDimensaoUnidade(papelUnidade)
+        : '';
 
-    partesDimensoes.push(
-      await chamarIa(
+    try {
+      const bruto = await chamarIa(
         `${dadosResumoBase}
 
 ${blocoDim}
+${blocoPapel}
 
-Gere SOMENTE a subseção da dimensão **${dim.area}**:
-
-## 3.${num} Dimensão — ${dim.area}
+Gere SOMENTE as subseções ### 3.${num}.1–3.${num}.6 da dimensão **${dim.area}**.
+O sistema já inserirá o heading "## 3.${num} Dimensão — ${dim.area}".
+**Proibido:** qualquer "# …", "## …", "BP${num}" como número de seção, "# 4.", "# 5.", "Consolidação Estratégica", "SEÇÃO 3", roadmap ou outras dimensões.
 
 ### 3.${num}.1 Análise Diagnóstica
 2–3 parágrafos: score ${Number(dim.score).toFixed(2)}, nível N${dim.nivel || nivel}, cite perguntas [Qn] quando relevante; o que o score revela para a unidade ${unidadeMeta.nome}.
@@ -359,20 +380,40 @@ ${dimensaoComScoreZero(dim) ? `\n> **Score individual 0 nesta rodada:** use scor
 
 ${temDesejosIa ? 'Ancore ≥1 recomendação em Desejos IA quando pertinente.' : ''}`,
         modoRapido ? 2200 : 3600
-      )
-    );
+      );
+      partesDimensoes.push(
+        sanitizarChunkDimensaoBookUnidadeBlueprint(bruto, {
+          num,
+          nomeDimensao: dim.area,
+          papelLabel
+        })
+      );
+    } catch (dimErr) {
+      console.error(
+        `[Book Unidade Blueprint] Erro na dimensão ${dim.area} (${num}/${dimsComDadosLoop.length}):`,
+        dimErr?.message || dimErr
+      );
+      partesDimensoes.push(
+        sanitizarChunkDimensaoBookUnidadeBlueprint(
+          `> **Geração parcial:** falha ao gerar esta dimensão (${dimErr?.message || 'erro de IA'}). Regenerar o book ou esta seção se necessário.`,
+          { num, nomeDimensao: dim.area, papelLabel }
+        )
+      );
+    }
   }
 
   const secao3 = `# 3. DIAGNÓSTICO POR DIMENSÃO — UNIDADE ${unidadeMeta.nome}\n\n${partesDimensoes.join('\n\n')}`;
 
   await reportarProgresso(totalChunks - 2, 'Roadmap 30-60-90 da unidade');
-  const secao4 = await chamarIa(
-    `${dadosResumoBase}
+  const secao4 = sanitizarChunkSecaoPrincipalBookUnidade(
+    await chamarIa(
+      `${dadosResumoBase}
 
 Plano rule-based prioritário (dimensões em foco):
 ${planoAcaoRelevante.map((p) => `- ${p.area} (${p.score}): ${p.acoes30Dias[0]}`).join('\n') || '—'}
 
-Gere SOMENTE:
+Gere SOMENTE o roadmap da unidade (heading "# 4. ROADMAP ENGENHARIA 30-60-90 DIAS DA UNIDADE" + ## 4.1–4.3).
+**Proibido:** "Consolidação Estratégica", radar, mapa de calor, "# 5.", "## 3.N", benchmarks setoriais enterprise, seções 6+.
 
 # 4. ROADMAP ENGENHARIA 30-60-90 DIAS DA UNIDADE
 
@@ -384,14 +425,18 @@ Tabela: Horizonte (30/60/90) | Iniciativa | Dimensão | Owner | Entregável | St
 
 ## 4.3 Rituais de governança
 Bullets: cadência de acompanhamento, métricas de revisão, critério de sucesso da unidade.`,
-    modoRapido ? 2200 : 3500
+      modoRapido ? 2200 : 3500
+    ),
+    { num: 4, tituloPreferido: 'ROADMAP' }
   );
 
   await reportarProgresso(totalChunks - 1, 'Próximos passos da unidade');
-  const secao5 = await chamarIa(
-    `${dadosResumoBase}
+  const secao5 = sanitizarChunkSecaoPrincipalBookUnidade(
+    await chamarIa(
+      `${dadosResumoBase}
 
-Gere SOMENTE:
+Gere SOMENTE "# 5. Próximos Passos e Encerramento" + ## 5.1–5.3.
+**Proibido:** outras seções numeradas, "## 3.N", benchmarks, consolidação estratégica.
 
 # 5. Próximos Passos e Encerramento
 
@@ -403,10 +448,14 @@ Bullets objetivos para a próxima rodada de avaliação.
 
 ## 5.3 Encerramento
 1 parágrafo de fechamento executivo.`,
-    modoRapido ? 2000 : 3200
+      modoRapido ? 2000 : 3200
+    ),
+    { num: 5, tituloPreferido: 'Próximos' }
   );
 
-  markdown = `${partesMetodologia.join('\n\n')}\n\n${partesSumario.join('\n\n')}\n\n${secao3}\n\n${secao4}\n\n${secao5}`;
+  markdown = normalizarSecoesBookUnidadeBlueprint(
+    `${partesMetodologia.join('\n\n')}\n\n${partesSumario.join('\n\n')}\n\n${secao3}\n\n${secao4}\n\n${secao5}`
+  );
   await reportarProgresso(totalChunks, 'Finalizando book da unidade');
   } catch (iaErr) {
     console.error('[Book Unidade Blueprint] Falha na geração IA:', iaErr);
@@ -418,22 +467,27 @@ Bullets objetivos para a próxima rodada de avaliação.
     });
   }
 
-  markdown = prependCapaUnidadeAoRelatorio(markdown, unidadeMeta);
-  const relatorioComCapas = prependCapaNivelAvaliadoresAoRelatorio(markdown, {
-    filtroMax: filtroNivelMax,
-    avaliacoesFiltradas,
-    empresaNome: projeto.empresa.nome,
-    projetoNome: projeto.nome
-  });
-  let relatorioFinal = !modoRapido
-    ? posicionarApendicesMetodologicosComoUltimaSecao(relatorioComCapas, {
+  markdown = normalizarSecoesBookUnidadeBlueprint(markdown);
+
+  let relatorioComCorpo = !modoRapido
+    ? posicionarApendicesMetodologicosComoUltimaSecao(markdown, {
         framework: 'blueprint',
         glossarioProjeto: regrasFatos.glossario
       })
-    : relatorioComCapas;
+    : markdown;
 
-  const comIndice = adicionarIndiceAoBookMarkdown(relatorioFinal, { modo: 'completo' });
-  relatorioFinal = `${capaConfidencialBookSatfMarkdown(projeto.empresa.nome, projeto.nome)}${comIndice}`;
+  relatorioComCorpo = normalizarSecoesBookUnidadeBlueprint(relatorioComCorpo);
+
+  const relatorioFinal = montarPreliminaresBookSatfOrdemCanonica({
+    corpoMarkdown: relatorioComCorpo,
+    empresaNome: projeto.empresa.nome,
+    projetoNome: projeto.nome,
+    avaliacoesFiltradas,
+    filtroNivelMax,
+    unidadeMeta,
+    exigeUnidade: true,
+    modoIndice: 'unidade'
+  });
 
   const tempoTotal = Date.now() - startTime;
   const logoMeta = await resolverLogoEmpresa(projeto.empresa);

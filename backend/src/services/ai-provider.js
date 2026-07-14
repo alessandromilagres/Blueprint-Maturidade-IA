@@ -39,6 +39,47 @@ const PROVIDERS = {
 const CONFIG_PROVIDER_KEY = 'AI_PROVIDER';
 let persistedConfigLoaded = false;
 
+/**
+ * Remove surrogates UTF-16 órfãos (quebram JSON.stringify → Anthropic 400
+ * "invalid high surrogate in string").
+ */
+export function sanitizeUnicodeForJson(input) {
+  if (input == null) return input;
+  if (typeof input !== 'string') {
+    if (Array.isArray(input)) return input.map((x) => sanitizeUnicodeForJson(x));
+    if (typeof input === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(input)) {
+        out[k] = sanitizeUnicodeForJson(v);
+      }
+      return out;
+    }
+    return input;
+  }
+  let out = '';
+  for (let i = 0; i < input.length; i++) {
+    const c = input.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const next = i + 1 < input.length ? input.charCodeAt(i + 1) : 0;
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        out += input[i] + input[i + 1];
+        i += 1;
+      } else {
+        out += '\uFFFD';
+      }
+    } else if (c >= 0xdc00 && c <= 0xdfff) {
+      out += '\uFFFD';
+    } else {
+      out += input[i];
+    }
+  }
+  return out;
+}
+
+function jsonStringifySafe(payload) {
+  return JSON.stringify(sanitizeUnicodeForJson(payload));
+}
+
 /** Timeout por chamada HTTP à API de IA (geração de documentos pode levar vários minutos). */
 function getAiFetchSignal() {
   const msRaw = Number(process.env.AI_FETCH_TIMEOUT_MS);
@@ -232,7 +273,7 @@ async function callAnthropic(prompt, systemPrompt, options = {}) {
       'anthropic-version': '2023-06-01'
     },
     signal: getAiFetchSignal(),
-    body: JSON.stringify({
+    body: jsonStringifySafe({
       model: options.model || provider.defaultModel,
       max_tokens: options.maxTokens || provider.maxTokens,
       system: systemPrompt,
@@ -305,7 +346,7 @@ async function callOpenAI(prompt, systemPrompt, options = {}) {
       'Authorization': `Bearer ${apiKey}`
     },
     signal: getAiFetchSignal(),
-    body: JSON.stringify({
+    body: jsonStringifySafe({
       model: options.model || provider.defaultModel,
       max_tokens: options.maxTokens || provider.maxTokens,
       messages
@@ -364,7 +405,7 @@ async function callGroq(prompt, systemPrompt, options = {}) {
       'Authorization': `Bearer ${apiKey}`
     },
     signal: getAiFetchSignal(),
-    body: JSON.stringify({
+    body: jsonStringifySafe({
       model: options.model || provider.defaultModel,
       max_tokens: options.maxTokens || provider.maxTokens,
       messages

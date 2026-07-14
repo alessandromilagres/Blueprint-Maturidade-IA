@@ -197,6 +197,173 @@ export function unidadeTemDimensoesFocoMit(unidadeMeta) {
   return Boolean(parseDimensoesFocoMitJson(unidadeMeta)?.length);
 }
 
+/** Papéis opcionais da unidade em cada dimensão. */
+export const PAPEIS_DIMENSAO_UNIDADE = Object.freeze({
+  PROPRIETARIO: 'proprietario',
+  CONSUMIDOR: 'consumidor',
+  NAO_SE_APLICA: 'nao_se_aplica'
+});
+
+const PAPEIS_VALIDOS = new Set(Object.values(PAPEIS_DIMENSAO_UNIDADE));
+
+export function normalizarPapelDimensaoUnidade(valor) {
+  const raw = String(valor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\s-]+/g, '_');
+  if (!raw || raw === 'n_a' || raw === 'na' || raw === 'nsa' || raw === 'none') {
+    return PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA;
+  }
+  if (raw === 'owner' || raw === 'proprietaria' || raw === 'dono' || raw === 'dona') {
+    return PAPEIS_DIMENSAO_UNIDADE.PROPRIETARIO;
+  }
+  if (raw === 'consumer' || raw === 'consumidora' || raw === 'usuario' || raw === 'usuaria') {
+    return PAPEIS_DIMENSAO_UNIDADE.CONSUMIDOR;
+  }
+  if (PAPEIS_VALIDOS.has(raw)) return raw;
+  return PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA;
+}
+
+export function labelPapelDimensaoUnidade(papel) {
+  const p = normalizarPapelDimensaoUnidade(papel);
+  if (p === PAPEIS_DIMENSAO_UNIDADE.PROPRIETARIO) return 'Proprietário';
+  if (p === PAPEIS_DIMENSAO_UNIDADE.CONSUMIDOR) return 'Consumidor';
+  return 'Não se aplica';
+}
+
+/**
+ * Normaliza mapa { D1: "consumidor", ... }.
+ * Sem prefixo: não filtra. Com prefixo 'D' ou 'BP': só códigos daquele framework.
+ * @returns {Record<string, string>|null}
+ */
+export function normalizarDimensoesPapelInput(valor, { prefixo = null } = {}) {
+  if (valor == null || valor === '') return null;
+
+  let mapa = null;
+  if (typeof valor === 'object' && !Array.isArray(valor)) {
+    mapa = valor;
+  } else if (typeof valor === 'string') {
+    const trimmed = valor.trim();
+    if (!trimmed) return null;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) mapa = parsed;
+    } catch {
+      return null;
+    }
+  }
+  if (!mapa || typeof mapa !== 'object') return null;
+
+  const out = {};
+  for (const [k, v] of Object.entries(mapa)) {
+    const cod = String(k || '').trim().toUpperCase();
+    if (!cod) continue;
+    if (prefixo === 'D' && !/^D(?:10|11|[1-9])$/.test(cod)) continue;
+    if (prefixo === 'BP' && !/^BP(?:1[0-6]|[1-9])$/.test(cod)) continue;
+    if (prefixo == null && !/^(?:D(?:10|11|[1-9])|BP(?:1[0-6]|[1-9]))$/.test(cod)) continue;
+    out[cod] = normalizarPapelDimensaoUnidade(v);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+export function parseDimensoesPapelSatfJson(rowOrValor) {
+  return normalizarDimensoesPapelInput(extrairCampoUnidade(rowOrValor, 'dimensoesPapelSatf'), {
+    prefixo: 'D'
+  });
+}
+
+export function parseDimensoesPapelMitJson(rowOrValor) {
+  return normalizarDimensoesPapelInput(extrairCampoUnidade(rowOrValor, 'dimensoesPapelMit'), {
+    prefixo: 'BP'
+  });
+}
+
+export function serializarDimensoesPapelSatf(mapa) {
+  const n = normalizarDimensoesPapelInput(mapa, { prefixo: 'D' });
+  return n ? JSON.stringify(n) : null;
+}
+
+export function serializarDimensoesPapelMit(mapa) {
+  const n = normalizarDimensoesPapelInput(mapa, { prefixo: 'BP' });
+  return n ? JSON.stringify(n) : null;
+}
+
+/** Resolve papel da dimensão; ausente → não se aplica. */
+export function resolverPapelDimensaoUnidade(unidadeMeta, codigoOuDim, framework = 'satf') {
+  const mapa =
+    framework === 'mit'
+      ? parseDimensoesPapelMitJson(unidadeMeta)
+      : parseDimensoesPapelSatfJson(unidadeMeta);
+  if (!mapa) return PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA;
+
+  let cod = '';
+  if (typeof codigoOuDim === 'string') {
+    cod = codigoOuDim.trim().toUpperCase();
+  } else if (codigoOuDim && typeof codigoOuDim === 'object') {
+    cod = String(codigoOuDim.codigoFramework || '').trim().toUpperCase();
+    if (!cod && codigoOuDim.ordem != null) {
+      const o = Number(codigoOuDim.ordem);
+      if (framework === 'mit' && o >= 1 && o <= 16) cod = `BP${o}`;
+      else if (o >= 1 && o <= 11) cod = `D${o}`;
+    }
+  }
+  if (!cod || mapa[cod] == null) return PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA;
+  return normalizarPapelDimensaoUnidade(mapa[cod]);
+}
+
+/**
+ * Bloco de prompt IA: lente Proprietário / Consumidor.
+ * Não se aplica → string vazia (comportamento atual).
+ */
+export function blocoInstrucaoPapelDimensaoPrompt({
+  papel,
+  unidadeNome = 'esta unidade',
+  nomeDimensao = 'esta dimensão'
+} = {}) {
+  const p = normalizarPapelDimensaoUnidade(papel);
+  if (p === PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA) return '';
+
+  const unidade = unidadeNome || 'esta unidade';
+  const dim = nomeDimensao || 'esta dimensão';
+
+  if (p === PAPEIS_DIMENSAO_UNIDADE.PROPRIETARIO) {
+    return `
+PAPEL DA UNIDADE NESTA DIMENSÃO — **PROPRIETÁRIO**:
+- "${unidade}" é **dona** de **${dim}**: define padrão, métrica, rito, evidência e evolução.
+- Diagnóstico: o que a unidade deve **estabelecer, arbitrar e sustentar** (não apenas aderir).
+- Recomendações: políticas, playbooks, owners formais, KPIs e gates sob responsabilidade desta unidade.
+- **Proibido** empurrar a accountability principal para outra área sem nomear a co-dependência.
+`;
+  }
+
+  return `
+PAPEL DA UNIDADE NESTA DIMENSÃO — **CONSUMIDOR**:
+- "${unidade}" **consome** **${dim}**: adere a padrão, executa ritos locais e escala gaps ao owner.
+- Diagnóstico: aderência, interface, dependências e fricção operacional — **não** redija política corporativa da dimensão.
+- Recomendações: checklists, rituais, SLAs de interface e escalonamento; cite que o padrão estrutural fica com o owner.
+- KPIs: métricas de adesão/interface (ex.: % com rito OK, tempo de escalonamento), não KPIs de platform owner.
+`;
+}
+
+export function formatarDimensoesPapelDisplay(mapaPapel, listaFoco = null) {
+  const mapa = normalizarDimensoesPapelInput(mapaPapel);
+  if (!mapa) return '';
+  const codigos = listaFoco?.length ? listaFoco : Object.keys(mapa).sort();
+  const partes = [];
+  for (const c of codigos) {
+    const cod = String(c).toUpperCase();
+    const p = mapa[cod] ?? PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA;
+    if (p === PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA) {
+      partes.push(cod);
+    } else {
+      partes.push(`${cod} (${labelPapelDimensaoUnidade(p)})`);
+    }
+  }
+  return partes.join(', ');
+}
+
 export function mapUnidadeEmpresaResponse(row) {
   if (!row) return null;
   const usuarioCount =
@@ -209,6 +376,8 @@ export function mapUnidadeEmpresaResponse(row) {
     ...row,
     dimensoesFocoSatf: parseDimensoesFocoSatfJson(row),
     dimensoesFocoMit: parseDimensoesFocoMitJson(row),
+    dimensoesPapelSatf: parseDimensoesPapelSatfJson(row),
+    dimensoesPapelMit: parseDimensoesPapelMitJson(row),
     /** @deprecated union SATF+MIT — use campos específicos por framework */
     dimensoesFoco: parseDimensoesFocoJson(row),
     usuarioCount
@@ -244,7 +413,13 @@ export async function ensureUnidadeEmpresaSchema() {
     await prisma.$executeRawUnsafe(
       'ALTER TABLE "UnidadeEmpresa" ADD COLUMN IF NOT EXISTS "dimensoesFocoMit" TEXT'
     );
-    console.log('[schema] UnidadeEmpresa dimensoesFocoSatf/Mit verificadas.');
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "UnidadeEmpresa" ADD COLUMN IF NOT EXISTS "dimensoesPapelSatf" TEXT'
+    );
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "UnidadeEmpresa" ADD COLUMN IF NOT EXISTS "dimensoesPapelMit" TEXT'
+    );
+    console.log('[schema] UnidadeEmpresa dimensoesFoco/Papel Satf/Mit verificadas.');
   } catch (e) {
     console.warn('[schema] UnidadeEmpresa tabela:', e?.message || e);
   }

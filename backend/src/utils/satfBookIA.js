@@ -28,7 +28,11 @@ import {
 import {
   garantirUnidadeGeralEmpresa,
   parseDimensoesFocoSatfJson,
-  formatarDimensoesFocoSatfDisplay
+  formatarDimensoesFocoSatfDisplay,
+  resolverPapelDimensaoUnidade,
+  blocoInstrucaoPapelDimensaoPrompt,
+  labelPapelDimensaoUnidade,
+  PAPEIS_DIMENSAO_UNIDADE
 } from './empresaUnidade.js';
 import {
   gerarPlanoAcaoPorDimensao,
@@ -183,6 +187,16 @@ function montarPromptSecao3DimensaoSatf({
   const instrucoesEntregaveis = blocoInstrucoesEntregaveisDimensaoSatf(dim.area, inventarioDocumentos);
   const regrasNomenclatura = blocoRegrasNomenclaturaEntregaveisMarkdown(inventarioDocumentos);
   const guia = blocoGuiaProgressaoDimensaoSatf(dim.area, dim.nivel || dim.score);
+  const papelUnidade = exigeUnidade
+    ? resolverPapelDimensaoUnidade(unidadeMeta, dim, 'satf')
+    : PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA;
+  const blocoPapel = exigeUnidade
+    ? blocoInstrucaoPapelDimensaoPrompt({
+        papel: papelUnidade,
+        unidadeNome: unidadeMeta?.nome,
+        nomeDimensao: dim.area
+      })
+    : '';
 
   const regrasEntregaveis =
     inventarioDocumentos?.entregaveis?.length > 0
@@ -199,6 +213,7 @@ OBRIGATÓRIO — EVITE REPETIÇÃO, GENERICIDADE E CONTAMINAÇÃO DE TAXONOMIA:
 ${exigeUnidade && dimensaoComScoreZero(dim) ? `- **Score individual 0 nesta rodada:** use score geral da unidade, contexto do projeto e perguntas [Qn] para diagnóstico. **Obrigatório** incluir Recomendações Específicas (R1–R3) e tabela de KPIs — não omita por falta de score discriminado.` : ''}
 ${exigeUnidade && formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta)) ? `- **Dimensões em foco desta unidade (SATF):** ${formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta))} — **proibido** mencionar dimensões SATF fora desta lista.` : ''}
 ${exigeUnidade ? `- **Unidade organizacional:** recomendações **exclusivas** para "${unidadeMeta?.nome || 'esta unidade'}".` : ''}
+${exigeUnidade && papelUnidade !== PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA ? `- **Papel da unidade nesta dimensão:** ${labelPapelDimensaoUnidade(papelUnidade)} — aplicar a lente correspondente em análise, recomendações e KPIs.` : ''}
 ${exigeUnidade && planoDim ? `\n${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}` : ''}
 ${regrasEntregaveis}
 ${temContexto ? '- **Contexto cadastrado:** cite ≥2 elementos concretos do bloco "Contexto do cliente" em Análise, Risco e Recomendações. **Proibido** "empresa de tecnologia de médio porte" como narrativa principal.' : `- Contextualize ao setor **${setor}** e porte **${porte}** com exemplos de engenharia/plataforma reais.`}
@@ -211,6 +226,7 @@ CONTEXTO:
 - Score geral oficial: ${scoreGeral.toFixed(2)} (Nível ${nivel})
 - Média de referência TI/setor: ${mediaSetor.toFixed(1)}
 - Score desta dimensão (**${dim.area}**): ${rotuloScoreDimensaoSatf(dim)} (Nível ${dim.nivel || nivelNumericoDeScore(dim.score)})
+${exigeUnidade && papelUnidade !== PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA ? `- Papel da unidade: **${labelPapelDimensaoUnidade(papelUnidade)}**` : ''}
 
 DETALHE DESTA DIMENSÃO (perguntas consolidadas):
 ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
@@ -232,6 +248,7 @@ Reproduza **integralmente** a tabela abaixo (incluindo a **última linha** "Scor
 ### ${numSecao}.7 KPIs de Acompanhamento (tabela: KPI | Baseline | Meta 12m — mínimo 3 linhas)
 
 ${regrasAntiGenericidade}
+${blocoPapel}
 ${contextoDim}
 
 ${guia}
@@ -263,6 +280,7 @@ ${tabelaDim}`;
 ### ${numSecao}.6 KPIs de Acompanhamento (tabela: KPI | Baseline | Meta 6m | Meta 12m — mínimo 4 linhas; inclua score SATF da dimensão como KPI de evolução)
 
 ${regrasAntiGenericidade}
+${blocoPapel}
 ${contextoDim}
 
 ${guia}

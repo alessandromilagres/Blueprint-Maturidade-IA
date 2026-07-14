@@ -661,10 +661,57 @@ cd backend && node --test test/bookUnidadeSecoes.test.js
 ### Ordem para agente de release (atualizada)
 
 1. Ler seções **2** (reuse) e **17** (books GRT)
-2. Confirmar branch `release/prd-20260701` com commits `ee691f2`, `a301c75`, `285df68`
+2. Confirmar branch `release/prd-20260701` — HEAD inclui foco MIT/SATF + estrutura unidade 1–5
 3. `./scripts/publish-prd-release.sh` (ou pipeline habitual + `./scripts/sync-github-main.sh HEAD`)
-4. Smoke seção 2.3 + seção 17
+4. Smoke seção 2.3 + seção 17 + testes `bookUnidadeSecoes.test.js`
 5. Avisar usuário: **regenerar book GRT** após deploy
+
+---
+
+## 18. FECHAMENTO DE VERSÃO — Books por unidade (2026-07-14)
+
+> **Escopo desta versão considerado FECHADO** em `release/prd-20260701`.
+
+### Entregue e aceito nesta versão
+
+| Item | Status |
+|------|--------|
+| Foco SATF (`D*`) e MIT (`BP*`) separados no cadastro da unidade | ✅ |
+| Book por unidade outline **1–5** + apêndices (sem Seção 0; sem D10/D11 dedicadas) | ✅ |
+| Template por dimensão `3.x.1`–`3.x.6` | ✅ |
+| Índice sequencial; Seção 3 só com dims em foco | ✅ |
+| Progresso de job / anti-travamento background | ✅ |
+| Book enterprise completo (1–8 SATF / 1–14 MIT) **inalterado** no contrato | ✅ |
+
+### Fora desta versão fechada (próximo incremento)
+
+| Item | Status |
+|------|--------|
+| Papel opcional por dimensão: **Proprietário / Consumidor / Não se aplica** | 🔜 seção 19 |
+| Papéis compostos (both / owner parcial) | Adiado |
+
+---
+
+## 19. Papel por dimensão (Proprietário / Consumidor / Não se aplica)
+
+> Incremento **após** o fechamento da seção 18.
+
+### Regras de produto
+
+| Valor | Efeito no book IA |
+|-------|-------------------|
+| **Não se aplica** (ou ausente) | Ignora a classificação — análise como hoje |
+| **Proprietário** | Unidade é **dona** da dimensão: define padrão, métrica, arbitragem, evolução |
+| **Consumidor** | Unidade **consome** a dimensão: adere a padrão, rituais, escalona dependências |
+
+- Opcional no cadastro (por código, por framework SATF/MIT).
+- Só afeta **books/relatórios com unidade**; books enterprise sem unidade não usam papel.
+- `dimensoesFoco*` continua definindo **quais** dims entram; o papel define **como** analisar.
+
+### Persistência
+
+- `UnidadeEmpresa.dimensoesPapelSatf` / `dimensoesPapelMit` — JSON `{ "D1": "consumidor", "D4": "proprietario" }`
+- Migration: `20260714120000_unidade_papel_dimensao`
 
 ---
 

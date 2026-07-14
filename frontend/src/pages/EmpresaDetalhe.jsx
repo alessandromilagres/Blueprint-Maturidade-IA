@@ -13,7 +13,10 @@ import {
   normalizarDimensoesFocoSatfInput,
   normalizarDimensoesFocoMitInput,
   formatarDimensoesFocoSatfDisplay,
-  formatarDimensoesFocoMitDisplay
+  formatarDimensoesFocoMitDisplay,
+  formatarDimensoesPapelDisplay,
+  sincronizarPapelComFoco,
+  PAPEIS_DIMENSAO_UNIDADE
 } from '../utils/dimensoesFocoUnidade';
 
 export default function EmpresaDetalhe() {
@@ -60,12 +63,16 @@ export default function EmpresaDetalhe() {
         ativo: item?.ativo !== false,
       });
     } else if (type === 'unidade') {
+      const focoSatf = normalizarDimensoesFocoSatfInput(item?.dimensoesFocoSatf ?? item?.dimensoesFoco);
+      const focoMit = normalizarDimensoesFocoMitInput(item?.dimensoesFocoMit);
       setFormData({
         nome: item?.nome || '',
         codigo: item?.codigo || '',
         descricao: item?.descricao || '',
-        dimensoesFocoSatfTexto: formatarDimensoesFocoSatfDisplay(item?.dimensoesFocoSatf ?? item?.dimensoesFoco),
-        dimensoesFocoMitTexto: formatarDimensoesFocoMitDisplay(item?.dimensoesFocoMit),
+        dimensoesFocoSatfTexto: formatarDimensoesFocoSatfDisplay(focoSatf),
+        dimensoesFocoMitTexto: formatarDimensoesFocoMitDisplay(focoMit),
+        dimensoesPapelSatf: sincronizarPapelComFoco(item?.dimensoesPapelSatf, focoSatf || []),
+        dimensoesPapelMit: sincronizarPapelComFoco(item?.dimensoesPapelMit, focoMit || []),
         ordem: item?.ordem ?? 0,
         ativo: item?.ativo !== false,
       });
@@ -126,12 +133,22 @@ export default function EmpresaDetalhe() {
         alert('Dimensões MIT Blueprint: use códigos BP1–BP16.');
         return;
       }
+      const dimensoesPapelSatf = sincronizarPapelComFoco(
+        formData.dimensoesPapelSatf,
+        dimensoesFocoSatf || []
+      );
+      const dimensoesPapelMit = sincronizarPapelComFoco(
+        formData.dimensoesPapelMit,
+        dimensoesFocoMit || []
+      );
       const payload = {
         nome: formData.nome,
         codigo: formData.codigo || undefined,
         descricao: formData.descricao || null,
         dimensoesFocoSatf: dimensoesFocoSatf?.length ? dimensoesFocoSatf : null,
         dimensoesFocoMit: dimensoesFocoMit?.length ? dimensoesFocoMit : null,
+        dimensoesPapelSatf: Object.keys(dimensoesPapelSatf).length ? dimensoesPapelSatf : null,
+        dimensoesPapelMit: Object.keys(dimensoesPapelMit).length ? dimensoesPapelMit : null,
         ordem: parseInt(formData.ordem, 10) || 0,
         ativo: formData.ativo !== false
       };
@@ -358,18 +375,49 @@ export default function EmpresaDetalhe() {
                   {unidade.descricao && (
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{unidade.descricao}</p>
                   )}
-                  {(formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco) ||
+                  {(formatarDimensoesPapelDisplay(
+                    unidade.dimensoesPapelSatf,
+                    unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco
+                  ) ||
+                    formatarDimensoesPapelDisplay(unidade.dimensoesPapelMit, unidade.dimensoesFocoMit) ||
+                    formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco) ||
                     formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit)) && (
                     <p className="text-xs text-primary-600 dark:text-primary-400 mt-1">
-                      {formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco) && (
-                        <>SATF: {formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco)}</>
-                      )}
-                      {formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco) &&
-                        formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit) &&
+                      {formatarDimensoesPapelDisplay(
+                        unidade.dimensoesPapelSatf,
+                        unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco
+                      ) || formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco)
+                        ? (
+                          <>
+                            SATF:{' '}
+                            {formatarDimensoesPapelDisplay(
+                              unidade.dimensoesPapelSatf,
+                              unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco
+                            ) ||
+                              formatarDimensoesFocoSatfDisplay(
+                                unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco
+                              )}
+                          </>
+                        )
+                        : null}
+                      {(formatarDimensoesPapelDisplay(
+                        unidade.dimensoesPapelSatf,
+                        unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco
+                      ) ||
+                        formatarDimensoesFocoSatfDisplay(unidade.dimensoesFocoSatf ?? unidade.dimensoesFoco)) &&
+                        (formatarDimensoesPapelDisplay(unidade.dimensoesPapelMit, unidade.dimensoesFocoMit) ||
+                          formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit)) &&
                         ' · '}
-                      {formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit) && (
-                        <>MIT: {formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit)}</>
-                      )}
+                      {formatarDimensoesPapelDisplay(unidade.dimensoesPapelMit, unidade.dimensoesFocoMit) ||
+                      formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit) ? (
+                        <>
+                          MIT:{' '}
+                          {formatarDimensoesPapelDisplay(
+                            unidade.dimensoesPapelMit,
+                            unidade.dimensoesFocoMit
+                          ) || formatarDimensoesFocoMitDisplay(unidade.dimensoesFocoMit)}
+                        </>
+                      ) : null}
                     </p>
                   )}
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -651,11 +699,53 @@ export default function EmpresaDetalhe() {
               className="input"
               placeholder="Ex.: D1, D3, D4, D7"
               value={formData.dimensoesFocoSatfTexto || ''}
-              onChange={(e) => setFormData({ ...formData, dimensoesFocoSatfTexto: e.target.value })}
+              onChange={(e) => {
+                const texto = e.target.value;
+                const foco = normalizarDimensoesFocoSatfInput(texto);
+                setFormData({
+                  ...formData,
+                  dimensoesFocoSatfTexto: texto,
+                  dimensoesPapelSatf: sincronizarPapelComFoco(formData.dimensoesPapelSatf, foco || [])
+                });
+              }}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Códigos <strong>D1–D11</strong> para books/relatórios SATF por unidade. Use <code className="text-xs">-D8</code> para excluir.
+              Códigos <strong>D1–D11</strong> para books SATF. Em seguida escolha o papel (opcional).
             </p>
+            {(normalizarDimensoesFocoSatfInput(formData.dimensoesFocoSatfTexto) || []).length > 0 && (
+              <div className="mt-2 space-y-2 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                  Papel por dimensão SATF (opcional)
+                </p>
+                {(normalizarDimensoesFocoSatfInput(formData.dimensoesFocoSatfTexto) || []).map((cod) => (
+                  <div key={`satf-${cod}`} className="flex items-center gap-3">
+                    <span className="text-sm w-12 font-medium">{cod}</span>
+                    <select
+                      className="input text-sm"
+                      value={
+                        formData.dimensoesPapelSatf?.[cod] || PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA
+                      }
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          dimensoesPapelSatf: {
+                            ...(formData.dimensoesPapelSatf || {}),
+                            [cod]: e.target.value
+                          }
+                        })
+                      }
+                    >
+                      <option value={PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA}>Não se aplica</option>
+                      <option value={PAPEIS_DIMENSAO_UNIDADE.PROPRIETARIO}>Proprietário</option>
+                      <option value={PAPEIS_DIMENSAO_UNIDADE.CONSUMIDOR}>Consumidor</option>
+                    </select>
+                  </div>
+                ))}
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Proprietário = dona do item · Consumidor = consome o item · Não se aplica = análise padrão.
+                </p>
+              </div>
+            )}
           </div>
           <div>
             <label className="label">Dimensões em foco — MIT Blueprint</label>
@@ -664,11 +754,50 @@ export default function EmpresaDetalhe() {
               className="input"
               placeholder="Ex.: BP1, BP4, BP7"
               value={formData.dimensoesFocoMitTexto || ''}
-              onChange={(e) => setFormData({ ...formData, dimensoesFocoMitTexto: e.target.value })}
+              onChange={(e) => {
+                const texto = e.target.value;
+                const foco = normalizarDimensoesFocoMitInput(texto);
+                setFormData({
+                  ...formData,
+                  dimensoesFocoMitTexto: texto,
+                  dimensoesPapelMit: sincronizarPapelComFoco(formData.dimensoesPapelMit, foco || [])
+                });
+              }}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Códigos <strong>BP1–BP16</strong> para books/relatórios MIT Blueprint por unidade.
+              Códigos <strong>BP1–BP16</strong> para books MIT Blueprint.
             </p>
+            {(normalizarDimensoesFocoMitInput(formData.dimensoesFocoMitTexto) || []).length > 0 && (
+              <div className="mt-2 space-y-2 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                  Papel por dimensão MIT (opcional)
+                </p>
+                {(normalizarDimensoesFocoMitInput(formData.dimensoesFocoMitTexto) || []).map((cod) => (
+                  <div key={`mit-${cod}`} className="flex items-center gap-3">
+                    <span className="text-sm w-14 font-medium">{cod}</span>
+                    <select
+                      className="input text-sm"
+                      value={
+                        formData.dimensoesPapelMit?.[cod] || PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA
+                      }
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          dimensoesPapelMit: {
+                            ...(formData.dimensoesPapelMit || {}),
+                            [cod]: e.target.value
+                          }
+                        })
+                      }
+                    >
+                      <option value={PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA}>Não se aplica</option>
+                      <option value={PAPEIS_DIMENSAO_UNIDADE.PROPRIETARIO}>Proprietário</option>
+                      <option value={PAPEIS_DIMENSAO_UNIDADE.CONSUMIDOR}>Consumidor</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

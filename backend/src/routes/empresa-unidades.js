@@ -6,6 +6,8 @@ import {
   normalizarCodigoUnidade,
   serializarDimensoesFocoSatf,
   serializarDimensoesFocoMit,
+  serializarDimensoesPapelSatf,
+  serializarDimensoesPapelMit,
   UNIDADE_GERAL_CODIGO
 } from '../utils/empresaUnidade.js';
 
@@ -53,6 +55,12 @@ function sanitizarPayloadUnidade(body, { parcial = false, ehPadrao = false } = {
   }
   if (body.dimensoesFocoMit !== undefined) {
     data.dimensoesFocoMit = serializarDimensoesFocoMit(body.dimensoesFocoMit);
+  }
+  if (body.dimensoesPapelSatf !== undefined) {
+    data.dimensoesPapelSatf = serializarDimensoesPapelSatf(body.dimensoesPapelSatf);
+  }
+  if (body.dimensoesPapelMit !== undefined) {
+    data.dimensoesPapelMit = serializarDimensoesPapelMit(body.dimensoesPapelMit);
   }
   if (body.dimensoesFoco !== undefined) {
     data.dimensoesFoco = serializarDimensoesFocoSatf(body.dimensoesFoco);
@@ -110,6 +118,8 @@ router.post('/', requireGestao, async (req, res) => {
         descricao: data.descricao ?? null,
         dimensoesFocoSatf: data.dimensoesFocoSatf ?? null,
         dimensoesFocoMit: data.dimensoesFocoMit ?? null,
+        dimensoesPapelSatf: data.dimensoesPapelSatf ?? null,
+        dimensoesPapelMit: data.dimensoesPapelMit ?? null,
         dimensoesFoco: data.dimensoesFoco ?? null,
         ehPadrao: false,
         ordem: data.ordem ?? 0,

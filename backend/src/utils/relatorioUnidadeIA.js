@@ -10,7 +10,10 @@ import {
   formatarDimensoesFocoSatfDisplay,
   formatarDimensoesFocoMitDisplay,
   parseDimensoesFocoSatfJson,
-  parseDimensoesFocoMitJson
+  parseDimensoesFocoMitJson,
+  parseDimensoesPapelSatfJson,
+  parseDimensoesPapelMitJson,
+  formatarDimensoesPapelDisplay
 } from './empresaUnidade.js';
 import {
   usuarioIncluidoNoFiltroNivelMapeamentoMaturidade,
@@ -86,18 +89,27 @@ export function filtrarAvaliacoesRelatorioProjeto(
 export function blocoUnidadeRelatorioMarkdown(unidadeMeta, { framework = 'satf' } = {}) {
   if (!unidadeMeta) return '';
   const isSatf = framework === 'satf';
-  const focoSatf = formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta));
-  const focoMit = formatarDimensoesFocoMitDisplay(parseDimensoesFocoMitJson(unidadeMeta));
+  const focoSatf = parseDimensoesFocoSatfJson(unidadeMeta);
+  const focoMit = parseDimensoesFocoMitJson(unidadeMeta);
+  const focoSatfTxt = formatarDimensoesPapelDisplay(
+    parseDimensoesPapelSatfJson(unidadeMeta),
+    focoSatf
+  ) || formatarDimensoesFocoSatfDisplay(focoSatf);
+  const focoMitTxt = formatarDimensoesPapelDisplay(
+    parseDimensoesPapelMitJson(unidadeMeta),
+    focoMit
+  ) || formatarDimensoesFocoMitDisplay(focoMit);
   const desc = String(unidadeMeta.descricao || '').trim() || '—';
   return `## Unidade organizacional — escopo deste relatório
 
 - **Unidade:** ${unidadeMeta.nome}${unidadeMeta.ehPadrao ? ' (padrão Geral)' : ''}
 - **Descrição:** ${desc}
-- **Dimensões em foco (SATF):** ${focoSatf || '— (não definido)'}
-- **Dimensões em foco (MIT Blueprint):** ${focoMit || '— (não definido)'}
+- **Dimensões em foco (SATF):** ${focoSatfTxt || '— (não definido)'}
+- **Dimensões em foco (MIT Blueprint):** ${focoMitTxt || '— (não definido)'}
+- **Papéis:** Proprietário = dona do item; Consumidor = consome o item; Não se aplica = análise padrão (como hoje)
 
 > Scores e recomendações refletem **somente** avaliadores vinculados a esta unidade (usuários sem unidade entram em Geral).
-
+${isSatf && focoSatfTxt ? `\n> Neste book SATF, o papel cadastrado (quando Proprietário/Consumidor) orienta o diagnóstico da Seção 3.\n` : ''}
 `;
 }
 

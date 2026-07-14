@@ -41,6 +41,10 @@ model UnidadeEmpresa {
   dimensoesFoco      String? @db.Text /// legado — preferir dimensoesFocoSatf / dimensoesFocoMit
   dimensoesFocoSatf  String? @db.Text
   dimensoesFocoMit   String? @db.Text
+  /// JSON: papel opcional por código SATF { "D1": "proprietario"|"consumidor"|"nao_se_aplica" }
+  dimensoesPapelSatf String? @db.Text
+  /// JSON: papel opcional por código MIT { "BP1": "proprietario"|"consumidor"|"nao_se_aplica" }
+  dimensoesPapelMit  String? @db.Text
   /// Unidade padrão "Geral" — não pode ser excluída
   ehPadrao      Boolean   @default(false)
   ordem         Int       @default(0)

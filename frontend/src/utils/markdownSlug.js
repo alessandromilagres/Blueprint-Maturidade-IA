@@ -44,30 +44,70 @@ export function detectarBookSatf(conteudoMd) {
 }
 
 export function encurtarTituloDimensaoSecao3(titulo) {
-  const m = String(titulo).match(/^([23])\.(\d+)\s+Dimens[aã]o\s*[—–-]\s*(.+)$/i);
-  if (!m) return null;
-  let nome = m[3].trim();
-  nome = nome
-    .split(/\s*[—–-]\s*oficial\b/i)[0]
-    .split(/\s*\(oficial\b/i)[0]
-    .split(/\s*·\s*N[ií]vel\b/i)[0]
-    .split(/\s*·\s*Score\b/i)[0]
-    .trim();
-  return `${m[1]}.${m[2]} — ${nome}`;
+  const mDim = String(titulo).match(/^([23])\.(\d+)\s+Dimens[aã]o\s*[—–-]\s*(.+)$/i);
+  if (mDim) {
+    let nome = mDim[3].trim();
+    nome = nome
+      .split(/\s*[—–-]\s*oficial\b/i)[0]
+      .split(/\s*\(oficial\b/i)[0]
+      .split(/\s*·\s*N[ií]vel\b/i)[0]
+      .split(/\s*·\s*Score\b/i)[0]
+      .trim();
+    return `${mDim[1]}.${mDim[2]} — ${nome}`;
+  }
+  const mCod = String(titulo).match(/^([23])\.(\d+)\s+(D(?:10|11|[1-9]))\s+[—–-]\s*(.+)$/i);
+  if (mCod) {
+    let nome = mCod[4].trim();
+    nome = nome
+      .split(/\s*[—–-]\s*Score\b/i)[0]
+      .split(/\s*·\s*N[ií]vel\b/i)[0]
+      .trim();
+    return `${mCod[1]}.${mCod[2]} — ${nome}`;
+  }
+  const mBp = String(titulo).match(/^([23])\.(\d+)\s+(BP(?:1[0-6]|[1-9]))\s+[—–-]\s*(.+)$/i);
+  if (mBp) {
+    let nome = mBp[4].trim();
+    nome = nome
+      .split(/\s*[—–-]\s*Score\b/i)[0]
+      .split(/\s*·\s*N[ií]vel\b/i)[0]
+      .trim();
+    return `${mBp[1]}.${mBp[2]} — ${nome}`;
+  }
+  return null;
+}
+
+function tituloEhSecaoDiagnosticoDimensao(titulo) {
+  return (
+    /^[23]\.\d+\s+Dimens[aã]o\b/i.test(titulo) ||
+    /^[23]\.\d+\s+D(?:10|11|[1-9])\s+[—–-]/i.test(titulo) ||
+    /^[23]\.\d+\s+BP(?:1[0-6]|[1-9])\s+[—–-]/i.test(titulo)
+  );
 }
 
 function resolverModoIndice(conteudoMd, options = {}) {
   const modo = options.modo || 'auto';
-  if (modo === 'satf') return 'satf';
-  if (modo === 'completo') return 'completo';
+  if (modo === 'satf' || modo === 'unidade' || modo === 'completo') return modo;
   return detectarBookSatf(conteudoMd) ? 'satf' : 'completo';
 }
 
 function deveIncluirNoIndice(modo, depth, titulo) {
   if (/^índice$/i.test(titulo)) return false;
-  if (modo !== 'satf') return depth <= 2;
+  if (modo === 'completo') return depth <= 2;
+  if (modo === 'unidade') {
+    if (depth === 1) {
+      return /^[1-5]\.\s+/.test(titulo) || /^AP[EÊ]NDICES\b/i.test(titulo);
+    }
+    if (depth === 2) {
+      return (
+        tituloEhSecaoDiagnosticoDimensao(titulo) ||
+        /^[1245]\.\d+\s+/.test(titulo) ||
+        /^Ap[eê]ndice\b/i.test(titulo)
+      );
+    }
+    return false;
+  }
   if (depth === 1) return /^[1-8]\.\s+/.test(titulo);
-  if (depth === 2) return /^[23]\.\d+\s+Dimens[aã]o\b/i.test(titulo);
+  if (depth === 2) return tituloEhSecaoDiagnosticoDimensao(titulo);
   return false;
 }
 

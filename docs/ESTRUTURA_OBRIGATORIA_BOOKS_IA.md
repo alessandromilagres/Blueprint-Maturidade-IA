@@ -160,6 +160,15 @@ Seções condensadas (4+5, 6+7, 8–11, 12+13). Apêndices metodológicos **não
 
 > **Índice:** `1,2,3,3.1…,4,5`. Mapa: Roadmap `4→4`, Próximos `8→5`.
 
+### Papel opcional por dimensão (unidade)
+
+No cadastro da unidade, cada dimensão em foco pode ter:
+- **Proprietário** — unidade dona do item (define padrão/métrica)
+- **Consumidor** — unidade consome o item (aderência/interface)
+- **Não se aplica** (default) — ignora classificação; análise como hoje
+
+Os prompts da Seção 3 usam essa lente quando ≠ Não se aplica.
+
 ---
 
 ## Arquivos de implementação

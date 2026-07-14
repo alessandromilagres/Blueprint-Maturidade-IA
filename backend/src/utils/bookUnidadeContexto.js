@@ -6,7 +6,14 @@ import {
   parseDimensoesFocoSatfJson,
   parseDimensoesFocoMitJson,
   formatarDimensoesFocoSatfDisplay,
-  formatarDimensoesFocoMitDisplay
+  formatarDimensoesFocoMitDisplay,
+  parseDimensoesPapelSatfJson,
+  parseDimensoesPapelMitJson,
+  formatarDimensoesPapelDisplay,
+  resolverPapelDimensaoUnidade,
+  blocoInstrucaoPapelDimensaoPrompt,
+  labelPapelDimensaoUnidade,
+  PAPEIS_DIMENSAO_UNIDADE
 } from './empresaUnidade.js';
 import { parseFocoUnidadePorFramework } from './bookDadosDimensao.js';
 import { NOMES_NIVEL_BLUEPRINT } from './nivelMaturidadeRubrica.js';
@@ -204,10 +211,14 @@ export function montarBlocoPlanoAcaoDimensaoPrompt(planoDim) {
 
 export function instrucoesSistemaBookUnidade({ unidadeMeta, frameworkMaturidade }) {
   const isSatf = frameworkMaturidade === FRAMEWORK_SATF_TI_V3;
-  const foco = parseFocoUnidadePorFramework(unidadeMeta, isSatf ? 'satf' : 'mit');
-  const focoTxt = isSatf
-    ? formatarDimensoesFocoSatfDisplay(foco)
-    : formatarDimensoesFocoMitDisplay(foco);
+  const framework = isSatf ? 'satf' : 'mit';
+  const foco = parseFocoUnidadePorFramework(unidadeMeta, framework);
+  const mapaPapel = isSatf
+    ? parseDimensoesPapelSatfJson(unidadeMeta)
+    : parseDimensoesPapelMitJson(unidadeMeta);
+  const focoTxt =
+    formatarDimensoesPapelDisplay(mapaPapel, foco) ||
+    (isSatf ? formatarDimensoesFocoSatfDisplay(foco) : formatarDimensoesFocoMitDisplay(foco));
   const focoLabel = isSatf ? 'SATF' : 'MIT Blueprint';
 
   return `
@@ -215,7 +226,11 @@ CONTEXTO DE UNIDADE ORGANIZACIONAL (OBRIGATÓRIO):
 - Este book é **exclusivo da unidade "${unidadeMeta?.nome || '—'}"** — scores, diagnósticos e recomendações refletem **somente** avaliadores desta unidade.
 - **Não** generalize para a empresa inteira; use linguagem "nesta unidade", "para ${unidadeMeta?.nome || 'a unidade'}".
 - Framework: ${isSatf ? 'SATF TI v3 (D1–D11)' : 'SysMap Blueprint IA (16 dimensões, referência MIT CISR)'}.
+- **Outline fixo (somente estas seções):** # 1 Metodologia · # 2 Sumário · # 3 Diagnóstico (## 3.1…3.N) · # 4 Roadmap 30-60-90 · # 5 Próximos passos · (Apêndices só se o sistema inserir).
+- **Proibido** seções enterprise / leak: "Consolidação Estratégica", "Radar de Maturidade", "Mapa de Calor", "Roadmap 18 meses", "SEÇÃO 3 — ANÁLISE APROFUNDADA", "# 6."–"# 16.", títulos do tipo "12. Dimensão BP12" ou "3.5 BP5" como heading.
+- Códigos BP/D são **rótulos de dimensão nos dados**, **nunca** número de seção do book. Heading canônico: "## 3.N Dimensão — Nome".
 ${focoTxt ? `- Dimensões em foco (${focoLabel}): **${focoTxt}** — analise **somente** estas dimensões. **Proibido** mencionar dimensões fora do foco.` : '- Em cada chunk de dimensão, use **somente** os dados da dimensão da vez — não misture scores ou perguntas de outras áreas.'}
+- Papéis opcionais por dimensão: **Proprietário** = unidade dona do item; **Consumidor** = unidade consome o item; **Não se aplica** = ignore a classificação e analise como hoje.
 - Em cada dimensão, use o template **3.x.1 Análise Diagnóstica · 3.x.2 Evidências Críticas · 3.x.3 Risco de Negócio · 3.x.4 Benchmark Setorial · 3.x.5 Recomendações Específicas · 3.x.6 KPIs de Acompanhamento**.
 - Em cada dimensão, responda explicitamente: **o que esta unidade deve fazer agora** (30/60/90 dias).
 `;

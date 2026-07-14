@@ -10,7 +10,7 @@ import { prependSecaoDashboardUnidadeAoRelatorio } from './bookUnidadeContexto.j
 
 /**
  * @param {string} conteudoMd — corpo do book (sem índice)
- * @param {{ modo?: 'auto' | 'satf' | 'completo' }} [options]
+ * @param {{ modo?: 'auto' | 'satf' | 'unidade' | 'completo' }} [options]
  * @returns {string} documento com `# Índice` + lista de links no topo
  */
 export function adicionarIndiceAoBookMarkdown(conteudoMd, options = {}) {
@@ -42,14 +42,17 @@ export function montarPreliminaresBookSatfOrdemCanonica({
   filtroNivelMax,
   unidadeMeta,
   secaoDashboard,
-  exigeUnidade = false
+  exigeUnidade = false,
+  modoIndice = null
 }) {
   let corpo = String(corpoMarkdown || '').trim();
   if (exigeUnidade && secaoDashboard) {
     corpo = prependSecaoDashboardUnidadeAoRelatorio(corpo, secaoDashboard);
   }
 
-  const indiceMaisCorpo = adicionarIndiceAoBookMarkdown(corpo, { modo: 'satf' });
+  const modo =
+    modoIndice || (exigeUnidade ? 'unidade' : 'satf');
+  const indiceMaisCorpo = adicionarIndiceAoBookMarkdown(corpo, { modo });
   const m = indiceMaisCorpo.match(/^(# Índice[\s\S]*?---\n\n)([\s\S]*)$/);
   const blocoIndice = m ? m[1] : '';
   const corpoPosIndice = m ? m[2] : indiceMaisCorpo;

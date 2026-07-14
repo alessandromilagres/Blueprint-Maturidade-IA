@@ -15,6 +15,7 @@ import {
   labelPapelDimensaoUnidade,
   PAPEIS_DIMENSAO_UNIDADE
 } from './empresaUnidade.js';
+import { blocoDescricaoUnidadeMarkdown } from './relatorioUnidadeIA.js';
 import { parseFocoUnidadePorFramework } from './bookDadosDimensao.js';
 import { NOMES_NIVEL_BLUEPRINT } from './nivelMaturidadeRubrica.js';
 import { dimensaoComScoreZero } from './bookModoRapidoMarkdown.js';
@@ -162,10 +163,11 @@ ${focoListaTxt ? `\n> **Escopo de dimensões (${focoLabel}):** somente **${focoL
 
 ## Unidade
 - **Nome:** ${unidadeMeta?.nome || '—'}${unidadeMeta?.ehPadrao ? ' (padrão Geral)' : ''}
-- **Descrição:** ${String(unidadeMeta?.descricao || '').trim() || '—'}
 - **Dimensões em foco (${focoLabel}):** ${focoDisplay}
 - **Framework:** ${isSatf ? 'SATF TI v3' : 'SysMap Blueprint IA (16 dimensões)'}
 - **Filtro de prioridade:** ${filtroNivelMax == null ? 'Todos os níveis' : `Até nível ${filtroNivelMax}`}
+
+${blocoDescricaoUnidadeMarkdown(unidadeMeta?.descricao)}
 
 ## Score consolidado da unidade
 | Métrica | Valor |

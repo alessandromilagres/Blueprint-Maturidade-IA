@@ -86,6 +86,16 @@ export function filtrarAvaliacoesRelatorioProjeto(
   );
 }
 
+/**
+ * Descrição da unidade como bloco Markdown (fora de list item).
+ * Multilinha em `- **Descrição:** ${desc}` quebra o bullet: só a 1ª linha
+ * fica sob o rótulo; missão/sistemas/dores viram parágrafos órfãos.
+ */
+export function blocoDescricaoUnidadeMarkdown(descricao) {
+  const desc = String(descricao || '').trim() || '—';
+  return `**Descrição**\n\n${desc}`;
+}
+
 export function blocoUnidadeRelatorioMarkdown(unidadeMeta, { framework = 'satf' } = {}) {
   if (!unidadeMeta) return '';
   const isSatf = framework === 'satf';
@@ -99,14 +109,14 @@ export function blocoUnidadeRelatorioMarkdown(unidadeMeta, { framework = 'satf' 
     parseDimensoesPapelMitJson(unidadeMeta),
     focoMit
   ) || formatarDimensoesFocoMitDisplay(focoMit);
-  const desc = String(unidadeMeta.descricao || '').trim() || '—';
   return `## Unidade organizacional — escopo deste relatório
 
 - **Unidade:** ${unidadeMeta.nome}${unidadeMeta.ehPadrao ? ' (padrão Geral)' : ''}
-- **Descrição:** ${desc}
 - **Dimensões em foco (SATF):** ${focoSatfTxt || '— (não definido)'}
 - **Dimensões em foco (MIT Blueprint):** ${focoMitTxt || '— (não definido)'}
 - **Papéis:** Proprietário = dona do item; Consumidor = consome o item; Não se aplica = análise padrão (como hoje)
+
+${blocoDescricaoUnidadeMarkdown(unidadeMeta.descricao)}
 
 > Scores e recomendações refletem **somente** avaliadores vinculados a esta unidade (usuários sem unidade entram em Geral).
 ${isSatf && focoSatfTxt ? `\n> Neste book SATF, o papel cadastrado (quando Proprietário/Consumidor) orienta o diagnóstico da Seção 3.\n` : ''}

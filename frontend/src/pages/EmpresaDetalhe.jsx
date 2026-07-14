@@ -683,14 +683,17 @@ export default function EmpresaDetalhe() {
             </div>
           )}
           <div>
-            <label className="label">Descrição breve (para relatórios IA)</label>
+            <label className="label">Descrição (para relatórios IA)</label>
             <textarea
               className="input"
-              rows={3}
-              placeholder="Missão da área, sistemas, clientes internos, dores conhecidas…"
+              rows={6}
+              placeholder="Título, missão da área, sistemas, clientes internos, dores conhecidas…"
               value={formData.descricao || ''}
               onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
             />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Pode ser multilinha (missão, sistemas, dores). O texto completo entra nos books da unidade.
+            </p>
           </div>
           <div>
             <label className="label">Dimensões em foco — SATF TI v3</label>

@@ -23,7 +23,8 @@ import {
   filtrarAvaliacoesRelatorioProjeto,
   metadadosUnidadeDadosUsados,
   relatorioUnidadeCacheCompativel,
-  resolverContextoUnidadeRelatorioObrigatorio
+  resolverContextoUnidadeRelatorioObrigatorio,
+  blocoDescricaoUnidadeMarkdown
 } from './relatorioUnidadeIA.js';
 import {
   garantirUnidadeGeralEmpresa,
@@ -544,7 +545,7 @@ ${bottom5.map((a, i) => `${i + 1}. **${a.area}**: ${a.score.toFixed(2)}`).join('
 
 ## Detalhamento por pergunta
 ${detalhePerguntasTxt}
-${exigeUnidade && unidadeMeta ? `\n## Escopo unidade organizacional\n- **Unidade:** ${unidadeMeta.nome}\n- **Descrição:** ${String(unidadeMeta.descricao || '').trim() || '—'}${blocoEscopoFocoUnidadeSatf(unidadeMeta)}\n\n${montarBlocoPlanoAcaoUnidadeMarkdown(planoAcao)}` : ''}`;
+${exigeUnidade && unidadeMeta ? `\n## Escopo unidade organizacional\n- **Unidade:** ${unidadeMeta.nome}${blocoEscopoFocoUnidadeSatf(unidadeMeta)}\n\n${blocoDescricaoUnidadeMarkdown(unidadeMeta.descricao)}\n\n${montarBlocoPlanoAcaoUnidadeMarkdown(planoAcao)}` : ''}`;
 }
 
 /** Monta o pacote de dados em etapas com yield — evita bloquear o event loop (job em background). */
@@ -689,8 +690,9 @@ ${scoreGeralDeclarado != null && scoreGeralDeclarado !== scoreGeral ? `- **Score
 
   if (exigeUnidade && unidadeMeta) {
     partes.push(`## Escopo unidade organizacional
-- **Unidade:** ${unidadeMeta.nome}
-- **Descrição:** ${String(unidadeMeta.descricao || '').trim() || '—'}${blocoEscopoFocoUnidadeSatf(unidadeMeta)}
+- **Unidade:** ${unidadeMeta.nome}${blocoEscopoFocoUnidadeSatf(unidadeMeta)}
+
+${blocoDescricaoUnidadeMarkdown(unidadeMeta.descricao)}
 
 ${montarBlocoPlanoAcaoUnidadeMarkdown(planoAcao)}`);
   }

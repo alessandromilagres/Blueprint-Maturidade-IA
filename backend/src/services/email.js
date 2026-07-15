@@ -41,6 +41,40 @@ export function gerarTokenConvite() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+function invalidarCacheTokenGraph() {
+  tokenCache = { value: null, expiresAt: 0 };
+}
+
+/** Mensagem amigável para falhas de autenticação Graph (sem JSON bruto da Microsoft). */
+export function formatarErroGraphAuth(status, errorText) {
+  const raw = String(errorText || '');
+  try {
+    const parsed = JSON.parse(raw);
+    const desc = String(parsed?.error_description || '');
+    const codes = Array.isArray(parsed?.error_codes) ? parsed.error_codes : [];
+    if (codes.includes(7000222) || /client secret.*expired|secret keys.*expired/i.test(desc)) {
+      const appId = GRAPH_CONFIG.clientId || 'AZURE_CLIENT_ID';
+      return (
+        'O client secret do Microsoft Graph expirou em produção. ' +
+        `Gere uma nova chave no Azure Portal (App ${appId}) e atualize AZURE_CLIENT_SECRET ` +
+        'no Variable Group blueprint-agentica-secrets; depois redeploy ou reinicie o backend.'
+      );
+    }
+    if (parsed?.error === 'invalid_client') {
+      return (
+        'Credenciais do Microsoft Graph inválidas ou expiradas (invalid_client). ' +
+        'Verifique AZURE_CLIENT_SECRET no Variable Group blueprint-agentica-secrets.'
+      );
+    }
+    if (desc) {
+      return `Falha ao autenticar no Microsoft Graph (${status}): ${desc.slice(0, 240)}`;
+    }
+  } catch {
+    // segue para fallback
+  }
+  return `Falha ao obter token Graph (${status}): ${raw.slice(0, 240)}`;
+}
+
 // ============================================
 // MICROSOFT GRAPH - OAuth2 Token
 // ============================================
@@ -66,7 +100,8 @@ async function obterTokenGraph() {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Falha ao obter token Graph (${response.status}): ${errorText}`);
+    invalidarCacheTokenGraph();
+    throw new Error(formatarErroGraphAuth(response.status, errorText));
   }
 
   const data = await response.json();

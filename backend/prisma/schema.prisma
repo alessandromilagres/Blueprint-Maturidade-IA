@@ -45,7 +45,7 @@ model UnidadeEmpresa {
   dimensoesPapelSatf String? @db.Text
   /// JSON: papel opcional por código MIT { "BP1": "proprietario"|"consumidor"|"nao_se_aplica" }
   dimensoesPapelMit  String? @db.Text
-  /// Modelo operacional para tradução de dimensões SATF: delivery | sustentacao | coe
+  /// Modelo operacional SATF: delivery | sustentacao | coe | infraestrutura | desenvolvimento | dados
   modeloOperacional String?
   /// JSON override opcional por dimensão: { "D4": { perguntas_e_metricas, proibido, ... } }
   traducaoDimensoes String? @db.Text

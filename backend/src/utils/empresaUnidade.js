@@ -35,13 +35,19 @@ export const TEMPLATES_DIMENSOES_FOCO_UNIDADE = TEMPLATES_DIMENSOES_FOCO_SATF;
 export const MODELOS_OPERACIONAIS = Object.freeze({
   DELIVERY: 'delivery',
   SUSTENTACAO: 'sustentacao',
-  COE: 'coe'
+  COE: 'coe',
+  INFRAESTRUTURA: 'infraestrutura',
+  DESENVOLVIMENTO: 'desenvolvimento',
+  DADOS: 'dados'
 });
 
 export const LABELS_MODELO_OPERACIONAL = Object.freeze({
   delivery: 'Delivery (projeto / código novo)',
   sustentacao: 'Sustentação (operação / ITSM)',
-  coe: 'COE-IA (fábrica de IA)'
+  coe: 'COE-IA (fábrica de IA)',
+  infraestrutura: 'Infraestrutura (cloud / SRE / plataforma)',
+  desenvolvimento: 'Desenvolvimento (engenharia / SDLC)',
+  dados: 'Dados (plataforma / analytics / qualidade)'
 });
 
 export function normalizarModeloOperacional(valor) {
@@ -59,7 +65,6 @@ export function normalizarModeloOperacional(valor) {
     raw === 'sustentacao' ||
     raw === 'sustentacao_operacional' ||
     raw === 'grs' ||
-    raw === 'ops' ||
     raw === 'itsm'
   ) {
     return MODELOS_OPERACIONAIS.SUSTENTACAO;
@@ -67,6 +72,36 @@ export function normalizarModeloOperacional(valor) {
   if (raw === 'coe' || raw === 'coe_ia' || raw === 'coe-ia' || raw === 'centro_excelencia') {
     return MODELOS_OPERACIONAIS.COE;
   }
+  if (
+    raw === 'infraestrutura' ||
+    raw === 'infra' ||
+    raw === 'sre' ||
+    raw === 'cloud' ||
+    raw === 'ops_infra' ||
+    raw === 'platform_eng'
+  ) {
+    return MODELOS_OPERACIONAIS.INFRAESTRUTURA;
+  }
+  if (
+    raw === 'desenvolvimento' ||
+    raw === 'dev' ||
+    raw === 'engenharia' ||
+    raw === 'engenharia_software' ||
+    raw === 'sdlc'
+  ) {
+    return MODELOS_OPERACIONAIS.DESENVOLVIMENTO;
+  }
+  if (
+    raw === 'dados' ||
+    raw === 'data' ||
+    raw === 'analytics' ||
+    raw === 'data_platform' ||
+    raw === 'engenharia_dados'
+  ) {
+    return MODELOS_OPERACIONAIS.DADOS;
+  }
+  // "ops" sozinho é ambíguo — preferir sustentacao só se explícito; infra usa infra/sre
+  if (raw === 'ops') return MODELOS_OPERACIONAIS.SUSTENTACAO;
   if (Object.values(MODELOS_OPERACIONAIS).includes(raw)) return raw;
   return null;
 }

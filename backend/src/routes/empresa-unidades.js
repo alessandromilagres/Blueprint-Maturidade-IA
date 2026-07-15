@@ -78,7 +78,9 @@ function sanitizarPayloadUnidade(body, { parcial = false, ehPadrao = false } = {
     } else {
       const modelo = normalizarModeloOperacional(body.modeloOperacional);
       if (!modelo) {
-        erros.push('modeloOperacional inválido (use delivery, sustentacao, coe ou vazio)');
+        erros.push(
+          'modeloOperacional inválido (use delivery, sustentacao, coe, infraestrutura, desenvolvimento, dados ou vazio)'
+        );
       } else {
         data.modeloOperacional = modelo;
       }
@@ -117,7 +119,8 @@ router.get('/traducao-defaults', async (req, res) => {
     const modelo = normModeloLib(req.query.modelo);
     if (!modelo) {
       return res.status(400).json({
-        error: 'Informe ?modelo=delivery|sustentacao|coe'
+        error:
+          'Informe ?modelo=delivery|sustentacao|coe|infraestrutura|desenvolvimento|dados'
       });
     }
     res.json({

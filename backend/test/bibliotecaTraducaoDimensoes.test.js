@@ -73,4 +73,21 @@ describe('modelo operacional + biblioteca tradução', () => {
     assert.match(bloco, /defeitos\/CT/i);
     assert.match(bloco, /falso positivo/i);
   });
+
+  it('infra / desenvolvimento / dados têm léxico distinto em D4', () => {
+    const infra = obterTraducaoDimensao('infraestrutura', 'D4');
+    const dev = obterTraducaoDimensao('desenvolvimento', 'D4');
+    const dados = obterTraducaoDimensao('dados', 'D4');
+    assert.match(infra.perguntas_e_metricas.join(' '), /IaC|infra/i);
+    assert.match(dev.perguntas_e_metricas.join(' '), /DORA|squad/i);
+    assert.match(dados.perguntas_e_metricas.join(' '), /pipeline|dbt|ELT|ETL/i);
+    assert.doesNotMatch(infra.perguntas_e_metricas.join(' '), /FCR/i);
+    assert.match(dados.proibido || '', /DORA|FCR/i);
+  });
+
+  it('normaliza aliases infra/dev/dados', () => {
+    assert.equal(normalizarModeloOperacional('SRE'), 'infraestrutura');
+    assert.equal(normalizarModeloOperacional('engenharia'), 'desenvolvimento');
+    assert.equal(normalizarModeloOperacional('data_platform'), 'dados');
+  });
 });

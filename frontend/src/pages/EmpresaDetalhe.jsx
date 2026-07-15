@@ -759,6 +759,15 @@ export default function EmpresaDetalhe() {
               <option value={MODELOS_OPERACIONAIS.COE}>
                 {LABELS_MODELO_OPERACIONAL.coe}
               </option>
+              <option value={MODELOS_OPERACIONAIS.INFRAESTRUTURA}>
+                {LABELS_MODELO_OPERACIONAL.infraestrutura}
+              </option>
+              <option value={MODELOS_OPERACIONAIS.DESENVOLVIMENTO}>
+                {LABELS_MODELO_OPERACIONAL.desenvolvimento}
+              </option>
+              <option value={MODELOS_OPERACIONAIS.DADOS}>
+                {LABELS_MODELO_OPERACIONAL.dados}
+              </option>
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Tipo de unidade (multi-cliente). Defaults do produto entram no book; abaixo você pode

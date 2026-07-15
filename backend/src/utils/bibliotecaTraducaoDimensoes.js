@@ -45,7 +45,7 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
   modelos_operacionais: {
     delivery: {
       unidade: 'Delivery (modelo operacional)',
-      natureza: 'Projeto com início, meio e fim; produção de código novo'
+      natureza: 'Projeto com início, meio e fim; produção de código novo para o cliente'
     },
     sustentacao: {
       unidade: 'Sustentação (modelo operacional)',
@@ -54,6 +54,18 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
     coe: {
       unidade: 'COE / Fábrica de IA (modelo operacional)',
       natureza: 'Constrói e governa a fábrica de IA em si, não um processo de negócio específico'
+    },
+    infraestrutura: {
+      unidade: 'Infraestrutura (modelo operacional)',
+      natureza: 'Cloud, rede, SRE e plataforma — disponibilidade, mudança de infra e observabilidade'
+    },
+    desenvolvimento: {
+      unidade: 'Desenvolvimento (modelo operacional)',
+      natureza: 'Engenharia de software / SDLC interno — produtos e squads, não gestão de ticket ITSM'
+    },
+    dados: {
+      unidade: 'Dados (modelo operacional)',
+      natureza: 'Plataforma de dados, qualidade, governança e contexto para analytics/IA'
     }
   },
   dimensoes: {
@@ -88,6 +100,39 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Padronização de frameworks/bibliotecas de IA entre as unidades consumidoras',
           'Existência de guia de padrões de engenharia de IA com versão publicada e adotada'
         ]
+      },
+      infraestrutura: {
+        perguntas_e_metricas: [
+          'Lead time de change de infraestrutura (IaC/pipeline) e taxa de change failure',
+          '% de mudanças aplicadas via pipeline/IaC vs. mudança manual',
+          'Aderência a runbooks e standard operating procedures em incidentes de plataforma',
+          'Uso de IA para revisão de Terraform/Ansible/Helm ou diagnóstico de drift'
+        ],
+        benchmark_fonte: 'Benchmark DORA adaptado a changes de infra / SRE — citar fonte',
+        proibido:
+          "Não confundir com DORA de aplicação de negócio nem com FCR de service desk — o foco é change/IaC/SRE."
+      },
+      desenvolvimento: {
+        perguntas_e_metricas: [
+          'Métricas DORA do produto/squad (deploy frequency, lead time, CFR, MTTR)',
+          'Cobertura de testes e qualidade de code review com assistência de IA',
+          'Padronização de branching, CI e definition of done entre squads',
+          '% de PRs com assistência/geração de IA e taxa de retrabalho associada'
+        ],
+        benchmark_fonte: 'Benchmark DORA (State of DevOps) — citar ano e fonte',
+        proibido:
+          'Não usar métricas de service desk (FCR/N1–N3) nem de consolidação ITSM nesta unidade.'
+      },
+      dados: {
+        perguntas_e_metricas: [
+          'Lead time e taxa de falha de pipelines de dados (ELT/ETL/dbt)',
+          'Padrões de engenharia de dados versionados (repo, CI de transformação, testes de contrato)',
+          'Data quality gates bloqueantes antes de publicar dataset/modelo',
+          'Uso de IA para geração/revisão de transformações e testes de qualidade'
+        ],
+        benchmark_fonte: 'Práticas de DataOps / data reliability — citar fonte',
+        proibido:
+          'Não usar DORA de app mobile/web nem FCR de atendimento como métrica principal de Dados.'
       }
     },
     D5_plataforma_arquitetura: {
@@ -111,6 +156,28 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
         perguntas_e_metricas: [
           'Arquitetura de referência para orquestração multi-agente, usada por todas as unidades'
         ]
+      },
+      infraestrutura: {
+        perguntas_e_metricas: [
+          'Landing zone / contas cloud padronizadas e multi-ambiente',
+          'Observabilidade unificada (métricas, logs, traces) e cobertura dos serviços críticos',
+          'Capacidade e autoscaling documentados; ADRs para decisões de plataforma',
+          'Prontidão da plataforma para workloads de IA (GPU/quota, rede, identity)'
+        ]
+      },
+      desenvolvimento: {
+        perguntas_e_metricas: [
+          'Golden paths / plataforma interna de desenvolvedor (IDP)',
+          'Padronização de runtime, service mesh, secrets e ambientes por squad',
+          'Tempo para um squad subir um serviço novo em produção (paved road)'
+        ]
+      },
+      dados: {
+        perguntas_e_metricas: [
+          'Arquitetura lakehouse/warehouse e zonas de dados (raw/curated/serving)',
+          'Escalabilidade de pipelines e workloads analíticos/IA',
+          'ADR de integração com fontes e consumidores (APIs, eventos, batch)'
+        ]
       }
     },
     D6_dados_contexto_conhecimento: {
@@ -132,6 +199,29 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
       coe: {
         perguntas_e_metricas: [
           'Curadoria central de conhecimento reutilizável entre unidades'
+        ]
+      },
+      infraestrutura: {
+        perguntas_e_metricas: [
+          'CMDB / inventário de ativos confiável e atualizado',
+          'Telemetria e runbooks como contexto para AIOps',
+          'Documentação de topologia e dependências crítica para diagnóstico'
+        ]
+      },
+      desenvolvimento: {
+        perguntas_e_metricas: [
+          'Knowledge base de arquitetura e decisões técnicas (ADRs) por produto',
+          'Reuso de componentes e libs internas documentado',
+          'Contexto de domínio/specs disponível aos agentes de coding'
+        ]
+      },
+      dados: {
+        escopo: 'DIMENSÃO PRIMÁRIA — núcleo da missão da área de Dados.',
+        perguntas_e_metricas: [
+          'Catálogo de dados com owners e classificação',
+          'Lineage e glossário/semântica para consumo analítico e IA',
+          'Qualidade de dados (% datasets com SLA/regras ativas)',
+          'Contexto recuperável para RAG/agents (acesso governado a fontes)'
         ]
       }
     },
@@ -158,6 +248,32 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
         perguntas_e_metricas: [
           'Define os gates técnicos usados pelas demais unidades, mas não é dono do resultado de QA de cada uma'
         ]
+      },
+      infraestrutura: {
+        perguntas_e_metricas: [
+          'Patch/vulnerability management e tempo médio de remediação',
+          'Hardening e baseline de segurança por classe de workload',
+          'Controles de identidade, rede e secret management',
+          'Uso de IA para priorização de CVEs / drift de configuração'
+        ],
+        proibido: 'Não usar defeitos/CT de aplicativo como métrica principal de Infra.'
+      },
+      desenvolvimento: {
+        perguntas_e_metricas: [
+          'SAST/DAST/SCA no pipeline e taxa de débito de vulnerabilidades',
+          'Defeitos em produção vs. escape rate',
+          'Qualidade de testes (unit/integration/e2e) com assistência de IA',
+          'Policy as code para gates de merge/release'
+        ]
+      },
+      dados: {
+        perguntas_e_metricas: [
+          'Controles de privacidade/PII e mascaramento',
+          'Testes de qualidade e contratos de dados em CI',
+          'Acesso least-privilege a datasets sensíveis',
+          'Monitoramento de anomalias / data incidents'
+        ],
+        proibido: 'Não usar defeitos/CT de UI como proxy de qualidade de dados.'
       }
     },
     D8_modernizacao_legado: {
@@ -179,6 +295,27 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
       coe: {
         escopo:
           'Consumidor — usa o que a Sustentação aprende para generalizar padrões, não é dono do resultado'
+      },
+      infraestrutura: {
+        perguntas_e_metricas: [
+          'Plano de modernização de plataformas legadas (mainframe/hypervisor/OS EOL)',
+          'Migração assistida por IA / automação de discovery e assessment',
+          'Priorização de dívida técnica de infraestrutura por risco e custo'
+        ]
+      },
+      desenvolvimento: {
+        perguntas_e_metricas: [
+          'Estratégia de strangler/refactor de monolitos e libs legadas',
+          'Cobertura de testes para refatoração segura assistida por IA',
+          'Backlog priorizado de modernização por produto'
+        ]
+      },
+      dados: {
+        perguntas_e_metricas: [
+          'Modernização de ETLs legados e desativação de jobs sombra',
+          'Migração de data warehouse/on-prem com qualidade auditável',
+          'Priorização de fontes legadas por valor analítico/IA'
+        ]
       }
     },
     D9_finops_valor: {
@@ -199,6 +336,27 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
       coe: {
         perguntas_e_metricas: [
           'Custo de tokens consolidado entre as unidades que consomem a fábrica'
+        ]
+      },
+      infraestrutura: {
+        perguntas_e_metricas: [
+          'FinOps de cloud (showback/chargeback, rightsizing, waste)',
+          'Custo por ambiente/serviço e anomalias de gasto',
+          'ROI de automações de infra vs. horas de operação'
+        ]
+      },
+      desenvolvimento: {
+        perguntas_e_metricas: [
+          'Custo de ciclo (lead time × capacidade) e valor entregue por squad',
+          'Custo de CI/CD e de tokens de coding assistants por produto',
+          'Indicadores de throughput vs. qualidade (escapes)'
+        ]
+      },
+      dados: {
+        perguntas_e_metricas: [
+          'Custo de plataforma de dados (storage/compute/query) por domínio',
+          'Valor de datasets (adoção, decisões habilitadas)',
+          'Custo de tokens/embeddings em workloads de IA sobre dados'
         ]
       }
     },
@@ -230,6 +388,31 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
       coe: {
         perguntas_e_metricas: [
           'É dono do framework de cooperação multi-agente usado pelas demais unidades'
+        ]
+      },
+      infraestrutura: {
+        perguntas_e_metricas: [
+          'Agentes AIOps para correlação de alertas e sugestão de remediação',
+          'Contexto injetável: telemetria, CMDB, runbooks',
+          'Human-in-the-loop antes de change automatizado em produção',
+          'Auditabilidade de ações do agente em ambiente crítico'
+        ],
+        nota: 'Preferir modo sugerir/read-only antes de auto-remediation.'
+      },
+      desenvolvimento: {
+        perguntas_e_metricas: [
+          'Agentes no ciclo de coding (spec → PR → testes)',
+          'Contexto de repo/padrões/DoD injetável',
+          'Loop de auto-correção e revisão humana obrigatória',
+          'Integração com CI e políticas de segurança'
+        ]
+      },
+      dados: {
+        perguntas_e_metricas: [
+          'Agentes sobre catálogo/lineage (descoberta, documentação, testes de qualidade)',
+          'Contexto injetável: schemas, glossário, políticas de acesso',
+          'Human-in-the-loop antes de publicar dataset/modelo',
+          'Auditabilidade de acesso a dados sensíveis por agentes'
         ]
       }
     }

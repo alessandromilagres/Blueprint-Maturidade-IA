@@ -16,13 +16,19 @@ export const PAPEIS_DIMENSAO_UNIDADE = Object.freeze({
 export const MODELOS_OPERACIONAIS = Object.freeze({
   DELIVERY: 'delivery',
   SUSTENTACAO: 'sustentacao',
-  COE: 'coe'
+  COE: 'coe',
+  INFRAESTRUTURA: 'infraestrutura',
+  DESENVOLVIMENTO: 'desenvolvimento',
+  DADOS: 'dados'
 });
 
 export const LABELS_MODELO_OPERACIONAL = Object.freeze({
   delivery: 'Delivery (projeto / código novo)',
   sustentacao: 'Sustentação (operação / ITSM)',
-  coe: 'COE-IA (fábrica de IA)'
+  coe: 'COE-IA (fábrica de IA)',
+  infraestrutura: 'Infraestrutura (cloud / SRE / plataforma)',
+  desenvolvimento: 'Desenvolvimento (engenharia / SDLC)',
+  dados: 'Dados (plataforma / analytics / qualidade)'
 });
 
 export function normalizarModeloOperacional(valor) {
@@ -41,6 +47,26 @@ export function normalizarModeloOperacional(valor) {
   }
   if (raw === 'coe' || raw === 'coe_ia' || raw === 'coe-ia' || raw === 'centro_excelencia') {
     return MODELOS_OPERACIONAIS.COE;
+  }
+  if (
+    raw === 'infraestrutura' ||
+    raw === 'infra' ||
+    raw === 'sre' ||
+    raw === 'cloud' ||
+    raw === 'ops_infra'
+  ) {
+    return MODELOS_OPERACIONAIS.INFRAESTRUTURA;
+  }
+  if (
+    raw === 'desenvolvimento' ||
+    raw === 'dev' ||
+    raw === 'engenharia' ||
+    raw === 'sdlc'
+  ) {
+    return MODELOS_OPERACIONAIS.DESENVOLVIMENTO;
+  }
+  if (raw === 'dados' || raw === 'data' || raw === 'analytics' || raw === 'data_platform') {
+    return MODELOS_OPERACIONAIS.DADOS;
   }
   if (Object.values(MODELOS_OPERACIONAIS).includes(raw)) return raw;
   return null;

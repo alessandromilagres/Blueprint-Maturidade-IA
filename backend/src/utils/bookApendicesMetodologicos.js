@@ -1,18 +1,22 @@
 /**
  * Apêndices metodológicos obrigatórios no final do Book Completo (MIT Blueprint e SATF).
  * Conteúdo determinístico — não depende da IA para garantir presença no documento.
+ *
+ * O glossário de fatos canônicos do projeto é input de prompt / validação interna —
+ * nunca deve ser republicado no Apêndice B (documento confidencial ao cliente).
  */
 
-function secaoGlossarioProjeto(glossarioProjeto) {
-  const txt = String(glossarioProjeto || '').trim();
-  if (!txt) return '';
-  return `
-### Glossário de fatos canônicos do projeto
-
-> Termos e status definidos pelo consultor para este assessment — prevalecem sobre inferências genéricas da IA.
-
-${txt}
-`;
+/** Remove seção de fatos canônicos se vazou para o markdown entregável. */
+export function removerGlossarioFatosCanonicosDoMarkdown(markdown) {
+  const md = String(markdown || '');
+  if (!md.trim()) return md;
+  return md
+    .replace(
+      /\n###\s+Glossário de fatos canônicos[^\n]*\n[\s\S]*?(?=(\n##\s|\n#\s|$))/gi,
+      '\n'
+    )
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export function montarApendiceMetodologiaBlueprint() {
@@ -60,8 +64,7 @@ Este book foi estruturado pela **metodologia SysMap Blueprint IA**, aplicada pel
 - Prosci — ADKAR Model for Change Management`;
 }
 
-export function montarApendiceGlossarioBlueprint(glossarioProjeto = '') {
-  const extraProjeto = secaoGlossarioProjeto(glossarioProjeto);
+export function montarApendiceGlossarioBlueprint(_glossarioProjetoIgnorado = '') {
   return `## Apêndice B — Glossário de Termos
 
 Termos recorrentes neste book de maturidade em IA (SysMap Blueprint IA).
@@ -88,7 +91,7 @@ Termos recorrentes neste book de maturidade em IA (SysMap Blueprint IA).
 | **Blueprint IA** | Framework SysMap de 16 dimensões para assessment e roadmap de maturidade em IA. |
 | **Automation bias** | Tendência de confiar excessivamente em decisões automatizadas sem revisão humana. |
 | **Human-in-the-loop** | Revisão ou aprovação humana obrigatória em etapas críticas do fluxo de IA. |
-${extraProjeto}`;
+`;
 }
 
 export function montarApendiceMetodologiaSatf() {
@@ -139,8 +142,7 @@ Este book foi produzido com o instrumento **SATF TI v3 — IA Maturidade TI**, d
 - DORA / Platform Engineering — métricas de entrega e plataforma interna`;
 }
 
-export function montarApendiceGlossarioSatf(glossarioProjeto = '') {
-  const extraProjeto = secaoGlossarioProjeto(glossarioProjeto);
+export function montarApendiceGlossarioSatf(_glossarioProjetoIgnorado = '') {
   return `## Apêndice B — Glossário de Termos
 
 Termos recorrentes no instrumento SATF TI v3 e neste book.
@@ -165,15 +167,15 @@ Termos recorrentes no instrumento SATF TI v3 e neste book.
 | **Copilot / agente** | Assistente de IA integrado ao IDE ou fluxo operacional com escopo definido. |
 | **Legacy modernization (D8)** | Estratégias de modernização e sustentação de sistemas legados com IA assistiva. |
 | **Entregável A–H** | Documentos de escopo cadastrados no contexto do projeto (diagnóstico, arquitetura, pilotos, GTM etc.). |
-${extraProjeto}`;
+`;
 }
 
-export function montarApendicesMetodologicosBlueprint(glossarioProjeto = '') {
-  return `${montarApendiceMetodologiaBlueprint()}\n\n${montarApendiceGlossarioBlueprint(glossarioProjeto)}`.trim();
+export function montarApendicesMetodologicosBlueprint(_glossarioProjetoIgnorado = '') {
+  return `${montarApendiceMetodologiaBlueprint()}\n\n${montarApendiceGlossarioBlueprint()}`.trim();
 }
 
-export function montarApendicesMetodologicosSatf(glossarioProjeto = '') {
-  return `${montarApendiceMetodologiaSatf()}\n\n${montarApendiceGlossarioSatf(glossarioProjeto)}`.trim();
+export function montarApendicesMetodologicosSatf(_glossarioProjetoIgnorado = '') {
+  return `${montarApendiceMetodologiaSatf()}\n\n${montarApendiceGlossarioSatf()}`.trim();
 }
 
 /** Indica se o book já contém o bloco canônico de apêndices metodológicos no final. */
@@ -210,16 +212,19 @@ export function extrairBlocoApendicesMetodologicos(markdown) {
 
 /** Garante que `# APÊNDICES METODOLÓGICOS` seja a última seção do documento (após capas/índice/corpo). */
 export function posicionarApendicesMetodologicosComoUltimaSecao(markdown, options = {}) {
-  const { corpo, apendices: existente } = extrairBlocoApendicesMetodologicos(markdown);
-  if (!corpo && !existente) return String(markdown || '').trim();
+  const limpo = removerGlossarioFatosCanonicosDoMarkdown(markdown);
+  const { corpo, apendices: existente } = extrairBlocoApendicesMetodologicos(limpo);
+  if (!corpo && !existente) return String(limpo || '').trim();
 
-  const { framework = 'blueprint', glossarioProjeto = '' } = options;
+  const { framework = 'blueprint' } = options;
+  // glossarioProjeto (se passado) é ignorado de propósito — não republicar no Apêndice B.
+  const existenteLimpo = existente ? removerGlossarioFatosCanonicosDoMarkdown(existente) : null;
   const bloco =
-    existente && bookTemApendicesMetodologicos(existente)
-      ? existente
+    existenteLimpo && bookTemApendicesMetodologicos(existenteLimpo)
+      ? existenteLimpo
       : framework === 'satf'
-        ? montarApendicesMetodologicosSatf(glossarioProjeto)
-        : montarApendicesMetodologicosBlueprint(glossarioProjeto);
+        ? montarApendicesMetodologicosSatf()
+        : montarApendicesMetodologicosBlueprint();
 
   if (!corpo) return bloco;
   return `${corpo}\n\n---\n\n${bloco}`.trim();

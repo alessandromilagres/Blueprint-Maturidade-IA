@@ -8,8 +8,14 @@ import {
   serializarDimensoesFocoMit,
   serializarDimensoesPapelSatf,
   serializarDimensoesPapelMit,
+  normalizarModeloOperacional,
   UNIDADE_GERAL_CODIGO
 } from '../utils/empresaUnidade.js';
+import {
+  serializarTraducaoDimensoes,
+  listarDefaultsTraducaoPorModelo,
+  normalizarModeloOperacional as normModeloLib
+} from '../utils/bibliotecaTraducaoDimensoes.js';
 
 const router = express.Router({ mergeParams: true });
 
@@ -66,6 +72,33 @@ function sanitizarPayloadUnidade(body, { parcial = false, ehPadrao = false } = {
     data.dimensoesFoco = serializarDimensoesFocoSatf(body.dimensoesFoco);
   }
 
+  if (body.modeloOperacional !== undefined) {
+    if (body.modeloOperacional == null || body.modeloOperacional === '') {
+      data.modeloOperacional = null;
+    } else {
+      const modelo = normalizarModeloOperacional(body.modeloOperacional);
+      if (!modelo) {
+        erros.push('modeloOperacional inválido (use delivery, sustentacao, coe ou vazio)');
+      } else {
+        data.modeloOperacional = modelo;
+      }
+    }
+  }
+
+  if (body.traducaoDimensoes !== undefined) {
+    if (body.traducaoDimensoes == null || body.traducaoDimensoes === '') {
+      data.traducaoDimensoes = null;
+    } else {
+      const serializado = serializarTraducaoDimensoes(body.traducaoDimensoes);
+      if (!serializado && body.traducaoDimensoes != null) {
+        // objeto vazio após normalizar = limpar
+        data.traducaoDimensoes = null;
+      } else {
+        data.traducaoDimensoes = serializado;
+      }
+    }
+  }
+
   if (body.ordem !== undefined) {
     const n = parseInt(body.ordem, 10);
     data.ordem = Number.isFinite(n) ? n : 0;
@@ -77,6 +110,24 @@ function sanitizarPayloadUnidade(body, { parcial = false, ehPadrao = false } = {
 
   return { erros, data };
 }
+
+/** Defaults de tradução do produto por modelo — para o cadastro montar/editar overrides. */
+router.get('/traducao-defaults', async (req, res) => {
+  try {
+    const modelo = normModeloLib(req.query.modelo);
+    if (!modelo) {
+      return res.status(400).json({
+        error: 'Informe ?modelo=delivery|sustentacao|coe'
+      });
+    }
+    res.json({
+      modelo,
+      dimensoes: listarDefaultsTraducaoPorModelo(modelo)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 router.get('/', async (req, res) => {
   try {
@@ -121,6 +172,8 @@ router.post('/', requireGestao, async (req, res) => {
         dimensoesPapelSatf: data.dimensoesPapelSatf ?? null,
         dimensoesPapelMit: data.dimensoesPapelMit ?? null,
         dimensoesFoco: data.dimensoesFoco ?? null,
+        modeloOperacional: data.modeloOperacional ?? null,
+        traducaoDimensoes: data.traducaoDimensoes ?? null,
         ehPadrao: false,
         ordem: data.ordem ?? 0,
         ativo: data.ativo !== false

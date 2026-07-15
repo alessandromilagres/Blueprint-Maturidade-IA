@@ -103,6 +103,10 @@ export const empresasApi = {
 
 export const empresaUnidadesApi = {
   listar: (empresaId) => request(`/empresas/${empresaId}/unidades`),
+  traducaoDefaults: (empresaId, modelo) =>
+    request(
+      `/empresas/${empresaId}/unidades/traducao-defaults?modelo=${encodeURIComponent(modelo || '')}`
+    ),
   criar: (empresaId, data) =>
     request(`/empresas/${empresaId}/unidades`, { method: 'POST', body: JSON.stringify(data) }),
   atualizar: (empresaId, unidadeId, data) =>

@@ -16,7 +16,13 @@ import {
   formatarDimensoesFocoMitDisplay,
   formatarDimensoesPapelDisplay,
   sincronizarPapelComFoco,
-  PAPEIS_DIMENSAO_UNIDADE
+  PAPEIS_DIMENSAO_UNIDADE,
+  MODELOS_OPERACIONAIS,
+  LABELS_MODELO_OPERACIONAL,
+  normalizarModeloOperacional,
+  labelModeloOperacional,
+  COD_DIM_COM_TRADUCAO,
+  normalizarTraducaoDimensoesInput
 } from '../utils/dimensoesFocoUnidade';
 
 export default function EmpresaDetalhe() {
@@ -27,6 +33,8 @@ export default function EmpresaDetalhe() {
   const [modalType, setModalType] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
+  const [traducaoDefaults, setTraducaoDefaults] = useState({});
+  const [traducaoCustomCodigos, setTraducaoCustomCodigos] = useState({});
 
   useEffect(() => {
     loadEmpresa();
@@ -65,10 +73,17 @@ export default function EmpresaDetalhe() {
     } else if (type === 'unidade') {
       const focoSatf = normalizarDimensoesFocoSatfInput(item?.dimensoesFocoSatf ?? item?.dimensoesFoco);
       const focoMit = normalizarDimensoesFocoMitInput(item?.dimensoesFocoMit);
+      const traducao = normalizarTraducaoDimensoesInput(item?.traducaoDimensoes) || {};
+      const customFlags = {};
+      for (const cod of Object.keys(traducao)) customFlags[cod] = true;
+      setTraducaoCustomCodigos(customFlags);
+      setTraducaoDefaults({});
       setFormData({
         nome: item?.nome || '',
         codigo: item?.codigo || '',
         descricao: item?.descricao || '',
+        modeloOperacional: normalizarModeloOperacional(item?.modeloOperacional) || '',
+        traducaoDimensoes: traducao,
         dimensoesFocoSatfTexto: formatarDimensoesFocoSatfDisplay(focoSatf),
         dimensoesFocoMitTexto: formatarDimensoesFocoMitDisplay(focoMit),
         dimensoesPapelSatf: sincronizarPapelComFoco(item?.dimensoesPapelSatf, focoSatf || []),
@@ -76,6 +91,13 @@ export default function EmpresaDetalhe() {
         ordem: item?.ordem ?? 0,
         ativo: item?.ativo !== false,
       });
+      const modelo = normalizarModeloOperacional(item?.modeloOperacional);
+      if (modelo) {
+        empresaUnidadesApi
+          .traducaoDefaults(id, modelo)
+          .then((r) => setTraducaoDefaults(r?.dimensoes || {}))
+          .catch(() => setTraducaoDefaults({}));
+      }
     } else if (type === 'projeto') {
       setFormData({
         nome: item?.nome || '',
@@ -141,10 +163,19 @@ export default function EmpresaDetalhe() {
         formData.dimensoesPapelMit,
         dimensoesFocoMit || []
       );
+      const traducaoSalva = {};
+      for (const [cod, on] of Object.entries(traducaoCustomCodigos || {})) {
+        if (!on) continue;
+        const bloco = formData.traducaoDimensoes?.[cod];
+        if (!bloco) continue;
+        traducaoSalva[cod] = bloco;
+      }
       const payload = {
         nome: formData.nome,
         codigo: formData.codigo || undefined,
         descricao: formData.descricao || null,
+        modeloOperacional: normalizarModeloOperacional(formData.modeloOperacional) || null,
+        traducaoDimensoes: normalizarTraducaoDimensoesInput(traducaoSalva),
         dimensoesFocoSatf: dimensoesFocoSatf?.length ? dimensoesFocoSatf : null,
         dimensoesFocoMit: dimensoesFocoMit?.length ? dimensoesFocoMit : null,
         dimensoesPapelSatf: Object.keys(dimensoesPapelSatf).length ? dimensoesPapelSatf : null,
@@ -370,6 +401,11 @@ export default function EmpresaDetalhe() {
                     )}
                     {!unidade.ativo && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Inativa</span>
+                    )}
+                    {labelModeloOperacional(unidade.modeloOperacional) && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-200">
+                        {labelModeloOperacional(unidade.modeloOperacional)}
+                      </span>
                     )}
                   </div>
                   {unidade.descricao && (
@@ -694,6 +730,166 @@ export default function EmpresaDetalhe() {
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Pode ser multilinha (missão, sistemas, dores). O texto completo entra nos books da unidade.
             </p>
+          </div>
+          <div>
+            <label className="label">Modelo operacional (books SATF)</label>
+            <select
+              className="input"
+              value={formData.modeloOperacional || ''}
+              onChange={(e) => {
+                const modelo = e.target.value;
+                setFormData({ ...formData, modeloOperacional: modelo });
+                if (!modelo) {
+                  setTraducaoDefaults({});
+                  return;
+                }
+                empresaUnidadesApi
+                  .traducaoDefaults(id, modelo)
+                  .then((r) => setTraducaoDefaults(r?.dimensoes || {}))
+                  .catch(() => setTraducaoDefaults({}));
+              }}
+            >
+              <option value="">— Não definido (léxico genérico) —</option>
+              <option value={MODELOS_OPERACIONAIS.DELIVERY}>
+                {LABELS_MODELO_OPERACIONAL.delivery}
+              </option>
+              <option value={MODELOS_OPERACIONAIS.SUSTENTACAO}>
+                {LABELS_MODELO_OPERACIONAL.sustentacao}
+              </option>
+              <option value={MODELOS_OPERACIONAIS.COE}>
+                {LABELS_MODELO_OPERACIONAL.coe}
+              </option>
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Tipo de unidade (multi-cliente). Defaults do produto entram no book; abaixo você pode
+              personalizar métricas por dimensão para este cliente.
+            </p>
+            {formData.modeloOperacional &&
+              (normalizarDimensoesFocoSatfInput(formData.dimensoesFocoSatfTexto) || [])
+                .filter((c) => COD_DIM_COM_TRADUCAO.includes(c))
+                .length > 0 && (
+                <div className="mt-3 space-y-3 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                    Tradução de dimensões (opcional — sobrescreve o padrão do modelo)
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Deixe desmarcado para usar o padrão do produto. Marque só o que for específico
+                    deste cliente/projeto (ferramentas, contratos, proibições).
+                  </p>
+                  {(normalizarDimensoesFocoSatfInput(formData.dimensoesFocoSatfTexto) || [])
+                    .filter((c) => COD_DIM_COM_TRADUCAO.includes(c))
+                    .map((cod) => {
+                      const def = traducaoDefaults[cod] || {};
+                      const custom = !!traducaoCustomCodigos[cod];
+                      const atual = formData.traducaoDimensoes?.[cod] || {};
+                      const perguntasTxt = Array.isArray(atual.perguntas_e_metricas)
+                        ? atual.perguntas_e_metricas.join('\n')
+                        : atual.perguntas_e_metricas || '';
+                      return (
+                        <div
+                          key={`trad-${cod}`}
+                          className="rounded border border-gray-100 dark:border-gray-600 p-2 space-y-2"
+                        >
+                          <label className="flex items-center gap-2 text-sm font-medium">
+                            <input
+                              type="checkbox"
+                              checked={custom}
+                              onChange={(e) => {
+                                const on = e.target.checked;
+                                setTraducaoCustomCodigos({
+                                  ...traducaoCustomCodigos,
+                                  [cod]: on
+                                });
+                                if (on && !formData.traducaoDimensoes?.[cod]) {
+                                  setFormData({
+                                    ...formData,
+                                    traducaoDimensoes: {
+                                      ...(formData.traducaoDimensoes || {}),
+                                      [cod]: {
+                                        perguntas_e_metricas: def.perguntas_e_metricas || [],
+                                        proibido: def.proibido || '',
+                                        benchmark_fonte: def.benchmark_fonte || '',
+                                        escopo: def.escopo || ''
+                                      }
+                                    }
+                                  });
+                                }
+                              }}
+                            />
+                            {cod} — {def.nome || 'personalizar'}
+                          </label>
+                          {!custom && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                              Padrão: {(def.perguntas_e_metricas || []).slice(0, 2).join(' · ') || '—'}
+                            </p>
+                          )}
+                          {custom && (
+                            <>
+                              <div>
+                                <label className="label text-xs">Perguntas / métricas (1 por linha)</label>
+                                <textarea
+                                  className="input text-sm"
+                                  rows={4}
+                                  value={perguntasTxt}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      traducaoDimensoes: {
+                                        ...(formData.traducaoDimensoes || {}),
+                                        [cod]: {
+                                          ...(formData.traducaoDimensoes?.[cod] || {}),
+                                          perguntas_e_metricas: e.target.value
+                                        }
+                                      }
+                                    })
+                                  }
+                                />
+                              </div>
+                              <div>
+                                <label className="label text-xs">Proibido (opcional)</label>
+                                <input
+                                  className="input text-sm"
+                                  value={atual.proibido || ''}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      traducaoDimensoes: {
+                                        ...(formData.traducaoDimensoes || {}),
+                                        [cod]: {
+                                          ...(formData.traducaoDimensoes?.[cod] || {}),
+                                          proibido: e.target.value
+                                        }
+                                      }
+                                    })
+                                  }
+                                />
+                              </div>
+                              <div>
+                                <label className="label text-xs">Benchmark / fonte (opcional)</label>
+                                <input
+                                  className="input text-sm"
+                                  value={atual.benchmark_fonte || ''}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      traducaoDimensoes: {
+                                        ...(formData.traducaoDimensoes || {}),
+                                        [cod]: {
+                                          ...(formData.traducaoDimensoes?.[cod] || {}),
+                                          benchmark_fonte: e.target.value
+                                        }
+                                      }
+                                    })
+                                  }
+                                />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
           </div>
           <div>
             <label className="label">Dimensões em foco — SATF TI v3</label>

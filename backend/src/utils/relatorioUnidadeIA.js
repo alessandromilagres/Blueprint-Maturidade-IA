@@ -13,7 +13,9 @@ import {
   parseDimensoesFocoMitJson,
   parseDimensoesPapelSatfJson,
   parseDimensoesPapelMitJson,
-  formatarDimensoesPapelDisplay
+  formatarDimensoesPapelDisplay,
+  resolverModeloOperacionalUnidade,
+  labelModeloOperacional
 } from './empresaUnidade.js';
 import {
   usuarioIncluidoNoFiltroNivelMapeamentoMaturidade,
@@ -109,9 +111,13 @@ export function blocoUnidadeRelatorioMarkdown(unidadeMeta, { framework = 'satf' 
     parseDimensoesPapelMitJson(unidadeMeta),
     focoMit
   ) || formatarDimensoesFocoMitDisplay(focoMit);
+  const modelo = resolverModeloOperacionalUnidade(unidadeMeta);
+  const modeloLabel = modelo ? labelModeloOperacional(modelo) : '';
+
   return `## Unidade organizacional — escopo deste relatório
 
 - **Unidade:** ${unidadeMeta.nome}${unidadeMeta.ehPadrao ? ' (padrão Geral)' : ''}
+- **Modelo operacional:** ${modeloLabel || '— (não definido; tradução genérica SATF)'}
 - **Dimensões em foco (SATF):** ${focoSatfTxt || '— (não definido)'}
 - **Dimensões em foco (MIT Blueprint):** ${focoMitTxt || '— (não definido)'}
 - **Papéis:** Proprietário = dona do item; Consumidor = consome o item; Não se aplica = análise padrão (como hoje)
@@ -120,6 +126,7 @@ ${blocoDescricaoUnidadeMarkdown(unidadeMeta.descricao)}
 
 > Scores e recomendações refletem **somente** avaliadores vinculados a esta unidade (usuários sem unidade entram em Geral).
 ${isSatf && focoSatfTxt ? `\n> Neste book SATF, o papel cadastrado (quando Proprietário/Consumidor) orienta o diagnóstico da Seção 3.\n` : ''}
+${isSatf && modeloLabel ? `\n> Modelo operacional parametriza métricas/léxico da Seção 3 (ex.: DORA no Delivery vs ITIL na Sustentação).\n` : ''}
 `;
 }
 

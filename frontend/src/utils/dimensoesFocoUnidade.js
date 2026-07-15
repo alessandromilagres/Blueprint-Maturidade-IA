@@ -13,6 +13,94 @@ export const PAPEIS_DIMENSAO_UNIDADE = Object.freeze({
   NAO_SE_APLICA: 'nao_se_aplica'
 });
 
+export const MODELOS_OPERACIONAIS = Object.freeze({
+  DELIVERY: 'delivery',
+  SUSTENTACAO: 'sustentacao',
+  COE: 'coe'
+});
+
+export const LABELS_MODELO_OPERACIONAL = Object.freeze({
+  delivery: 'Delivery (projeto / código novo)',
+  sustentacao: 'Sustentação (operação / ITSM)',
+  coe: 'COE-IA (fábrica de IA)'
+});
+
+export function normalizarModeloOperacional(valor) {
+  if (valor == null || valor === '') return null;
+  const raw = String(valor)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!raw || raw === 'none' || raw === 'geral') return null;
+  if (raw === 'delivery' || raw === 'grt' || raw === 'delivery_operacional') {
+    return MODELOS_OPERACIONAIS.DELIVERY;
+  }
+  if (raw === 'sustentacao' || raw === 'grs' || raw === 'ops' || raw === 'itsm') {
+    return MODELOS_OPERACIONAIS.SUSTENTACAO;
+  }
+  if (raw === 'coe' || raw === 'coe_ia' || raw === 'coe-ia' || raw === 'centro_excelencia') {
+    return MODELOS_OPERACIONAIS.COE;
+  }
+  if (Object.values(MODELOS_OPERACIONAIS).includes(raw)) return raw;
+  return null;
+}
+
+export function labelModeloOperacional(modelo) {
+  const m = normalizarModeloOperacional(modelo);
+  return m ? LABELS_MODELO_OPERACIONAL[m] || m : '';
+}
+
+/** Dimensões SATF com tradução por modelo no produto (override editável na unidade). */
+export const COD_DIM_COM_TRADUCAO = Object.freeze([
+  'D4',
+  'D5',
+  'D6',
+  'D7',
+  'D8',
+  'D9',
+  'D10'
+]);
+
+export function normalizarTraducaoDimensoesInput(valor) {
+  if (valor == null || valor === '') return null;
+  let mapa = valor;
+  if (typeof valor === 'string') {
+    try {
+      mapa = JSON.parse(valor);
+    } catch {
+      return null;
+    }
+  }
+  if (!mapa || typeof mapa !== 'object' || Array.isArray(mapa)) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(mapa)) {
+    const cod = String(k || '')
+      .trim()
+      .toUpperCase();
+    if (!COD_DIM_COM_TRADUCAO.includes(cod)) continue;
+    if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
+    const bloco = {};
+    if (Array.isArray(v.perguntas_e_metricas)) {
+      const arr = v.perguntas_e_metricas.map((x) => String(x || '').trim()).filter(Boolean);
+      if (arr.length) bloco.perguntas_e_metricas = arr;
+    } else if (typeof v.perguntas_e_metricas === 'string' && v.perguntas_e_metricas.trim()) {
+      const arr = v.perguntas_e_metricas
+        .split(/\n/)
+        .map((x) => x.replace(/^[-*•]\s*/, '').trim())
+        .filter(Boolean);
+      if (arr.length) bloco.perguntas_e_metricas = arr;
+    }
+    for (const campo of ['proibido', 'benchmark_fonte', 'escopo', 'nota']) {
+      if (v[campo] != null && String(v[campo]).trim()) {
+        bloco[campo] = String(v[campo]).trim();
+      }
+    }
+    if (Object.keys(bloco).length) out[cod] = bloco;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 function ordenarCodigosDimensao(codigos) {
   return [...codigos].sort((a, b) => {
     const pa = a.startsWith('BP') ? 'BP' : 'D';

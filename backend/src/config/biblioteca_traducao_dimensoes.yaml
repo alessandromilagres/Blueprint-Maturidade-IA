@@ -1,0 +1,167 @@
+# Biblioteca de Tradução de Dimensões por Modelo Operacional
+# ------------------------------------------------------------------
+# PROBLEMA QUE ISSO RESOLVE: o gerador do Book SATF hoje usa o MESMO
+# banco de perguntas/métricas/benchmark para qualquer unidade, e só
+# particulariza nomes de pessoas, clientes e pilotos. Resultado: D4 na
+# Sustentação vira "DORA e frequência de deploy" numa área que não faz
+# deploy. Esse arquivo é a correção: mantém as 11 dimensões e os pesos
+# do SAT-F como régua comum (comparabilidade entre unidades preservada
+# no Book Geral), mas define QUAL BANCO DE PERGUNTAS/MÉTRICAS usar,
+# por dimensão, para cada modelo operacional.
+#
+# REGRA DE USO PELO GERADOR: antes de escrever a Seção 3 (Diagnóstico
+# por Dimensão) de qualquer unidade, o gerador deve resolver
+# modelo_operacional da unidade (delivery | sustentacao | coe) e usar
+# EXCLUSIVAMENTE o bloco correspondente abaixo para aquela dimensão.
+# Nunca usar o bloco de "delivery" como default para outra unidade.
+# MULTI-TENANT: defaults genéricos do produto. Overrides por cliente ficam no
+# cadastro da UnidadeEmpresa (campo traducaoDimensoes) — não embutir nomes de
+# cliente/contrato neste arquivo.
+
+modelos_operacionais:
+  delivery:
+    unidade: "Delivery (modelo operacional)"
+    natureza: "Projeto com início, meio e fim; produção de código novo"
+  sustentacao:
+    unidade: "Sustentação (modelo operacional)"
+    natureza: "Operação contínua por cliente/contrato; ITSM, não produção de código novo"
+  coe:
+    unidade: "COE / Fábrica de IA (modelo operacional)"
+    natureza: "Constrói e governa a fábrica de IA em si, não um processo de negócio"
+
+dimensoes:
+
+  D4_engenharia_padroes:
+    nome: "Engenharia & Padrões de Desenvolvimento"
+    delivery:
+      perguntas_e_metricas:
+        - "Métricas DORA (deploy frequency, lead time, change failure rate, MTTR)"
+        - "Tag de origem [AI-GEN] no commit — % de código gerado por IA vs. humano"
+        - "Defeitos/CT vs. meta, por piloto"
+        - "Playbook de code review calibrado para volume de output agêntico"
+      benchmark_fonte: "Benchmark DORA (State of DevOps) — citar ano e fonte, nunca constante fixa"
+    sustentacao:
+      perguntas_e_metricas:
+        - "Aderência a playbook por nível (N1/N2/N3) — % de incidentes tratados conforme o playbook documentado"
+        - "Taxa de reincidência — % de incidentes que reabrem o mesmo problema em até 30 dias"
+        - "% de incidentes com erro conhecido (known error) registrado na Base de Conhecimento"
+        - "FCR — First Call Resolution — % resolvido no primeiro contato, por nível de atendimento"
+        - "Backlog aging — tempo médio que um incidente/problema permanece sem tratamento"
+        - "Tag [IA-assistida] em decisões de triagem/diagnóstico — % de incidentes com apoio de agente"
+      benchmark_fonte: "Benchmark ITIL/HDI de FCR e backlog aging por severidade — citar fonte, nunca reaproveitar benchmark DORA"
+      proibido: "Nunca citar 'frequência de deploy' ou 'PRs com origem IA' para esta unidade — ela não deploya sistemas do cliente."
+    coe:
+      perguntas_e_metricas:
+        - "Padronização de frameworks/bibliotecas de IA entre as unidades que consomem (Delivery, Sustentação)"
+        - "Existência de guia de padrões de engenharia de IA com versão publicada e adotada"
+
+  D5_plataforma_arquitetura:
+    nome: "Plataforma, Arquitetura & Escala"
+    delivery:
+      perguntas_e_metricas:
+        - "Arquitetura SSG ↔ Jira (fonte única de horas e atividades)"
+        - "Escalabilidade dos agentes no pipeline de entrega contínua"
+    sustentacao:
+      perguntas_e_metricas:
+        - "Decisão de arquitetura de consolidação de ITSM heterogêneo  — via API, data lake ou espelho de eventos (webhook), com ADR registrado"
+        - "Padronização de observabilidade entre ferramentas (ferramentas de monitoramento do cliente)"
+        - "Escala = número de operações já cobertas pela camada de consolidação, sobre o total de operações no escopo"
+      proibido: "Nunca assumir fonte única já existente — ela é a decisão em aberto desta dimensão, não um fato consumado."
+    coe:
+      perguntas_e_metricas:
+        - "Arquitetura de referência para orquestração multi-agente, usada por todas as unidades"
+
+  D6_dados_contexto_conhecimento:
+    nome: "Dados, Contexto & Conhecimento"
+    delivery:
+      perguntas_e_metricas:
+        - "Base de conhecimento de projeto e taxa de registro de lições aprendidas"
+    sustentacao:
+      perguntas_e_metricas:
+        - "Correlação de alertas multi-ferramenta (dor operacional real, não hipotética)"
+        - "Matriz de ofensores — atualização automática vs. manual"
+        - "Existência de base de erro conhecido (known error database) reaproveitável"
+        - "Contexto injetável no agente de triagem a partir do histórico de incidentes"
+        - "Roteamento por similaridade (ex. Jira/Smarti) — % de incidentes roteados corretamente sem intervenção humana"
+    coe:
+      perguntas_e_metricas:
+        - "Curadoria central de conhecimento reutilizável entre unidades"
+
+  D7_seguranca_qualidade:
+    nome: "Segurança & Qualidade Integrada (QA)"
+    delivery:
+      perguntas_e_metricas:
+        - "Defeitos/CT vs. meta"
+        - "Gate de segurança (SAST) em código gerado por IA"
+        - "Conformidade de licenças de pacotes introduzidos pela IA"
+    sustentacao:
+      perguntas_e_metricas:
+        - "Taxa de falso positivo de alerta de monitoramento"
+        - "Acurácia de triagem do agente — % de classificações de severidade/impacto corretas"
+        - "Taxa de escalonamento indevido — incidente que sobe de nível sem necessidade real"
+        - "Shift-left de segurança — detecção preventiva antes da abertura do incidente"
+      proibido: "Nunca usar 'defeitos/CT' aqui — não existe CT (caso de teste) no fluxo de atendimento a incidente."
+    coe:
+      perguntas_e_metricas:
+        - "Define os gates técnicos usados pelas demais unidades, mas não é dono do resultado de QA de cada uma"
+
+  D8_modernizacao_legado:
+    nome: "Modernização & Sustentação de Legado"
+    delivery:
+      escopo: "FORA DO ESCOPO — Delivery é projeto novo, não sustentação de legado. Não avaliar."
+    sustentacao:
+      escopo: "DIMENSÃO PRIMÁRIA — nunca excluir do escopo desta unidade. É a dimensão mais diretamente ligada ao nome e à missão da área."
+      perguntas_e_metricas:
+        - "Modernização de sistemas legados assistida por IA — existência de abordagem definida"
+        - "Cobertura de testes suficiente para permitir refatoração segura por IA"
+        - "Priorização documentada de candidatos a modernização"
+        - "Capacitação das equipes de sustentação para uso de IA no dia a dia"
+    coe:
+      escopo: "Consumidor — usa o que a Sustentação aprende para generalizar padrões, não é dono do resultado"
+
+  D9_finops_valor:
+    nome: "FinOps, Valor & Apoio ao Negócio"
+    delivery:
+      perguntas_e_metricas:
+        - "ROI por piloto"
+        - "Custo de tokens atribuído a iniciativas específicas"
+    sustentacao:
+      perguntas_e_metricas:
+        - "Risco de erosão de margem em contratos de baseline de horas (contratos do cliente) quando a triagem assistida reduz esforço"
+        - "Custo de automação de triagem vs. horas economizadas, por operação"
+        - "Modelo de repactuação comercial em andamento (sim/não, prazo)"
+    coe:
+      perguntas_e_metricas:
+        - "Custo de tokens consolidado entre as unidades que consomem a fábrica"
+
+  D10_fabrica_agentica:
+    nome: "Fábrica Agêntica de Software"
+    nota_geral: "Score sempre 'fora da média geral' em qualquer unidade — mas as PERGUNTAS mudam."
+    delivery:
+      perguntas_e_metricas:
+        - "Ingestão de User Story pelo agente"
+        - "Escopo delegável ao agente (qual etapa do ciclo de entrega)"
+        - "Contexto injetável (specs, padrões de código)"
+        - "Loop de auto-correção do agente"
+        - "Varredura de segurança (SAST) em código gerado"
+    sustentacao:
+      perguntas_e_metricas:
+        - "Ingestão de incidente pelo agente (não User Story)"
+        - "Escopo delegável ao agente — triagem N1? sugestão de contorno N2? apoio a diagnóstico N3?"
+        - "Contexto injetável — histórico de incidentes + Base de Conhecimento (não specs de código)"
+        - "Loop de aprendizado — conhecimento resolvido em N3 retroalimenta a Base usada em N2"
+        - "Validação humana obrigatória (human-in-the-loop) antes de qualquer ação automatizada em ambiente produtivo do cliente"
+        - "Auditabilidade da decisão do agente de triagem"
+      nota: "Primeiro ciclo deve ser read-only (sem escrita em ambiente produtivo do cliente) — trava de acesso documentada."
+    coe:
+      perguntas_e_metricas:
+        - "É dono do framework de cooperação multi-agente usado pelas demais unidades"
+
+regra_de_convergencia:
+  descricao: >
+    Teste automático de QA: se a recomendação gerada para a mesma dimensão em
+    duas unidades estruturalmente diferentes (ex. D4 em Delivery e D4 em
+    Sustentação) tiver alta similaridade textual, é sinal de que a dimensão
+    não foi traduzida — foi copiada. Rodar checagem de similaridade antes de
+    publicar qualquer par de books.
+  limiar_sugerido: "Similaridade de texto (ex. cosine/Jaccard) acima de 0.6 entre as recomendações de uma mesma dimensão em unidades diferentes deve bloquear a publicação para revisão manual."

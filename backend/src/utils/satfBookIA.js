@@ -32,8 +32,14 @@ import {
   resolverPapelDimensaoUnidade,
   blocoInstrucaoPapelDimensaoPrompt,
   labelPapelDimensaoUnidade,
-  PAPEIS_DIMENSAO_UNIDADE
+  PAPEIS_DIMENSAO_UNIDADE,
+  resolverModeloOperacionalUnidade,
+  labelModeloOperacional
 } from './empresaUnidade.js';
+import {
+  filtrarDimensoesPorModeloOperacional,
+  blocoTraducaoDimensaoModeloPrompt
+} from './bibliotecaTraducaoDimensoes.js';
 import {
   gerarPlanoAcaoPorDimensao,
   instrucoesSistemaBookUnidade,
@@ -210,6 +216,9 @@ function montarPromptSecao3DimensaoSatf({
         nomeDimensao: dim.area
       })
     : '';
+  const blocoTraducaoModelo = exigeUnidade
+    ? blocoTraducaoDimensaoModeloPrompt(unidadeMeta, dim)
+    : '';
 
   const regrasEntregaveis =
     inventarioDocumentos?.entregaveis?.length > 0
@@ -227,7 +236,9 @@ ${exigeUnidade && dimensaoComScoreZero(dim) ? `- **Score individual 0 nesta roda
 ${exigeUnidade && formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta)) ? `- **Dimensões em foco desta unidade (SATF):** ${formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta))} — **proibido** mencionar dimensões SATF fora desta lista.` : ''}
 ${exigeUnidade ? `- **Unidade organizacional:** recomendações **exclusivas** para "${unidadeMeta?.nome || 'esta unidade'}".` : ''}
 ${exigeUnidade && papelUnidade !== PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA ? `- **Papel da unidade nesta dimensão:** ${labelPapelDimensaoUnidade(papelUnidade)} — aplicar a lente correspondente em análise, recomendações e KPIs.` : ''}
+${exigeUnidade && resolverModeloOperacionalUnidade(unidadeMeta) ? `- **Modelo operacional:** ${labelModeloOperacional(resolverModeloOperacionalUnidade(unidadeMeta))} — métricas e léxico desta dimensão devem seguir a tradução do modelo (não copiar Delivery↔Sustentação).` : ''}
 ${exigeUnidade && planoDim ? `\n${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}` : ''}
+${blocoTraducaoModelo}
 ${regrasEntregaveis}
 ${temContexto ? '- **Contexto cadastrado:** cite ≥2 elementos concretos do bloco "Contexto do cliente" em Análise, Risco e Recomendações. **Proibido** "empresa de tecnologia de médio porte" como narrativa principal.' : `- Contextualize ao setor **${setor}** e porte **${porte}** com exemplos de engenharia/plataforma reais.`}
 - Numere **exatamente** as subseções pedidas com ### (três #). **Não** gere "## ${numSecao}" nem "# 3.".
@@ -263,6 +274,7 @@ Reproduza **integralmente** a tabela abaixo (incluindo a **última linha** "Scor
 
 ${regrasAntiGenericidade}
 ${blocoPapel}
+${blocoTraducaoModelo}
 ${contextoDim}
 
 ${guia}
@@ -294,6 +306,7 @@ ${tabelaDim}`;
 
 ${regrasAntiGenericidade}
 ${blocoPapel}
+${blocoTraducaoModelo}
 ${contextoDim}
 
 ${guia}
@@ -767,10 +780,13 @@ async function montarChunksSatf({
   const dimsParaSecao3Base = exigeUnidade
     ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
     : dimensoesDiagnostico;
-  const dimsParaSecao3 =
+  const dimsParaSecao3Foco =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
       ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
       : dimsParaSecao3Base;
+  const dimsParaSecao3 = exigeUnidade
+    ? filtrarDimensoesPorModeloOperacional(dimsParaSecao3Foco, unidadeMeta)
+    : dimsParaSecao3Foco;
   const focoDisplay = formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta));
   const focoUnidadeTxt =
     exigeUnidade && focoDisplay
@@ -1846,12 +1862,15 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     totalChunks: chunks.length
   });
 
-  const dimsParaSecao3 =
+  const dimsParaSecao3Foco =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
       ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
       : exigeUnidade
         ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
         : dimensoesDiagnostico;
+  const dimsParaSecao3 = exigeUnidade
+    ? filtrarDimensoesPorModeloOperacional(dimsParaSecao3Foco, unidadeMeta)
+    : dimsParaSecao3Foco;
   const indicesSecao3AtivosRaw =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
       ? new Set(

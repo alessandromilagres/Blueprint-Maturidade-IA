@@ -31,6 +31,58 @@ export const TEMPLATES_DIMENSOES_FOCO_MIT = {
 /** @deprecated use TEMPLATES_DIMENSOES_FOCO_SATF */
 export const TEMPLATES_DIMENSOES_FOCO_UNIDADE = TEMPLATES_DIMENSOES_FOCO_SATF;
 
+/** Modelo operacional — tradução de dimensões SATF no book por unidade. */
+export const MODELOS_OPERACIONAIS = Object.freeze({
+  DELIVERY: 'delivery',
+  SUSTENTACAO: 'sustentacao',
+  COE: 'coe'
+});
+
+export const LABELS_MODELO_OPERACIONAL = Object.freeze({
+  delivery: 'Delivery (projeto / código novo)',
+  sustentacao: 'Sustentação (operação / ITSM)',
+  coe: 'COE-IA (fábrica de IA)'
+});
+
+export function normalizarModeloOperacional(valor) {
+  if (valor == null || valor === '') return null;
+  const raw = String(valor)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!raw || raw === 'none' || raw === 'nao_se_aplica' || raw === 'geral') return null;
+  if (raw === 'delivery' || raw === 'delivery_operacional' || raw === 'grt') {
+    return MODELOS_OPERACIONAIS.DELIVERY;
+  }
+  if (
+    raw === 'sustentacao' ||
+    raw === 'sustentacao_operacional' ||
+    raw === 'grs' ||
+    raw === 'ops' ||
+    raw === 'itsm'
+  ) {
+    return MODELOS_OPERACIONAIS.SUSTENTACAO;
+  }
+  if (raw === 'coe' || raw === 'coe_ia' || raw === 'coe-ia' || raw === 'centro_excelencia') {
+    return MODELOS_OPERACIONAIS.COE;
+  }
+  if (Object.values(MODELOS_OPERACIONAIS).includes(raw)) return raw;
+  return null;
+}
+
+export function resolverModeloOperacionalUnidade(unidadeMeta) {
+  if (!unidadeMeta) return null;
+  return normalizarModeloOperacional(
+    unidadeMeta.modeloOperacional ?? unidadeMeta.modelo_operacional ?? null
+  );
+}
+
+export function labelModeloOperacional(modelo) {
+  const m = normalizarModeloOperacional(modelo);
+  return m ? LABELS_MODELO_OPERACIONAL[m] || m : '';
+}
+
 export function normalizarCodigoUnidade(codigo, nome) {
   const raw = String(codigo || nome || '')
     .trim()
@@ -372,8 +424,11 @@ export function mapUnidadeEmpresaResponse(row) {
       : row.usuarioCount != null
         ? row.usuarioCount
         : 0;
+  const traducaoDimensoes = parseTraducaoDimensoesDaUnidade(row);
   return {
     ...row,
+    modeloOperacional: normalizarModeloOperacional(row.modeloOperacional),
+    traducaoDimensoes,
     dimensoesFocoSatf: parseDimensoesFocoSatfJson(row),
     dimensoesFocoMit: parseDimensoesFocoMitJson(row),
     dimensoesPapelSatf: parseDimensoesPapelSatfJson(row),
@@ -382,6 +437,19 @@ export function mapUnidadeEmpresaResponse(row) {
     dimensoesFoco: parseDimensoesFocoJson(row),
     usuarioCount
   };
+}
+
+/** Parse lazy para não acoplar empresaUnidade ↔ biblioteca em bootstrap. */
+function parseTraducaoDimensoesDaUnidade(row) {
+  const raw = row?.traducaoDimensoes;
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(String(raw));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function ensureUnidadeEmpresaSchema() {
@@ -419,7 +487,13 @@ export async function ensureUnidadeEmpresaSchema() {
     await prisma.$executeRawUnsafe(
       'ALTER TABLE "UnidadeEmpresa" ADD COLUMN IF NOT EXISTS "dimensoesPapelMit" TEXT'
     );
-    console.log('[schema] UnidadeEmpresa dimensoesFoco/Papel Satf/Mit verificadas.');
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "UnidadeEmpresa" ADD COLUMN IF NOT EXISTS "modeloOperacional" TEXT'
+    );
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "UnidadeEmpresa" ADD COLUMN IF NOT EXISTS "traducaoDimensoes" TEXT'
+    );
+    console.log('[schema] UnidadeEmpresa dimensoesFoco/Papel/modelo/traducao verificadas.');
   } catch (e) {
     console.warn('[schema] UnidadeEmpresa tabela:', e?.message || e);
   }

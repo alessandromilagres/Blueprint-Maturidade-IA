@@ -13,7 +13,9 @@ import {
   resolverPapelDimensaoUnidade,
   blocoInstrucaoPapelDimensaoPrompt,
   labelPapelDimensaoUnidade,
-  PAPEIS_DIMENSAO_UNIDADE
+  PAPEIS_DIMENSAO_UNIDADE,
+  resolverModeloOperacionalUnidade,
+  labelModeloOperacional
 } from './empresaUnidade.js';
 import { blocoDescricaoUnidadeMarkdown } from './relatorioUnidadeIA.js';
 import { parseFocoUnidadePorFramework } from './bookDadosDimensao.js';
@@ -222,12 +224,15 @@ export function instrucoesSistemaBookUnidade({ unidadeMeta, frameworkMaturidade 
     formatarDimensoesPapelDisplay(mapaPapel, foco) ||
     (isSatf ? formatarDimensoesFocoSatfDisplay(foco) : formatarDimensoesFocoMitDisplay(foco));
   const focoLabel = isSatf ? 'SATF' : 'MIT Blueprint';
+  const modelo = resolverModeloOperacionalUnidade(unidadeMeta);
+  const modeloTxt = modelo ? labelModeloOperacional(modelo) : '';
 
   return `
 CONTEXTO DE UNIDADE ORGANIZACIONAL (OBRIGATÓRIO):
 - Este book é **exclusivo da unidade "${unidadeMeta?.nome || '—'}"** — scores, diagnósticos e recomendações refletem **somente** avaliadores desta unidade.
 - **Não** generalize para a empresa inteira; use linguagem "nesta unidade", "para ${unidadeMeta?.nome || 'a unidade'}".
 - Framework: ${isSatf ? 'SATF TI v3 (D1–D11)' : 'SysMap Blueprint IA (16 dimensões, referência MIT CISR)'}.
+${modeloTxt ? `- **Modelo operacional:** ${modeloTxt} — em cada dimensão use o banco de métricas/proibições desse modelo (não copie léxico de Delivery em Sustentação nem o inverso).` : ''}
 - **Outline fixo (somente estas seções):** # 1 Metodologia · # 2 Sumário · # 3 Diagnóstico (## 3.1…3.N) · # 4 Roadmap 30-60-90 · # 5 Próximos passos · (Apêndices só se o sistema inserir).
 - **Proibido** seções enterprise / leak: "Consolidação Estratégica", "Radar de Maturidade", "Mapa de Calor", "Roadmap 18 meses", "SEÇÃO 3 — ANÁLISE APROFUNDADA", "# 6."–"# 16.", títulos do tipo "12. Dimensão BP12" ou "3.5 BP5" como heading.
 - Códigos BP/D são **rótulos de dimensão nos dados**, **nunca** número de seção do book. Heading canônico: "## 3.N Dimensão — Nome".

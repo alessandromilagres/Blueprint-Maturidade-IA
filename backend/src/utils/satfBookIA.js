@@ -40,6 +40,7 @@ import {
   filtrarDimensoesPorModeloOperacional,
   blocoTraducaoDimensaoModeloPrompt
 } from './bibliotecaTraducaoDimensoes.js';
+import { blocoBenchmarkDimensaoPrompt } from './bibliotecaBenchmarksMercado.js';
 import {
   gerarPlanoAcaoPorDimensao,
   instrucoesSistemaBookUnidade,
@@ -219,6 +220,7 @@ function montarPromptSecao3DimensaoSatf({
   const blocoTraducaoModelo = exigeUnidade
     ? blocoTraducaoDimensaoModeloPrompt(unidadeMeta, dim)
     : '';
+  const blocoBenchmarkMercado = blocoBenchmarkDimensaoPrompt('satf', dim);
 
   const regrasEntregaveis =
     inventarioDocumentos?.entregaveis?.length > 0
@@ -231,6 +233,7 @@ OBRIGATÓRIO — EVITE REPETIÇÃO, GENERICIDADE E CONTAMINAÇÃO DE TAXONOMIA:
 - A **Análise Diagnóstica** deve abordar **${dim.area}** de forma explícita: referencie [Qn] e o padrão de respostas (não use parágrafo genérico de "maturidade de IA em TI").
 - **Evidências Críticas:** separe fatores que elevaram vs puxaram o score; cite [Qn] e documentos do contexto (Entregáveis A–H) quando existirem.
 - **Risco:** específico desta dimensão — **proibido** repetir a mesma frase entre dimensões.
+- **Benchmark Setorial:** use **exclusivamente** o bloco BENCHMARK DE MERCADO DESTA DIMENSÃO abaixo (frase + fonte + ano). **Proibido** média setorial genérica (ex.: ${mediaSetor.toFixed(1)}, 3,3, 35%) e **proibido** reutilizar texto/números de outra dimensão.
 - **Recomendações:** cada ação com título, descrição, entregável/sistema do projeto (A–H), owner sugerido e prazo (30/45/60/90 dias).${temDesejosIa ? ' **≥1 ação** deve citar Desejos IA dos DADOS quando pertinente.' : ''}
 ${exigeUnidade && dimensaoComScoreZero(dim) ? `- **Score individual 0 nesta rodada:** use score geral da unidade, contexto do projeto e perguntas [Qn] para diagnóstico. **Obrigatório** incluir Recomendações Específicas (R1–R3) e tabela de KPIs — não omita por falta de score discriminado.` : ''}
 ${exigeUnidade && formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta)) ? `- **Dimensões em foco desta unidade (SATF):** ${formatarDimensoesFocoSatfDisplay(parseDimensoesFocoSatfJson(unidadeMeta))} — **proibido** mencionar dimensões SATF fora desta lista.` : ''}
@@ -239,6 +242,7 @@ ${exigeUnidade && papelUnidade !== PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA ? `- **
 ${exigeUnidade && resolverModeloOperacionalUnidade(unidadeMeta) ? `- **Modelo operacional:** ${labelModeloOperacional(resolverModeloOperacionalUnidade(unidadeMeta))} — métricas e léxico desta dimensão devem seguir a tradução do modelo (não copiar Delivery↔Sustentação).` : ''}
 ${exigeUnidade && planoDim ? `\n${montarBlocoPlanoAcaoDimensaoPrompt(planoDim)}` : ''}
 ${blocoTraducaoModelo}
+${blocoBenchmarkMercado}
 ${regrasEntregaveis}
 ${temContexto ? '- **Contexto cadastrado:** cite ≥2 elementos concretos do bloco "Contexto do cliente" em Análise, Risco e Recomendações. **Proibido** "empresa de tecnologia de médio porte" como narrativa principal.' : `- Contextualize ao setor **${setor}** e porte **${porte}** com exemplos de engenharia/plataforma reais.`}
 - Numere **exatamente** as subseções pedidas com ### (três #). **Não** gere "## ${numSecao}" nem "# 3.".
@@ -248,7 +252,7 @@ ${temContexto ? '- **Contexto cadastrado:** cite ≥2 elementos concretos do blo
 CONTEXTO:
 - Empresa: ${projeto.empresa.nome} (${setor}, porte ${porte})
 - Score geral oficial: ${scoreGeral.toFixed(2)} (Nível ${nivel})
-- Média de referência TI/setor: ${mediaSetor.toFixed(1)}
+- Média TI/setor (apenas contexto geral — **não** usar no Benchmark Setorial desta dimensão): ${mediaSetor.toFixed(1)}
 - Score desta dimensão (**${dim.area}**): ${rotuloScoreDimensaoSatf(dim)} (Nível ${dim.nivel || nivelNumericoDeScore(dim.score)})
 ${exigeUnidade && papelUnidade !== PAPEIS_DIMENSAO_UNIDADE.NAO_SE_APLICA ? `- Papel da unidade: **${labelPapelDimensaoUnidade(papelUnidade)}**` : ''}
 
@@ -268,7 +272,7 @@ ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
 Reproduza **integralmente** a tabela abaixo (incluindo a **última linha** "Score geral da dimensão").
 ### ${numSecao}.3 Evidências Críticas (até 4 bullets com [Qn]; inclua qualidade de evidências e status de certificação consultor)
 ### ${numSecao}.4 Risco (1 parágrafo — mecanismo de risco desta dimensão para a operação documentada, não genérico)
-### ${numSecao}.5 Benchmark (1 parágrafo: compare score ${dim.area} vs média TI ${mediaSetor.toFixed(1)} e estado descrito no contexto)
+### ${numSecao}.5 Benchmark (1 parágrafo: use o BENCHMARK DE MERCADO DESTA DIMENSÃO — cite fonte/ano; compare com o score de ${dim.area}; **proibido** média TI genérica)
 ### ${numSecao}.6 Recomendações Específicas (3 ações numeradas R1–R3${temDesejosIa ? '; ≥1 ancorada em Desejos IA' : ''}: entregável A–H do contexto, sistema, owner, prazo)
 ### ${numSecao}.7 KPIs de Acompanhamento (tabela: KPI | Baseline | Meta 12m — mínimo 3 linhas)
 
@@ -300,7 +304,7 @@ ${tabelaDim}`;
 - **Fatores que puxaram o score para baixo** (bullets com [Qn])
 - **Evidências documentadas** e status de certificação consultor (qualidade, lacunas)
 ### ${numSecao}.3 Risco de Negócio (1 parágrafo — consequências se mantiver este nível; específico de ${dim.area} e da operação do cliente)
-### ${numSecao}.4 Benchmark Setorial (1 parágrafo — posição vs média TI ${mediaSetor.toFixed(1)} e expectativa de clientes/mercado para esta capacidade)
+### ${numSecao}.4 Benchmark Setorial (1 parágrafo — usar o BENCHMARK DE MERCADO DESTA DIMENSÃO: frase + fonte/ano; posicionar o score de ${dim.area}; **proibido** média TI genérica ou texto de outra dimensão)
 ### ${numSecao}.5 Recomendações Específicas (3–4 ações numeradas${temDesejosIa ? '; ≥1 ancorada em Desejos IA dos DADOS' : ''}: título + parágrafo com entregável, sistema, squad, prazo; ancoradas no escopo e documentação do projeto)
 ### ${numSecao}.6 KPIs de Acompanhamento (tabela: KPI | Baseline | Meta 6m | Meta 12m — mínimo 4 linhas; inclua score SATF da dimensão como KPI de evolução)
 

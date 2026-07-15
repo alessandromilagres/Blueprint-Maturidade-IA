@@ -153,6 +153,7 @@ import {
   carregarRegrasFatosContextoProjeto
 } from './utils/projetoContexto.js';
 import { validarFatosCanonicosBook } from './utils/projetoContextoFatos.js';
+import { blocoBenchmarkDimensaoPrompt } from './utils/bibliotecaBenchmarksMercado.js';
 import {
   blocoDesejosIaMarkdown,
   blocoDesejosIaResumoExecutivo,
@@ -6957,6 +6958,10 @@ Comece com "# 1. METODOLOGIA APLICADA".`,
           });
           return;
         }
+        const blocoBenchmarkMercadoRapido = blocoBenchmarkDimensaoPrompt('blueprint_mit', {
+          ...dim,
+          ordem: idx + 1
+        });
         const promptRapidoDim = shrinkPromptToCharBudget(
           `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.7 em Markdown.
 
@@ -6965,7 +6970,7 @@ Comece com "# 1. METODOLOGIA APLICADA".`,
 Reproduza **integralmente** a tabela pronta abaixo (incluindo a **última linha** "Score geral da dimensão").
 ### ${numSecao}.3 Evidências (até 4 bullets com [Qn], referenciando a tabela)
 ### ${numSecao}.4 Risco (1 parágrafo — mecanismo de risco desta dimensão, não genérico)
-### ${numSecao}.5 Benchmark (1 parágrafo curto vs setor)
+### ${numSecao}.5 Benchmark (1 parágrafo — usar o BENCHMARK DE MERCADO DESTA DIMENSÃO; cite fonte/ano; proibido média genérica)
 ### ${numSecao}.6 Recomendações (3 bullets acionáveis${temContextoProjeto ? ', cada um ligado ao contexto do projeto' : ''}${temDesejosIa ? '; **≥1 deve citar Desejos IA** dos DADOS quando pertinente' : ''}; cite Playbook Atlas quando couber)
 ### ${numSecao}.7 KPIs (tabela 3 linhas: KPI | Baseline | Meta 12m)
 
@@ -6973,9 +6978,12 @@ OBRIGATÓRIO:
 - Use o rótulo **Dimensão — ${dim.area}** apenas se precisar referenciar no texto; **não** crie título ## repetido.
 - Numere **exatamente** ${numSecao}.1 … ${numSecao}.7 com ### (três #).
 - Não pule subseções.
+- **Benchmark:** só o bloco BENCHMARK DE MERCADO DESTA DIMENSÃO — proibido reutilizar em outra dimensão.
 ${temContextoProjeto ? '- **Com contexto cadastrado:** proibido texto genérico de mercado; cite fatos do bloco "Contexto do cliente".' : ''}
 
 CONTEXTO GERAL: ${projeto.empresa.nome} · ${setor} · porte ${porte} · score geral ${scoreGeral.toFixed(2)} (Nível ${nivel})
+
+${blocoBenchmarkMercadoRapido}
 
 ${limitarBlocoMarkdown(blocoGuiaProgressaoDimensao(dim.area, dim.nivel || dim.score), 4000, 'Guia progressão')}
 
@@ -7113,30 +7121,37 @@ Gere SOMENTE as seções 1 e 2. Comece direto com "# 1. METODOLOGIA APLICADA".`,
             }`
         )
         .join('\n');
+      const blocoBenchmarkMercado = blocoBenchmarkDimensaoPrompt('blueprint_mit', {
+        ...dim,
+        ordem: idx + 1
+      });
       const promptCompletoDim = shrinkPromptToCharBudget(
         `${instrucaoPromptSecao3SemCabecalhos(numSecao, isFirst)}Gere SOMENTE as subseções ### ${numSecao}.1 a ### ${numSecao}.6 em Markdown.
 
 ### ${numSecao}.1 Análise Diagnóstica (2–3 parágrafos profundos sobre o que o score revela)
 ### ${numSecao}.2 Evidências Críticas (bullets — quais perguntas puxaram score para cima/baixo)
 ### ${numSecao}.3 Risco de Negócio (1 parágrafo — o que pode acontecer se mantiver este nível)
-### ${numSecao}.4 Benchmark Setorial (1 parágrafo — onde a empresa está vs concorrentes do setor)
+### ${numSecao}.4 Benchmark Setorial (1 parágrafo — usar o BENCHMARK DE MERCADO DESTA DIMENSÃO; cite fonte/ano; proibido média setorial genérica)
 ### ${numSecao}.5 Recomendações Específicas (3–4 ações concretas${temDesejosIa ? '; **≥1 deve ancorar em Desejos IA** dos DADOS' : ''}; Playbook Atlas quando aplicável)
 ### ${numSecao}.6 KPIs de Acompanhamento (tabela com 3–5 KPIs: KPI | Baseline | Meta 6m | Meta 12m)
 
 OBRIGATÓRIO — EVITE REPETIÇÃO (Análise Diagnóstica e Risco de Negócio):
 - A **Análise Diagnóstica** deve abordar o tema **${dim.area}** de forma explícita: referencie em texto as perguntas com [Qn] e o padrão de respostas (não use parágrafo genérico de "maturidade de IA" que valeria para qualquer dimensão).
 - O **Risco de Negócio** deve ser **específico desta dimensão**. **Proibido** repetir a mesma frase genérica entre dimensões.
+- **Benchmark Setorial:** usar **somente** o bloco BENCHMARK DE MERCADO DESTA DIMENSÃO — **proibido** média setorial genérica (ex.: ${mediaSetor.toFixed(1)}) e reutilizar texto de outra dimensão.
 - Numere **exatamente** ${numSecao}.1 … ${numSecao}.6 com ### (três #). **Não** gere "## ${numSecao}" nem "# 3. DIAGNÓSTICO".
 ${temContextoProjeto ? '- **Contexto cadastrado:** em Análise, Risco, Recomendações e KPIs cite ≥2 elementos concretos do bloco "Contexto do cliente" (iniciativas, sistemas, pilotos, métricas, público). **Proibido** "empresa de tecnologia de médio porte" como narrativa principal.' : ''}
 
 CONTEXTO:
 - Empresa: ${projeto.empresa.nome} (${setor}, porte ${porte})
 - Score geral da empresa: ${scoreGeral.toFixed(2)} (Nível ${nivel})
-- Média do setor: ${mediaSetor.toFixed(1)}
+- Média do setor (contexto geral — **não** usar no Benchmark Setorial): ${mediaSetor.toFixed(1)}
 - Score desta dimensão (**${dim.area}**): ${dim.score.toFixed(2)} (Nível ${dim.nivel || nivelNumericoDeScore(dim.score)})
 
 DETALHE DESTA DIMENSÃO:
 ${detalheDim || '- Nenhuma resposta consolidada nesta rodada.'}
+
+${blocoBenchmarkMercado}
 
 ${montarBlocoDadosDimensaoUnica(dim, { scoreGeral, mediaSetor })}
 

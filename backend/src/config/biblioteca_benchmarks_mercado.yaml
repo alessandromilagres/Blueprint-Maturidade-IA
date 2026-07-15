@@ -1,0 +1,344 @@
+# ============================================================================
+# biblioteca_benchmarks_mercado.yaml
+# SysMap Solutions — Blueprint de Maturidade em IA
+# ----------------------------------------------------------------------------
+# PROBLEMA QUE ESTE ARQUIVO RESOLVE
+# O gerador do Book (SAT-F e Blueprint MIT) vinha usando um valor fixo de
+# benchmark setorial ("3,3" e "35% das empresas no Nível 1") repetido em
+# praticamente todas as dimensões de todos os books — isso é o bug #5 do
+# lint_estrutura_book.py ("benchmark numérico repetido em excesso, indício
+# de constante de template, não dado real por dimensão"). Confirmado no
+# Book_SATF_TI_GRS_Sustentacao_3.doc: "3,3"/"35%" aparecia em 8 das 8
+# dimensões em escopo daquele book.
+#
+# Este arquivo dá, para cada dimensão de cada instrumento, um benchmark de
+# mercado REAL, com fonte, ano e data de revisão sugerida — para o gerador
+# consultar por chave (instrumento + dimensão), nunca reaproveitar o mesmo
+# texto em duas dimensões diferentes.
+#
+# REGRA DE OURO (não violar): SAT-F (bloco `satf`, 11 dimensões, D1-D11,
+# usado nas unidades internas GRT/GRS/COE-IA) e Blueprint MIT CISR de 16
+# dimensões (bloco `blueprint_mit`, usado em clientes externos como
+# Positivo e Portobello) são instrumentos DIFERENTES. Nunca misturar os
+# dois blocos no mesmo relatório nem usar benchmark de um instrumento
+# para preencher lacuna do outro.
+#
+# COMO USAR NO GERADOR
+# - Buscar o benchmark pela chave da dimensão (ex.: satf.D4,
+#   blueprint_mit."15"), nunca por índice de posição/ordem no documento.
+# - O campo `benchmark` já vem como frase pronta para entrar na seção
+#   "Benchmark Setorial" (SAT-F, 3.N.4) ou equivalente no Blueprint MIT.
+#   Ajustar apenas para concordância com o nome da unidade/cliente.
+# - Sempre citar `fonte` e `ano` no corpo do texto (transparência de
+#   origem do dado — evita a impressão de número "inventado" que gerou
+#   este chamado).
+# - Campo `revisar_ate`: dado de mercado externo perde validade. Não
+#   deixar um benchmark "congelado" por mais de ~18 meses sem checagem.
+# - Blocos com `status: "adaptado"` indicam que o benchmark não é
+#   medido nativamente na escala N1-N5 do SAT-F (vem de fonte com
+#   metodologia própria: %, estágio 1-4 etc.) — usar como referência
+#   qualitativa de mercado, não como conversão literal para a escala
+#   SAT-F.
+# - satf.D11: ver campo `alerta_governanca` — NÃO remover nem suavizar.
+#   Ligado ao ponto em aberto do Alcino (CIO): D11 segue em uso no Book
+#   mas o SAT-F oficial vai só até D10. Este arquivo não resolve isso;
+#   só evita que a dimensão fique sem benchmark quando for citada.
+# ============================================================================
+
+satf:
+  D1:
+    dimensao: "Estratégia & Postura de IA"
+    peso: 1
+    status: "adaptado"
+    framework_referencia: "Gartner AI Maturity Model / MIT CISR"
+    escopo_uso: "Book Geral, GRT, COE-IA — fora do escopo do Book de Sustentação (GRS) atual"
+    benchmark: "Apenas 7% das empresas atingem o estágio mais avançado de maturidade em IA (MIT CISR); a maioria permanece nos dois primeiros estágios, com performance financeira abaixo da média do setor. Entre empresas de alta maturidade, 91% já nomearam um líder de IA dedicado (Gartner)."
+    fonte: "MIT CISR, 'Building Enterprise AI Maturity' (2024); Gartner AI Maturity Survey (jun/2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  D2:
+    dimensao: "Governança, Risco & Conformidade"
+    peso: 2
+    status: "adaptado"
+    framework_referencia: "NIST AI RMF"
+    escopo_uso: "Book Geral, GRT, COE-IA — fora do escopo do Book de Sustentação (GRS) atual"
+    benchmark: "Adoção do NIST AI RMF chega a 57-67% entre CISOs, mas só 30% das empresas têm modelo de IA em produção com governança formal — outros 40% rodam pilotos sem nenhuma. Mais da metade das empresas não possui sequer um inventário básico dos sistemas de IA em uso, pré-requisito mínimo de qualquer programa de governança."
+    fonte: "Hitch Partners, Global CISO Leadership Report (2026); 2025 AI Governance Survey"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  D3:
+    dimensao: "Pessoas, Cultura & Capacitação"
+    peso: 1
+    status: "adaptado"
+    framework_referencia: "McKinsey State of AI / Prosci"
+    benchmark: "82% das empresas já oferecem algum treinamento de IA, mas 59% ainda reportam gap de competência relevante. Do lado do time, 61% dos funcionários se sentem despreparados para usar IA no dia a dia (Prosci)."
+    fonte: "McKinsey, 'The State of AI' (2025); Prosci, pesquisa com 1.107 profissionais (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  D4:
+    dimensao: "Engenharia & Padrões de Desenvolvimento"
+    peso: 1
+    status: "adaptado"
+    framework_referencia: "DORA (DevOps Research and Assessment)"
+    benchmark: "Só 16,2% das organizações fazem deploy sob demanda (múltiplas vezes ao dia) e só 9,4% têm lead time abaixo de 1 hora — esse é hoje o patamar de 'elite performer' em engenharia de software segundo a DORA."
+    fonte: "DORA, 'State of DevOps Report' (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  D5:
+    dimensao: "Plataforma, Arquitetura & Escala"
+    peso: 1
+    status: "adaptado"
+    framework_referencia: "State of Platform Engineering (Platform Engineering community)"
+    benchmark: "90% das empresas já usam uma internal developer platform e 76% têm time dedicado de plataforma, mas só 13,1% chegam a um ecossistema 'otimizado e cross-funcional' — e 29,6% nem sequer medem o sucesso da própria plataforma."
+    fonte: "State of Platform Engineering Report, Volume 4 (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  D6:
+    dimensao: "Dados, Contexto & Conhecimento"
+    peso: 1
+    status: "adaptado"
+    framework_referencia: "DataIQ / NewVantage Partners; Gartner"
+    benchmark: "Só cerca de 30-35% das empresas se consideram genuinamente 'data-driven'. Entre as que têm sucesso com IA, o investimento em fundamentos de dados e analytics chega a ser 4x maior que nas demais (Gartner)."
+    fonte: "DataIQ/NewVantage, '2025 AI and Data Leadership Executive Benchmark Survey'; Gartner (2026)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  D7:
+    dimensao: "Segurança & Qualidade Integrada (QA)"
+    peso: 2
+    status: "adaptado"
+    framework_referencia: "Veracode / Snyk"
+    benchmark: "Código gerado por IA tem 2,74x mais vulnerabilidades que código escrito por humanos, e 45% das amostras falham em teste de segurança introduzindo vulnerabilidades do OWASP Top 10. Entre desenvolvedores, 56,4% já encontraram problema de segurança em código de IA e 80% ainda assim contornam a política de segurança da própria empresa para usar essas ferramentas."
+    fonte: "Veracode, 'GenAI Code Security Report' (2025); Snyk, 'The Highs and Lows of Vibe Coding' (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  D8:
+    dimensao: "Modernização & Sustentação de Legado"
+    peso: 1
+    status: "adaptado"
+    framework_referencia: "Gartner"
+    benchmark: "Cerca de 40% do orçamento de TI é consumido por dívida técnica. O recomendado para redução sistemática é 15-20% do orçamento, mas na prática as empresas gastam 30-40% em modo 'crise'. A expectativa da Gartner é que a IA generativa reduza o custo de modernização de aplicações em até 30% até 2028."
+    fonte: "Gartner, pesquisa sobre dívida técnica (2025)"
+    ano: 2025
+    revisar_ate: "2027-06"
+
+  D9:
+    dimensao: "FinOps, Valor & Apoio ao Negócio"
+    peso: 1
+    status: "adaptado"
+    framework_referencia: "FinOps Foundation"
+    benchmark: "A gestão de custo de IA saltou de 31% das práticas de FinOps em 2024 para 98% em 2026 — adoção quase universal. Apesar disso, 73% dos projetos de IA ainda estouram o orçamento previsto, e gestão de custo de IA é hoje a habilidade nº 1 que os times de FinOps buscam contratar/desenvolver (58% priorizam)."
+    fonte: "FinOps Foundation, 'State of FinOps' (2026)"
+    ano: 2026
+    revisar_ate: "2027-06"
+
+  D10:
+    dimensao: "Fábrica Agêntica de Software"
+    peso: 1
+    status: "adaptado"
+    entra_na_media_geral: false
+    framework_referencia: "Gartner"
+    benchmark: "A Gartner projeta que 40% das aplicações empresariais terão agentes de IA para tarefas específicas até 2026, ante menos de 5% em 2025 — um salto de adoção que contextualiza o quão rápido o mercado está avançando nesta dimensão, mesmo quando a unidade avaliada ainda está em score zero."
+    fonte: "Gartner (2025/2026), via ABES"
+    ano: 2026
+    revisar_ate: "2027-01"
+
+  D11:
+    dimensao: "Conformidade Regulatória de IA"
+    peso: 2
+    status: "adaptado"
+    framework_referencia: "NIST AI RMF / EU AI Act"
+    alerta_governanca: "D11: status do instrumento oficial SAT-F pode variar por versão (cobertura D1–D10 vs D11). Este benchmark serve apenas para não deixar a dimensão sem referência quando ela for citada — não implica resolução da cobertura oficial."
+    benchmark: "Até set/2024, só 26,2% das empresas se preparavam ativamente para o EU AI Act e 48,6% nem tinham começado. Mais da metade das empresas não tem inventário básico dos próprios sistemas de IA — pré-requisito mínimo para qualquer conformidade regulatória."
+    fonte: "Deloitte, pesquisa de prontidão para o EU AI Act (set/2024); Cloud Security Alliance (2025)"
+    ano: 2024
+    revisar_ate: "2026-12"
+
+# ----------------------------------------------------------------------------
+# BLUEPRINT MIT CISR — 16 dimensões (clientes externos: Positivo, Portobello)
+# NUNCA usar estas chaves para preencher lacuna do bloco `satf` acima.
+# ----------------------------------------------------------------------------
+blueprint_mit:
+  "1":
+    dimensao: "Estratégia e Liderança"
+    peso_percentual: 8
+    status: "adaptado"
+    framework_referencia: "MIT CISR"
+    benchmark: "Só 7% das empresas chegam ao estágio mais avançado de maturidade em IA (MIT CISR); a maioria trava nos dois primeiros estágios, com performance financeira abaixo da média do setor. Entre as de alta maturidade, 91% já nomearam um líder de IA dedicado (Gartner)."
+    fonte: "MIT CISR (2024); Gartner AI Maturity Survey (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "2":
+    dimensao: "Dados e Tecnologia"
+    peso_percentual: 7
+    status: "adaptado"
+    framework_referencia: "MIT CISR"
+    benchmark: "Só cerca de 30-35% das empresas se consideram genuinamente 'data-driven'. Empresas com IA bem-sucedida investem até 4x mais em fundamentos de dados e analytics do que as demais."
+    fonte: "DataIQ/NewVantage (2025); Gartner (2026)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "3":
+    dimensao: "Governança e Risco"
+    peso_percentual: 7
+    status: "adaptado"
+    framework_referencia: "NIST AI RMF"
+    benchmark: "Adoção do NIST AI RMF chega a 57-67% entre CISOs, mas só 30% das empresas têm modelo de IA em produção com governança formal; 40% rodam pilotos sem nenhuma. Mais da metade não tem inventário básico dos próprios sistemas de IA."
+    fonte: "Hitch Partners (2026); 2025 AI Governance Survey"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "4":
+    dimensao: "Pessoas e Cultura"
+    peso_percentual: 6
+    status: "adaptado"
+    framework_referencia: "SFIA"
+    benchmark: "82% das empresas oferecem algum treinamento de IA, mas 59% ainda reportam gap de competência. 61% dos funcionários se sentem despreparados para usar IA no dia a dia."
+    fonte: "McKinsey (2025); Prosci (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "5":
+    dimensao: "Operações e Processos"
+    peso_percentual: 6
+    status: "adaptado"
+    framework_referencia: "MIT CISR"
+    benchmark: "Quase 9 em cada 10 empresas já usam IA em pelo menos uma função de negócio, mas 94% não enxergam valor 'significativo' — o gap entre laboratório e produção continua sendo o principal gargalo."
+    fonte: "McKinsey, 'The State of AI' (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "6":
+    dimensao: "Inovação e Experimentação"
+    peso_percentual: 6
+    status: "adaptado"
+    framework_referencia: "MIT CISR"
+    benchmark: "Só 6% das empresas são 'AI high performers' (mais de 5% do EBIT atribuído à IA); a grande maioria ainda está na transição de experimentação para escala, sem ter consolidado um motor sistemático de teste-e-aprendizado."
+    fonte: "McKinsey, 'The State of AI' (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "7":
+    dimensao: "Valor de Negócio e ROI"
+    peso_percentual: 7
+    status: "adaptado"
+    framework_referencia: "McKinsey (Value Creation Framework)"
+    benchmark: "Só 39% das empresas reportam impacto no EBIT em nível corporativo com IA — e mesmo entre essas, a maioria vê impacto abaixo de 5%. Apenas 6% chegam a 'AI high performer'."
+    fonte: "McKinsey, 'The State of AI' (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "8":
+    dimensao: "Ecossistema e Parcerias"
+    peso_percentual: 6
+    status: "adaptado"
+    framework_referencia: "MIT CISR"
+    benchmark: "83% das empresas com IA mais avançada constroem um ecossistema diverso de parcerias para executar sua estratégia. 69% das empresas vão priorizar parcerias de IA nos próximos 1 a 3 anos (KPMG)."
+    fonte: "Deloitte, 'State of AI in the Enterprise' (2025); KPMG Partner Ecosystem Survey (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "9":
+    dimensao: "Valor por Unidade de Negócio"
+    peso_percentual: 5
+    status: "adaptado"
+    framework_referencia: "McKinsey/BCG"
+    benchmark: "64% das empresas dizem que a IA já habilita inovação em nível de caso de uso — mas o valor tende a ficar capturado de forma pontual e por silo, raramente consolidado e comparável entre unidades de negócio."
+    fonte: "McKinsey, 'The State of AI' (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "10":
+    dimensao: "Talentos e Capacidades"
+    peso_percentual: 5
+    status: "adaptado"
+    framework_referencia: "SFIA/Gartner"
+    benchmark: "80% da força de trabalho de engenharia vai precisar de upskilling até 2027 (Gartner). Empresas que resolvem o gap de talento em IA adotam IA 2,3x mais rápido e têm ROI 67% maior que as que continuam com o gap aberto."
+    fonte: "Gartner, 'Talent Acquisition Trends 2026' (out/2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "11":
+    dimensao: "Conformidade Regulatória"
+    peso_percentual: 5
+    status: "adaptado"
+    framework_referencia: "NIST AI RMF"
+    benchmark: "Até set/2024, só 26,2% das empresas se preparavam ativamente para o EU AI Act e 48,6% nem tinham começado. Mais da metade não tem inventário básico dos próprios sistemas de IA — pré-requisito mínimo de conformidade."
+    fonte: "Deloitte (set/2024); Cloud Security Alliance (2025)"
+    ano: 2024
+    revisar_ate: "2026-12"
+
+  "12":
+    dimensao: "Prontidão para Mudança"
+    peso_percentual: 5
+    status: "adaptado"
+    framework_referencia: "ADKAR/Prosci"
+    benchmark: "63% apontam fatores humanos como o principal desafio de implementação de IA; 56% dos executivos veem capacidade da força de trabalho e gestão de mudança como a maior barreira. 61% dos funcionários se sentem despreparados para usar IA no dia a dia."
+    fonte: "Prosci, pesquisa com 1.107 profissionais (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "13":
+    dimensao: "IA como Gerador de Receita"
+    peso_percentual: 7
+    status: "adaptado"
+    framework_referencia: "MIT CISR"
+    benchmark: "80% das empresas já oferecem algum recurso ou produto de IA, mas 95% dos pilotos de IA generativa falham em gerar valor de negócio real. O modelo de monetização ainda é fragmentado: 29% embutem a IA de graça, 24% cobram premium, 11% ainda não decidiram como cobrar."
+    fonte: "Menlo Ventures, 'State of Generative AI in the Enterprise' (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "14":
+    dimensao: "Plataforma e Industrialização de IA"
+    peso_percentual: 7
+    status: "adaptado"
+    framework_referencia: "MIT CISR"
+    benchmark: "Só 31% das empresas chegam ao estágio de 'industrializar IA' (plataforma reutilizável e escalável) segundo o MIT CISR. Do lado de engenharia, 90% já têm uma plataforma interna de desenvolvimento, mas só 13,1% atingem maturidade 'otimizada e cross-funcional'."
+    fonte: "MIT CISR (2024); State of Platform Engineering, Volume 4 (2025)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "15":
+    dimensao: "Maturidade por Tipo de IA (Analítica, Generativa, Agêntica, Robótica)"
+    peso_percentual: 8
+    status: "adaptado"
+    framework_referencia: "MIT CISR 2024"
+    benchmark: "O MIT CISR (2024) identifica que o maior valor futuro vem de combinar os 4 tipos de IA, mas a maioria das empresas ainda está no início em agêntica e robótica. A Gartner projeta que agentes de IA em aplicações corporativas devem saltar de menos de 5% em 2025 para 40% em 2026."
+    fonte: "MIT CISR (2024); Gartner (2025/2026)"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+  "16":
+    dimensao: "Eficácia de IA (síntese MIT CISR)"
+    peso_percentual: 8
+    status: "nativo"
+    framework_referencia: "MIT CISR — Total AI Effectiveness"
+    escala:
+      estagio_1: "0-49% de Total AI Effectiveness"
+      estagio_2: "50-74% de Total AI Effectiveness"
+      estagio_3: "75-99% de Total AI Effectiveness"
+      estagio_4: "100% de Total AI Effectiveness"
+    benchmark: "Na escala de Eficácia Total de IA do MIT CISR (0-100%), só 7% das empresas chegam ao Estágio 4 (100%). Empresas nos Estágios 3-4 têm performance financeira bem acima da média do setor; as dos Estágios 1-2 ficam abaixo da média."
+    fonte: "MIT CISR, 'Building Enterprise AI Maturity' (2024); atualização 2025"
+    ano: 2025
+    revisar_ate: "2027-01"
+
+# ----------------------------------------------------------------------------
+# NOTAS DE IMPLEMENTAÇÃO PARA O DEV
+# ----------------------------------------------------------------------------
+notas_implementacao:
+  - "Buscar sempre por chave (instrumento.dimensao), nunca por posição/índice no documento — evita reintroduzir o bug de repetição caso a ordem das seções mude."
+  - "Nunca reaproveitar o texto de `benchmark` de uma dimensão em outra — se o gerador não achar a chave, é preferível deixar um placeholder explícito tipo '[benchmark pendente para esta dimensão]' a repetir um valor de outra dimensão. Falhar de forma visível é melhor que reintroduzir o bug #5."
+  - "Sempre renderizar `fonte` + `ano` junto ao `benchmark` no texto final — é isso que torna o número auditável e resolve a percepção de 'dado de template'."
+  - "Campo `revisar_ate`: adicionar um lembrete/checagem no pipeline (ou no processo de release do Book) para revisar entradas vencidas antes de gerar uma nova rodada. Dado de mercado parado por >18 meses deve ser tratado como suspeito."
+  - "satf.D1, D2, D11: description `status: adaptado` — não são benchmarks nativos do SAT-F (que é instrumento proprietário da SysMap), são adaptados de fontes de mercado gerais de estratégia/governança de IA. Isso é aceitável para contexto de mercado, mas o texto final deve deixar claro que é referência externa, não calibração interna do SAT-F."
+  - "blueprint_mit.'16': é a única entrada com `status: nativo` — a escala de 0-100% e os 4 estágios vêm diretamente do MIT CISR, sem adaptação. Pode ser usada como conversão direta para a métrica-síntese do Blueprint."
+  - "Se o cliente ou unidade avaliada for majoritariamente brasileiro, considerar complementar (não substituir) com o dado da Deloitte 'State of AI Brazil' 2026: 47% adoção mínima, 10% moderada, 1% avançada, 42% dizem já ter uso 'transformador' em ao menos uma frente."
+  - "REGRA DE OURO: um pull request que use `blueprint_mit` para preencher lacuna em um Book gerado com o instrumento SAT-F (ou vice-versa) deve ser bloqueado em revisão — é a mesma contaminação entre instrumentos já registrada como erro histórico no projeto."

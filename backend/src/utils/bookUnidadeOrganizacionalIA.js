@@ -31,6 +31,7 @@ import {
   carregarRegrasFatosContextoProjeto
 } from './projetoContexto.js';
 import { posicionarApendicesMetodologicosComoUltimaSecao } from './bookApendicesMetodologicos.js';
+import { blocoBenchmarkDimensaoPrompt } from './bibliotecaBenchmarksMercado.js';
 import { montarPreliminaresBookSatfOrdemCanonica } from './bookMarkdownIndice.js';
 import {
   sanitizarChunkDimensaoBookUnidadeBlueprint,
@@ -399,11 +400,16 @@ Unidade **${unidadeMeta.nome}** — score **${scoreGeral.toFixed(2)}**.
     );
 
     try {
+      const blocoBenchmarkMercado = blocoBenchmarkDimensaoPrompt('blueprint_mit', {
+        ...dim,
+        ordem: num
+      });
       const promptDim = shrinkPromptToCharBudget(
         `${dadosResumoDim}
 
 ${blocoDim}
 ${blocoPapel}
+${blocoBenchmarkMercado}
 
 Gere SOMENTE as subseções ### 3.${num}.1–3.${num}.6 da dimensão **${dim.area}**.
 O sistema já inserirá o heading "## 3.${num} Dimensão — ${dim.area}".
@@ -421,7 +427,7 @@ O sistema já inserirá o heading "## 3.${num} Dimensão — ${dim.area}".
 1 parágrafo — consequências de manter este nível nesta unidade.
 
 ### 3.${num}.4 Benchmark Setorial
-1 parágrafo — posição relativa vs expectativa de mercado/setorial para esta capacidade.
+1 parágrafo — usar **somente** o BENCHMARK DE MERCADO DESTA DIMENSÃO (frase + fonte/ano); **proibido** reutilizar texto/números de outra dimensão ou média setorial genérica.
 
 ### 3.${num}.5 Recomendações Específicas
 3–4 ações numeradas R1–Rn: owner, entregável, prazo 30/60/90.

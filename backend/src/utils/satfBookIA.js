@@ -104,6 +104,7 @@ import {
   recortarConteudoChunkBookSatf,
   deduplicarSecoesFinaisBookSatf,
   normalizarSecoesBookSatf,
+  corrigirScoresOficiaisTabelaEvolucaoRoadmapSatf,
   validarSecoesDuplicadasBookSatf,
   garantirSecoesD11BookSatf,
   encontrarDimensaoD11Satf,
@@ -969,10 +970,19 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
       prompt: `${regrasTaxonomia}
 # ${nRoadmap}. ROADMAP ENGENHARIA & PLATAFORMA (30-60-90 dias)
 
-Gere **SOMENTE** a Seção ${nRoadmap} em Markdown (subseções ${nRoadmap}.1–${nRoadmap}.5). **PARE** antes de "# ${nProximos}." — não gere Próximos Passos nem seções dedicadas de D10/D11/Capacitação.
+Gere **SOMENTE** a Seção ${nRoadmap} em Markdown. **PARE** antes de "# ${nProximos}." — não gere Próximos Passos nem seções dedicadas de D10/D11/Capacitação.
 
-Conteúdo: visão por horizonte (30/60/90), foco SDLC agêntico, plataforma, dados e governança técnica. Tabela resumo.
-Ao referenciar gaps e iniciativas, use **somente** dimensões SATF D1–D11 com nomes oficiais do bloco DADOS.${focoUnidadeTxt}
+Estrutura **obrigatória e única** (não renumerar nem repetir):
+### ${nRoadmap}.1 Visão Geral do Horizonte
+### ${nRoadmap}.2 Horizonte 30 dias
+### ${nRoadmap}.3 Horizonte 60 dias
+### ${nRoadmap}.4 Horizonte 90 dias
+### ${nRoadmap}.5 Tabela Resumo do Roadmap
+
+**PROIBIDO:** segunda sequência ${nRoadmap}.2/${nRoadmap}.3/${nRoadmap}.4 (ex.: "Fase 60/90 dias", "Resumo de Evolução") depois de ${nRoadmap}.5.
+**PROIBIDO:** inventar "Score atual (oficial)" — se houver tabela de evolução, copie **exatamente** os scores oficiais do bloco DADOS (nunca use meta 90d como score atual).
+Ao referenciar gaps e iniciativas, use dimensões SATF com nomes oficiais do bloco DADOS.${focoUnidadeTxt}
+**PROIBIDO** citar D1/D2 (ou outras fora do foco) mesmo como "referência cruzada".
 
 DADOS:\n${dados}`,
       maxTokens: 4000
@@ -989,6 +999,7 @@ Gere **SOMENTE** a Seção ${nProximos} (subseções ${nProximos}.1–${nProximo
 
 7–10 ações numeradas com responsável, entregável e prazo. Foco TI e unidade "${unidadeMeta?.nome || 'esta unidade'}".
 Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).${focoUnidadeTxt}
+**PROIBIDO** atribuir ações a dimensões fora do foco (inclui D1/D2 se excluídas), mesmo como "referência cruzada".
 
 DADOS:\n${dados}`,
       maxTokens: 4000
@@ -1010,9 +1021,17 @@ DADOS:\n${dados}`,
     prompt: `${regrasTaxonomia}
 # ${n4}. ROADMAP ENGENHARIA & PLATAFORMA (30-60-90 dias)
 
-Gere **SOMENTE** a Seção ${n4} em Markdown (subseções ${n4}.1–${n4}.5). **PARE** antes de "# ${n4 + 1}." — não gere Fábrica Agêntica, Conformidade, Capacitação nem Próximos Passos aqui (há chunks dedicados).
+Gere **SOMENTE** a Seção ${n4} em Markdown. **PARE** antes de "# ${n4 + 1}." — não gere Fábrica Agêntica, Conformidade, Capacitação nem Próximos Passos aqui (há chunks dedicados).
 
-Conteúdo: visão por horizonte (30/60/90), foco SDLC agêntico, plataforma, dados e governança técnica. Tabela resumo.
+Estrutura **obrigatória e única** (não renumerar nem repetir):
+### ${n4}.1 Visão Geral do Horizonte
+### ${n4}.2 Horizonte 30 dias
+### ${n4}.3 Horizonte 60 dias
+### ${n4}.4 Horizonte 90 dias
+### ${n4}.5 Tabela Resumo do Roadmap
+
+**PROIBIDO:** segunda sequência ${n4}.2/${n4}.3/${n4}.4 após ${n4}.5.
+**PROIBIDO:** inventar "Score atual (oficial)" — copie scores oficiais do bloco DADOS.
 Ao referenciar gaps e iniciativas, use **somente** dimensões SATF D1–D11 com nomes oficiais do bloco DADOS.
 
 DADOS:\n${dados}`,
@@ -1710,11 +1729,18 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     : '';
   const setor = projeto.vertical || projeto.empresa.setor || 'Tecnologia';
   const porte = projeto.empresa.porte || 'Não informado';
-  const blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
+  let blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
   await tickJobProgress(relatorioJobId, atualizarProgressoJobBook, 34, 'Contexto do projeto carregado', {
     fase: 'preparacao_contexto'
   });
-  const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId);
+  const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId, {
+    unidadeMeta: exigeUnidade ? unidadeMeta : null
+  });
+  if (regrasFatos.blocoFatosUnidade) {
+    blocoContexto = blocoContexto
+      ? `${blocoContexto}\n\n${regrasFatos.blocoFatosUnidade}`
+      : regrasFatos.blocoFatosUnidade;
+  }
   let inventarioDocumentos = await carregarInventarioDocumentosContexto(prisma, projetoId);
   if (!inventarioDocumentos.entregaveis.length && blocoContexto) {
     inventarioDocumentos = inventarioDocumentosContextoFromMarkdown(blocoContexto);
@@ -1945,10 +1971,17 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     ? renumerarSecoesPrincipaisBookSatfUnidade(markdownBruto, mapaRenumeracaoSecoes)
     : markdownBruto;
 
+  const dimsScoresOficiaisRoadmap =
+    exigeUnidade && dimsParaSecao3?.length ? dimsParaSecao3 : dimensoesDiagnostico;
+  const markdownComScoresCorrigidos = corrigirScoresOficiaisTabelaEvolucaoRoadmapSatf(
+    markdownBrutoRenumerado,
+    dimsScoresOficiaisRoadmap
+  );
+
   const markdown =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta)
-      ? markdownBrutoRenumerado
-      : garantirSecoesD11BookSatf(markdownBrutoRenumerado, dimensoesDiagnostico, {
+      ? markdownComScoresCorrigidos
+      : garantirSecoesD11BookSatf(markdownComScoresCorrigidos, dimensoesDiagnostico, {
           exigeUnidade,
           unidadeComFocoSatf: unidadeComFocoDefinido(unidadeMeta)
         });

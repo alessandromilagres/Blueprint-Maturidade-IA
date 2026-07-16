@@ -38,7 +38,9 @@ export const MODELOS_OPERACIONAIS = Object.freeze({
   COE: 'coe',
   INFRAESTRUTURA: 'infraestrutura',
   DESENVOLVIMENTO: 'desenvolvimento',
-  DADOS: 'dados'
+  DADOS: 'dados',
+  SISTEMA: 'sistema',
+  SISTEMA_INTERNO: 'sistema_interno'
 });
 
 export const LABELS_MODELO_OPERACIONAL = Object.freeze({
@@ -47,7 +49,9 @@ export const LABELS_MODELO_OPERACIONAL = Object.freeze({
   coe: 'COE-IA (fábrica de IA)',
   infraestrutura: 'Infraestrutura (cloud / SRE / plataforma)',
   desenvolvimento: 'Desenvolvimento (engenharia / SDLC)',
-  dados: 'Dados (plataforma / analytics / qualidade)'
+  dados: 'Dados (plataforma / analytics / qualidade)',
+  sistema: 'Sistema (aplicações / sistemas de negócio)',
+  sistema_interno: 'Sistema interno (ERP / RH / tools corporativas)'
 });
 
 export function normalizarModeloOperacional(valor) {
@@ -99,6 +103,17 @@ export function normalizarModeloOperacional(valor) {
     raw === 'engenharia_dados'
   ) {
     return MODELOS_OPERACIONAIS.DADOS;
+  }
+  if (
+    raw === 'sistema_interno' ||
+    raw === 'sistemas_internos' ||
+    raw === 'erp' ||
+    raw === 'core_interno'
+  ) {
+    return MODELOS_OPERACIONAIS.SISTEMA_INTERNO;
+  }
+  if (raw === 'sistema' || raw === 'sistemas' || raw === 'systems') {
+    return MODELOS_OPERACIONAIS.SISTEMA;
   }
   // "ops" sozinho é ambíguo — preferir sustentacao só se explícito; infra usa infra/sre
   if (raw === 'ops') return MODELOS_OPERACIONAIS.SUSTENTACAO;

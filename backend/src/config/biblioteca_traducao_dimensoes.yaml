@@ -11,12 +11,14 @@
 #
 # REGRA DE USO PELO GERADOR: antes de escrever a Seção 3 (Diagnóstico
 # por Dimensão) de qualquer unidade, o gerador deve resolver
-# modelo_operacional da unidade (delivery | sustentacao | coe) e usar
+# modelo_operacional da unidade (delivery | sustentacao | coe | infraestrutura |
+# desenvolvimento | dados | sistema | sistema_interno) e usar
 # EXCLUSIVAMENTE o bloco correspondente abaixo para aquela dimensão.
 # Nunca usar o bloco de "delivery" como default para outra unidade.
 # MULTI-TENANT: defaults genéricos do produto. Overrides por cliente ficam no
 # cadastro da UnidadeEmpresa (campo traducaoDimensoes) — não embutir nomes de
-# cliente/contrato neste arquivo.
+# cliente/contrato neste arquivo. Fatos de cliente (ex. GRS) ficam em
+# fatos_canonicos_unidades.js.
 
 modelos_operacionais:
   delivery:
@@ -28,6 +30,21 @@ modelos_operacionais:
   coe:
     unidade: "COE / Fábrica de IA (modelo operacional)"
     natureza: "Constrói e governa a fábrica de IA em si, não um processo de negócio"
+  infraestrutura:
+    unidade: "Infraestrutura (modelo operacional)"
+    natureza: "Cloud, rede, SRE e plataforma — disponibilidade e observabilidade"
+  desenvolvimento:
+    unidade: "Desenvolvimento (modelo operacional)"
+    natureza: "Engenharia de software / SDLC interno"
+  dados:
+    unidade: "Dados (modelo operacional)"
+    natureza: "Plataforma de dados, qualidade e contexto para analytics/IA"
+  sistema:
+    unidade: "Sistema (modelo operacional)"
+    natureza: "Sistemas de negócio / aplicações — ownership, integração e ciclo de vida"
+  sistema_interno:
+    unidade: "Sistema interno (modelo operacional)"
+    natureza: "Sistemas internos corporativos (ERP, RH, financeiro, tools)"
 
 dimensoes:
 

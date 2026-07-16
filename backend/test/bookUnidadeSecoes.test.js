@@ -6,7 +6,9 @@ import {
   construirMapaRenumeracaoSecoesPrincipaisSatfUnidade,
   renumerarSecoesPrincipaisBookSatfUnidade,
   removerSpilloverSecao3BookSatf,
-  normalizarSecoesBookSatf
+  normalizarSecoesBookSatf,
+  deduplicarSubsecoesRoadmapSatf,
+  corrigirScoresOficiaisTabelaEvolucaoRoadmapSatf
 } from '../src/utils/satfBookTaxonomia.js';
 import { extrairEntradasIndiceMarkdown } from '../src/utils/markdownSlug.js';
 
@@ -109,6 +111,54 @@ texto dim
     assert.match(out, /^# 3\. DIAGNÓSTICO/m);
     assert.match(out, /^## 3\.1 Dimensão — D1/m);
     assert.doesNotMatch(out, /## 3\.9 Dimensão — spillover/);
+  });
+
+  it('remove segunda sequência 4.2/4.3/4.4 após 4.5 no roadmap', () => {
+    const md = `# 4. ROADMAP ENGENHARIA
+### 4.1 Visão
+ok
+### 4.2 Horizonte 30 Dias
+a
+### 4.3 Horizonte 60 Dias
+b
+### 4.4 Horizonte 90 Dias
+c
+### 4.5 Tabela Resumo
+resumo bom
+### 4.2 Fase 60 dias
+DUPLICADO
+### 4.3 Fase 90 dias
+DUPLICADO
+### 4.4 Resumo de Evolução de Maturidade Esperada
+| Dimensão SATF | Score atual (oficial) | Meta 90 dias |
+| D3 — Pessoas | 2,2 | 2,8 |
+# 5. Próximos Passos
+acoes`;
+    const out = deduplicarSubsecoesRoadmapSatf(md);
+    assert.match(out, /### 4\.5 Tabela Resumo/);
+    assert.match(out, /resumo bom/);
+    assert.doesNotMatch(out, /Fase 60 dias/);
+    assert.doesNotMatch(out, /Score atual \(oficial\)/);
+    assert.doesNotMatch(out, /2,2/);
+    assert.match(out, /# 5\. Próximos Passos/);
+  });
+
+  it('corrige Score atual (oficial) com scores do consolidado', () => {
+    const md = `# 4. ROADMAP
+### 4.4 Resumo de Evolução de Maturidade Esperada
+| Dimensão SATF | Score atual (oficial) | Meta 90 dias | Alavanca |
+| D3 — Pessoas, Cultura & Capacitação | 2,2 | 2,8 | Trilha |
+| D5 — Plataforma, Arquitetura & Escala | 1,8 | 2,4 | Inventário |
+# 5. Próximos`;
+    const dims = [
+      { area: 'Pessoas, Cultura & Capacitação', codigoFramework: 'D3', score: 1.25 },
+      { area: 'Plataforma, Arquitetura & Escala', codigoFramework: 'D5', score: 1.0 }
+    ];
+    const out = corrigirScoresOficiaisTabelaEvolucaoRoadmapSatf(md, dims);
+    assert.match(out, /D3[^\n]*\| 1,25 \|/);
+    assert.match(out, /D5[^\n]*\| 1,00 \|/);
+    assert.doesNotMatch(out, /\| 2,2 \|/);
+    assert.doesNotMatch(out, /\| 1,8 \|/);
   });
 });
 

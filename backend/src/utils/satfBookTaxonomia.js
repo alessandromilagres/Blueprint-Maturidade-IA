@@ -8,6 +8,7 @@ import {
   dimensaoComScoreZero,
   aplicarNumSecaoRotuloDimensao
 } from './bookModoRapidoMarkdown.js';
+import { codigoEfetivoDimensaoFramework } from './bookDadosDimensao.js';
 
 /** Dimensões oficiais SATF (código + nome). */
 export const SATF_DIMENSOES_CANONICAS = SATF_FRAMEWORK_SEED.map((d) => ({
@@ -261,10 +262,137 @@ export function validarSecoesDuplicadasBookSatf(markdown) {
   };
 }
 
-/** Aplica recorte por chunk + deduplicação global das seções finais. */
+/**
+ * Remove segunda sequência de subseções do Roadmap (ex.: após ### 4.5, a IA
+ * reemite ### 4.2/4.3/4.4 com "Fase 60/90" e tabela de evolução inventada).
+ * Mantém a primeira passagem 4.1→4.5; descarta regressão de numeração.
+ */
+export function deduplicarSubsecoesRoadmapSatf(markdown, { secaoRoadmap = 4 } = {}) {
+  const nRoadmap = Number(secaoRoadmap) || 4;
+  const linhas = String(markdown || '').split('\n');
+  const saida = [];
+  let naSecaoRoadmap = false;
+  const vistos = new Set();
+  let pulandoRegressao = false;
+  const headingSub = new RegExp(`^#{2,4}\\s+${nRoadmap}\\.(\\d+)\\b`);
+  const headingMain = /^#\s+(\d+)\.\s+/;
+
+  for (const linha of linhas) {
+    const mMain = linha.match(headingMain);
+    if (mMain) {
+      const n = parseInt(mMain[1], 10);
+      naSecaoRoadmap = n === nRoadmap;
+      vistos.clear();
+      pulandoRegressao = false;
+      saida.push(linha);
+      continue;
+    }
+
+    if (!naSecaoRoadmap) {
+      saida.push(linha);
+      continue;
+    }
+
+    const mSub = linha.match(headingSub);
+    if (mSub) {
+      const sub = parseInt(mSub[1], 10);
+      const maxVisto = vistos.size ? Math.max(...vistos) : 0;
+      const regressao =
+        vistos.has(sub) || (maxVisto >= 4 && sub < maxVisto && vistos.has(maxVisto));
+      if (regressao) {
+        pulandoRegressao = true;
+        continue;
+      }
+      pulandoRegressao = false;
+      vistos.add(sub);
+      saida.push(linha);
+      continue;
+    }
+
+    if (pulandoRegressao) continue;
+    saida.push(linha);
+  }
+
+  return saida.join('\n').trim();
+}
+
+/**
+ * Mapa Dn → score oficial (>0) a partir do consolidado do diagnóstico.
+ */
+export function mapaScoresOficiaisPorCodigoSatf(dimensoes = []) {
+  const map = new Map();
+  for (const d of dimensoes || []) {
+    if (dimensaoComScoreZero(d)) continue;
+    const cod = String(codigoEfetivoDimensaoFramework(d, 'satf') || '').toUpperCase();
+    if (!/^D\d{1,2}$/.test(cod)) continue;
+    const score = Number(d.score ?? d.scoreOficial ?? 0);
+    if (!Number.isFinite(score) || score <= 0) continue;
+    map.set(cod, score);
+  }
+  return map;
+}
+
+function formatarScoreCelulaComoExistente(valor, celulaAtual) {
+  const n = Number(valor);
+  if (!Number.isFinite(n)) return String(celulaAtual || '');
+  const fixed = n.toFixed(2);
+  return String(celulaAtual || '').includes(',') ? fixed.replace('.', ',') : fixed;
+}
+
+/**
+ * Corrige a coluna "Score atual (oficial)" em tabelas de evolução do roadmap,
+ * forçando os scores do consolidado (evita meta/alucinação como "atual").
+ */
+export function corrigirScoresOficiaisTabelaEvolucaoRoadmapSatf(markdown, dimensoes = []) {
+  const scores = mapaScoresOficiaisPorCodigoSatf(dimensoes);
+  if (!scores.size) return String(markdown || '');
+
+  const linhas = String(markdown || '').split('\n');
+  const saida = [];
+  let emTabelaEvolucao = false;
+
+  for (const linha of linhas) {
+    if (
+      /Score atual\s*\(\s*oficial\s*\)/i.test(linha) ||
+      /Resumo de Evolu[cç][aã]o de Maturidade/i.test(linha)
+    ) {
+      emTabelaEvolucao = true;
+    }
+
+    if (/^#\s+\d+\.\s+/.test(linha)) {
+      emTabelaEvolucao = false;
+    } else if (
+      emTabelaEvolucao &&
+      /^#{2,4}\s+\d+\.\d+\b/.test(linha) &&
+      !/Evolu[cç][aã]o|Score atual/i.test(linha)
+    ) {
+      emTabelaEvolucao = false;
+    }
+
+    if (emTabelaEvolucao) {
+      const m = linha.match(
+        /^(\|\s*)(D\d{1,2})(\s*[—–-]\s*[^|]*\|\s*)([\d]+[.,]\d+|\d+)(\s*\|.*)$/i
+      );
+      if (m) {
+        const cod = m[2].toUpperCase();
+        if (scores.has(cod)) {
+          const fmt = formatarScoreCelulaComoExistente(scores.get(cod), m[4]);
+          saida.push(`${m[1]}${m[2]}${m[3]}${fmt}${m[5]}`);
+          continue;
+        }
+      }
+    }
+
+    saida.push(linha);
+  }
+
+  return saida.join('\n');
+}
+
+/** Aplica recorte por chunk + deduplicação global das seções finais + anti-regressão do roadmap. */
 export function normalizarSecoesBookSatf(markdown) {
-  return removerSpilloverSecao3BookSatf(
-    deduplicarSecoesFinaisBookSatf(String(markdown || '').trim())
+  return deduplicarSubsecoesRoadmapSatf(
+    removerSpilloverSecao3BookSatf(deduplicarSecoesFinaisBookSatf(String(markdown || '').trim()))
   );
 }
 

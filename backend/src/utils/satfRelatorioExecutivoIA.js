@@ -355,8 +355,15 @@ export async function executarGeracaoRelatorioExecutivoSatf(req, res, deps, opts
   const porte = projeto.empresa.porte || 'Não informado';
   const mediaSetor = mediaSetorTiBenchmark(setor);
 
-  const blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
-  const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId);
+  let blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
+  const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId, {
+    unidadeMeta: exigeUnidade ? unidadeMeta : null
+  });
+  if (regrasFatos.blocoFatosUnidade) {
+    blocoContexto = blocoContexto
+      ? `${blocoContexto}\n\n${regrasFatos.blocoFatosUnidade}`
+      : regrasFatos.blocoFatosUnidade;
+  }
   const temContexto = projetoTemContextoCadastrado(blocoContexto);
   const blocoDesejosIa = blocoDesejosIaResumoExecutivo(avaliacoesFiltradas);
   const temDesejosIa = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);

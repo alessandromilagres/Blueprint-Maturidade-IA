@@ -17,6 +17,16 @@ describe('modelo operacional + biblioteca tradução', () => {
     assert.equal(normalizarModeloOperacional(''), null);
   });
 
+  it('normaliza aliases sistema / sistema_interno', () => {
+    assert.equal(normalizarModeloOperacional('sistema'), 'sistema');
+    assert.equal(normalizarModeloOperacional('sistemas'), 'sistema');
+    assert.equal(normalizarModeloOperacional('systems'), 'sistema');
+    assert.equal(normalizarModeloOperacional('sistema_interno'), 'sistema_interno');
+    assert.equal(normalizarModeloOperacional('sistemas_internos'), 'sistema_interno');
+    assert.equal(normalizarModeloOperacional('ERP'), 'sistema_interno');
+    assert.equal(normalizarModeloOperacional('core_interno'), 'sistema_interno');
+  });
+
   it('D4 delivery usa DORA; sustentacao proíbe deploy', () => {
     const d = obterTraducaoDimensao('delivery', 'D4');
     const s = obterTraducaoDimensao('sustentacao', 'D4');
@@ -28,6 +38,10 @@ describe('modelo operacional + biblioteca tradução', () => {
   it('defaults do produto não citam clientes fixos', () => {
     const s9 = obterTraducaoDimensao('sustentacao', 'D9');
     assert.doesNotMatch(s9.perguntas_e_metricas.join(' '), /Ipiranga|Araújo|Tagout/i);
+    const sis4 = obterTraducaoDimensao('sistema', 'D4');
+    const si4 = obterTraducaoDimensao('sistema_interno', 'D4');
+    assert.doesNotMatch(sis4.perguntas_e_metricas.join(' '), /Ipiranga|Araújo|Natura|Claro/i);
+    assert.doesNotMatch(si4.perguntas_e_metricas.join(' '), /Ipiranga|Araújo|Natura|Claro/i);
   });
 
   it('override da unidade sobrescreve métricas do default', () => {
@@ -83,6 +97,20 @@ describe('modelo operacional + biblioteca tradução', () => {
     assert.match(dados.perguntas_e_metricas.join(' '), /pipeline|dbt|ELT|ETL/i);
     assert.doesNotMatch(infra.perguntas_e_metricas.join(' '), /FCR/i);
     assert.match(dados.proibido || '', /DORA|FCR/i);
+  });
+
+  it('sistema / sistema_interno têm léxico distinto de ITSM e cloud', () => {
+    const sis = obterTraducaoDimensao('sistema', 'D4');
+    const si = obterTraducaoDimensao('sistema_interno', 'D4');
+    const sis8 = obterTraducaoDimensao('sistema', 'D8');
+    const si8 = obterTraducaoDimensao('sistema_interno', 'D8');
+    assert.match(sis.perguntas_e_metricas.join(' '), /aplicações|integração|ciclo de vida|sistemas/i);
+    assert.match(si.perguntas_e_metricas.join(' '), /ERP|interno|corporativ/i);
+    assert.match(sis.proibido || '', /FCR|service desk|cloud|IaC/i);
+    assert.match(si.proibido || '', /ITSM|Delivery/i);
+    assert.match(sis8.escopo || '', /PRIMÁRIA/i);
+    assert.match(si8.escopo || '', /PRIMÁRIA/i);
+    assert.doesNotMatch(sis.perguntas_e_metricas.join(' '), /FCR|Terraform/i);
   });
 
   it('normaliza aliases infra/dev/dados', () => {

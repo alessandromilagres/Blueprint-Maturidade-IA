@@ -20,6 +20,10 @@ import {
   obterTermosProibidos,
   projetoTemGlossarioFatos
 } from './projetoContextoFatos.js';
+import {
+  mesclarFatosProjetoComUnidade,
+  blocoFatosCanonicosUnidadePrompt
+} from './fatosCanonicosUnidade.js';
 
 const officeparser = { parseOffice };
 
@@ -817,21 +821,60 @@ export function blocoInstrucoesSistemaSecao3ComContexto() {
 15. **Contexto do cliente cadastrado (Seção 3 — CRÍTICO):** quando o bloco "Contexto do cliente" estiver nos DADOS, a Seção 3 deve ser escrita para **este** cliente. **Proibido** texto genérico de mercado ("empresa de tecnologia de médio porte", "fintech típica", "SaaS B2B" etc.) salvo se constar no contexto. Personalize diagnóstico, riscos, recomendações e KPIs com iniciativas, sistemas, pilotos, métricas e público-alvo documentados. **Se o inventário listar Entregáveis E–H, eles devem ser citados** nas dimensões pertinentes (D1, D3, D9, D10 em especial) — não omita documentação de escopo cadastrada. **Se houver glossário de fatos canônicos, ele vence anexos antigos em conflito.**`;
 }
 
-/** Carrega regras de glossário/termos proibidos para validação pós-geração e prompts. */
-export async function carregarRegrasFatosContextoProjeto(prisma, projetoId) {
+/** Carrega regras de glossário/termos proibidos para validação pós-geração e prompts.
+ * Se `unidadeMeta` for passado, mescla fatos canônicos da unidade (produto);
+ * glossário do projeto vence em conflito de chave.
+ */
+export async function carregarRegrasFatosContextoProjeto(prisma, projetoId, { unidadeMeta = null } = {}) {
   await ensureProjetoContextoSchema(prisma);
   const rows = await prisma.$queryRaw`
     SELECT "caracteristicas", "updatedAt" FROM "ProjetoContexto" WHERE "projetoId" = ${projetoId}
   `;
   const reg = rows?.[0];
   const caracteristicas = normalizarCaracteristicas(reg?.caracteristicas || {});
+  const glossarioProjeto = caracteristicas.glossarioFatosCanonicos || '';
+  const termosProjeto = obterTermosProibidos(caracteristicas);
+
+  let glossario = glossarioProjeto;
+  let termosProibidos = termosProjeto;
+  let fatosUnidade = null;
+  let blocoFatosUnidade = '';
+  let linhasInjetadasUnidade = [];
+
+  if (unidadeMeta) {
+    const mesclado = mesclarFatosProjetoComUnidade(
+      { glossario: glossarioProjeto, termosProibidos: termosProjeto },
+      unidadeMeta
+    );
+    glossario = mesclado.glossario;
+    termosProibidos = mesclado.termosProibidos;
+    fatosUnidade = mesclado.fatosUnidade;
+    linhasInjetadasUnidade = mesclado.linhasInjetadasUnidade;
+    blocoFatosUnidade = blocoFatosCanonicosUnidadePrompt(unidadeMeta);
+  }
+
+  const temGlossario =
+    projetoTemGlossarioFatos({
+      glossarioFatosCanonicos: glossario,
+      termosProibidos: termosProibidos.join('\n')
+    }) || Boolean(blocoFatosUnidade);
+
   return {
     caracteristicas,
-    glossario: caracteristicas.glossarioFatosCanonicos,
-    termosProibidos: obterTermosProibidos(caracteristicas),
-    temGlossario: projetoTemGlossarioFatos(caracteristicas),
-    hash: hashContextoFatosBook(caracteristicas, reg?.updatedAt),
-    updatedAt: reg?.updatedAt || null
+    glossario,
+    termosProibidos,
+    temGlossario,
+    hash: hashContextoFatosBook(
+      {
+        glossarioFatosCanonicos: glossario,
+        termosProibidos: termosProibidos.join('\n')
+      },
+      reg?.updatedAt
+    ),
+    updatedAt: reg?.updatedAt || null,
+    fatosUnidade,
+    blocoFatosUnidade,
+    linhasInjetadasUnidade
   };
 }
 

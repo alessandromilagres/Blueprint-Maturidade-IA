@@ -185,8 +185,15 @@ export async function executarGeracaoBookUnidadeBlueprint(req, res, deps) {
   const nomesNivel = NOMES_NIVEL_BLUEPRINT;
   const setor = projeto.vertical || projeto.empresa.setor || 'Geral';
   const porte = projeto.empresa.porte || 'Não informado';
-  const blocoContexto = await blocoContextoProjetoMarkdown(prisma, projetoId);
-  const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId);
+  const blocoContextoBase = await blocoContextoProjetoMarkdown(prisma, projetoId);
+  const regrasFatos = await carregarRegrasFatosContextoProjeto(prisma, projetoId, {
+    unidadeMeta
+  });
+  const blocoContexto = regrasFatos.blocoFatosUnidade
+    ? blocoContextoBase
+      ? `${blocoContextoBase}\n\n${regrasFatos.blocoFatosUnidade}`
+      : regrasFatos.blocoFatosUnidade
+    : blocoContextoBase;
   const temContexto = projetoTemContextoCadastrado(blocoContexto);
   const blocoDesejosIa = blocoDesejosIaMarkdown(avaliacoesFiltradas);
   const temDesejosIa = projetoTemDesejosIaCadastrados(avaliacoesFiltradas);

@@ -1,5 +1,6 @@
 /**
- * Tradução de dimensões SATF por modelo operacional (delivery | sustentacao | coe).
+ * Tradução de dimensões SATF por modelo operacional
+ * (delivery | sustentacao | coe | infraestrutura | desenvolvimento | dados | sistema | sistema_interno).
  * Fonte humana: backend/src/config/biblioteca_traducao_dimensoes.yaml
  * Runtime: objeto embutido abaixo (sem dependência YAML).
  */
@@ -66,6 +67,16 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
     dados: {
       unidade: 'Dados (modelo operacional)',
       natureza: 'Plataforma de dados, qualidade, governança e contexto para analytics/IA'
+    },
+    sistema: {
+      unidade: 'Sistema (modelo operacional)',
+      natureza:
+        'Área de sistemas de negócio / aplicações do cliente ou produto — ownership, integração, ciclo de vida e evolução controlada (não ITSM genérico nem cloud/SRE puro)'
+    },
+    sistema_interno: {
+      unidade: 'Sistema interno (modelo operacional)',
+      natureza:
+        'Sistemas internos corporativos (ERP, RH, financeiro, tools internas) — operação e evolução de plataformas internas, não carteira multi-cliente ITSM'
     }
   },
   dimensoes: {
@@ -133,6 +144,31 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
         benchmark_fonte: 'Práticas de DataOps / data reliability — citar fonte',
         proibido:
           'Não usar DORA de app mobile/web nem FCR de atendimento como métrica principal de Dados.'
+      },
+      sistema: {
+        perguntas_e_metricas: [
+          'Lead time de mudança funcional em aplicações sob ownership da área (request → produção)',
+          'Taxa de regressão em releases de sistemas de negócio (change failure rate de app)',
+          'Cobertura de testes automatizados nos sistemas críticos sob gestão',
+          'Aderência a padrões de integração (contratos de API, versionamento, depreciação)',
+          'Uso de IA para análise de impacto, geração de testes ou documentação de mudança'
+        ],
+        benchmark_fonte:
+          'Práticas de application lifecycle / DORA adaptado a sistemas de negócio — citar fonte',
+        proibido:
+          'Não usar FCR/N1–N3 de service desk genérico nem métricas de cloud/IaC como foco principal — o escopo é ciclo de vida de aplicações/sistemas.'
+      },
+      sistema_interno: {
+        perguntas_e_metricas: [
+          'Lead time de mudança em sistemas internos (ERP/RH/financeiro/tools) do pedido à produção',
+          'Taxa de falha de mudanças e rollbacks em plataformas corporativas',
+          'Cobertura de testes/validação de configuração antes de promover mudança',
+          'Padronização de customizações vs. configuração out-of-the-box (débito de custom)',
+          'Uso de IA para análise de impacto de mudança e documentação de processos internos'
+        ],
+        benchmark_fonte: 'Práticas de ERP/application management interno — citar fonte',
+        proibido:
+          'Não tratar como carteira multi-cliente ITSM (FCR por contrato) nem como fábrica de código novo Delivery.'
       }
     },
     D5_plataforma_arquitetura: {
@@ -178,6 +214,24 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Escalabilidade de pipelines e workloads analíticos/IA',
           'ADR de integração com fontes e consumidores (APIs, eventos, batch)'
         ]
+      },
+      sistema: {
+        perguntas_e_metricas: [
+          'Mapa de ownership de aplicações/sistemas (quem é dono de cada domínio)',
+          'Arquitetura de integração entre sistemas (APIs, eventos, ESB) com ADRs vigentes',
+          'Escalabilidade e resiliência das aplicações críticas sob gestão',
+          'Catálogo de sistemas com criticidade, dependências e janelas de mudança'
+        ],
+        proibido:
+          'Não reduzir a landing zone cloud/SRE — o foco é portfolio de aplicações e integrações de negócio.'
+      },
+      sistema_interno: {
+        perguntas_e_metricas: [
+          'Arquitetura de referência dos sistemas internos (módulos ERP, integrações HRIS/financeiro)',
+          'Padronização de ambientes (DEV/HML/PRD) e promoção controlada',
+          'Inventário de integrações internas e pontos de falha conhecidos',
+          'Capacidade de escala da plataforma interna vs. demanda das áreas de negócio'
+        ]
       }
     },
     D6_dados_contexto_conhecimento: {
@@ -222,6 +276,22 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Lineage e glossário/semântica para consumo analítico e IA',
           'Qualidade de dados (% datasets com SLA/regras ativas)',
           'Contexto recuperável para RAG/agents (acesso governado a fontes)'
+        ]
+      },
+      sistema: {
+        perguntas_e_metricas: [
+          'Base de conhecimento funcional dos sistemas (fluxos, regras de negócio, exceções)',
+          'Documentação de interfaces e contratos consumível por times e agentes',
+          'Histórico de incidentes/mudanças correlacionado ao mapa de sistemas',
+          'Contexto injetável para análise de impacto (dependências + owners)'
+        ]
+      },
+      sistema_interno: {
+        perguntas_e_metricas: [
+          'Documentação de processos e configurações dos sistemas internos (não só tickets)',
+          'Catálogo de módulos/customizações com owner e criticidade',
+          'Base de erros conhecidos e workarounds de plataformas internas',
+          'Contexto recuperável para agentes de suporte a usuários internos'
         ]
       }
     },
@@ -274,6 +344,25 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Monitoramento de anomalias / data incidents'
         ],
         proibido: 'Não usar defeitos/CT de UI como proxy de qualidade de dados.'
+      },
+      sistema: {
+        perguntas_e_metricas: [
+          'Qualidade de releases (defeitos em produção vs. volume de mudanças)',
+          'Gates de segurança em mudanças de aplicação (SAST/SCA, review de integração)',
+          'Controles de acesso e segregação em sistemas de negócio',
+          'Taxa de escape de defeitos após go-live funcional'
+        ],
+        proibido:
+          "Não usar só 'FCR de mesa' como proxy de qualidade de sistema — foque qualidade de aplicação/integração."
+      },
+      sistema_interno: {
+        perguntas_e_metricas: [
+          'Controles SoD (segregation of duties) e acessos em ERP/RH/financeiro',
+          'Validação de mudanças de configuração antes de produção',
+          'Auditoria de customizações e patches de segurança das plataformas',
+          'Taxa de incidentes causados por mudança interna vs. volume de mudanças'
+        ],
+        proibido: 'Não usar defeitos/CT de app mobile do cliente como métrica principal de sistema interno.'
       }
     },
     D8_modernizacao_legado: {
@@ -316,6 +405,26 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Migração de data warehouse/on-prem com qualidade auditável',
           'Priorização de fontes legadas por valor analítico/IA'
         ]
+      },
+      sistema: {
+        escopo:
+          'DIMENSÃO PRIMÁRIA — ciclo de vida e evolução controlada do portfolio de aplicações.',
+        perguntas_e_metricas: [
+          'Roadmap de modernização/substituição de sistemas legados sob ownership',
+          'Estratégia strangler/API facade para desacoplar legado sem big-bang',
+          'Cobertura de testes suficiente para refatoração segura assistida por IA',
+          'Priorização documentada por risco de negócio, custo e dependências'
+        ]
+      },
+      sistema_interno: {
+        escopo:
+          'DIMENSÃO PRIMÁRIA — evolução de plataformas internas (ERP/HRIS/financeiro/tools).',
+        perguntas_e_metricas: [
+          'Plano de upgrade/migração de versões de ERP e sistemas satélite',
+          'Redução de customizações legadas em favor de configuração padrão',
+          'Migração assistida por IA de regras/processos documentados',
+          'Priorização de módulos internos por risco operacional e valor ao colaborador'
+        ]
       }
     },
     D9_finops_valor: {
@@ -357,6 +466,22 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Custo de plataforma de dados (storage/compute/query) por domínio',
           'Valor de datasets (adoção, decisões habilitadas)',
           'Custo de tokens/embeddings em workloads de IA sobre dados'
+        ]
+      },
+      sistema: {
+        perguntas_e_metricas: [
+          'Custo total de ownership (TCO) por sistema/aplicação sob gestão',
+          'Valor de negócio habilitado vs. custo de sustentação/evolução',
+          'ROI de automações e agentes sobre ciclo de vida de aplicações',
+          'Repactuação de esforço quando automação reduz horas de mudança/incidente'
+        ]
+      },
+      sistema_interno: {
+        perguntas_e_metricas: [
+          'Custo de licenças/plataforma interna por módulo e por headcount atendido',
+          'Valor ao negócio interno (tempo economizado, compliance, self-service)',
+          'ROI de automações em processos ERP/RH/financeiro',
+          'Showback interno de custo de sistemas corporativos para áreas consumidoras'
         ]
       }
     },
@@ -414,6 +539,24 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Human-in-the-loop antes de publicar dataset/modelo',
           'Auditabilidade de acesso a dados sensíveis por agentes'
         ]
+      },
+      sistema: {
+        perguntas_e_metricas: [
+          'Agentes para análise de impacto e sugestão de plano de mudança em sistemas',
+          'Contexto injetável: mapa de sistemas, contratos de API, histórico de mudanças',
+          'Escopo delegável: documentação, testes, diagnóstico — com HITL antes de escrever em produção',
+          'Auditabilidade de recomendações do agente sobre aplicações críticas'
+        ],
+        nota: 'Preferir modo read-only / sugerir antes de qualquer escrita em sistemas de negócio.'
+      },
+      sistema_interno: {
+        perguntas_e_metricas: [
+          'Agentes de suporte a usuários internos (navegação ERP, dúvidas de processo)',
+          'Contexto injetável: manuais, SOPs, catálogo de módulos e erros conhecidos',
+          'Human-in-the-loop antes de alterar configuração/master data em produção',
+          'Auditabilidade de acessos e ações sugeridas em sistemas sensíveis (RH/financeiro)'
+        ],
+        nota: 'Priorizar assistência a processo interno; não assumir carteira multi-cliente ITSM.'
       }
     }
   }

@@ -79,7 +79,7 @@ function sanitizarPayloadUnidade(body, { parcial = false, ehPadrao = false } = {
       const modelo = normalizarModeloOperacional(body.modeloOperacional);
       if (!modelo) {
         erros.push(
-          'modeloOperacional inválido (use delivery, sustentacao, coe, infraestrutura, desenvolvimento, dados ou vazio)'
+          'modeloOperacional inválido (use delivery, sustentacao, coe, infraestrutura, desenvolvimento, dados, sistema, sistema_interno ou vazio)'
         );
       } else {
         data.modeloOperacional = modelo;

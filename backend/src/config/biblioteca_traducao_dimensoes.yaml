@@ -12,7 +12,7 @@
 # REGRA DE USO PELO GERADOR: antes de escrever a Seção 3 (Diagnóstico
 # por Dimensão) de qualquer unidade, o gerador deve resolver
 # modelo_operacional da unidade (delivery | sustentacao | coe | infraestrutura |
-# desenvolvimento | dados | sistema | sistema_interno) e usar
+# desenvolvimento | dados | sistema | sistema_interno | seguranca_informacao) e usar
 # EXCLUSIVAMENTE o bloco correspondente abaixo para aquela dimensão.
 # Nunca usar o bloco de "delivery" como default para outra unidade.
 # MULTI-TENANT: defaults genéricos do produto. Overrides por cliente ficam no
@@ -45,6 +45,9 @@ modelos_operacionais:
   sistema_interno:
     unidade: "Sistema interno (modelo operacional)"
     natureza: "Sistemas internos corporativos (ERP, RH, financeiro, tools)"
+  seguranca_informacao:
+    unidade: "Segurança da Informação (modelo operacional)"
+    natureza: "Infosec corporativa — políticas, IAM, classificação, vulnerabilidades/gates, IR e controles de uso de IA"
 
 dimensoes:
 

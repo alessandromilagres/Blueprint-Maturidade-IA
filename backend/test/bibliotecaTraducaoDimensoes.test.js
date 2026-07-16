@@ -27,6 +27,16 @@ describe('modelo operacional + biblioteca tradução', () => {
     assert.equal(normalizarModeloOperacional('core_interno'), 'sistema_interno');
   });
 
+  it('normaliza aliases seguranca_informacao', () => {
+    assert.equal(normalizarModeloOperacional('seguranca_informacao'), 'seguranca_informacao');
+    assert.equal(normalizarModeloOperacional('segurança'), 'seguranca_informacao');
+    assert.equal(normalizarModeloOperacional('segurança_da_informação'), 'seguranca_informacao');
+    assert.equal(normalizarModeloOperacional('infosec'), 'seguranca_informacao');
+    assert.equal(normalizarModeloOperacional('si'), 'seguranca_informacao');
+    assert.equal(normalizarModeloOperacional('cyber'), 'seguranca_informacao');
+    assert.equal(normalizarModeloOperacional('CISO'), 'seguranca_informacao');
+  });
+
   it('D4 delivery usa DORA; sustentacao proíbe deploy', () => {
     const d = obterTraducaoDimensao('delivery', 'D4');
     const s = obterTraducaoDimensao('sustentacao', 'D4');
@@ -111,6 +121,19 @@ describe('modelo operacional + biblioteca tradução', () => {
     assert.match(sis8.escopo || '', /PRIMÁRIA/i);
     assert.match(si8.escopo || '', /PRIMÁRIA/i);
     assert.doesNotMatch(sis.perguntas_e_metricas.join(' '), /FCR|Terraform/i);
+  });
+
+  it('seguranca_informacao tem D7 primária e léxico infosec', () => {
+    const d7 = obterTraducaoDimensao('seguranca_informacao', 'D7');
+    const d4 = obterTraducaoDimensao('seguranca_informacao', 'D4');
+    const d10 = obterTraducaoDimensao('seguranca_informacao', 'D10');
+    assert.match(d7.escopo || '', /PRIMÁRIA/i);
+    assert.match(d7.perguntas_e_metricas.join(' '), /vulnerabilidad|IAM|PII|incidente|gate/i);
+    assert.match(d7.proibido || '', /defeitos\/CT|FCR|DORA/i);
+    assert.match(d4.perguntas_e_metricas.join(' '), /secure SDLC|gate|SAST|remediação/i);
+    assert.doesNotMatch(d4.perguntas_e_metricas.join(' '), /FCR|DORA/i);
+    assert.match(d10.perguntas_e_metricas.join(' '), /alerta|playbook|HITL|auditab/i);
+    assert.doesNotMatch(d10.perguntas_e_metricas.join(' '), /User Story|N1|N2|N3/i);
   });
 
   it('normaliza aliases infra/dev/dados', () => {

@@ -774,6 +774,9 @@ export default function EmpresaDetalhe() {
               <option value={MODELOS_OPERACIONAIS.SISTEMA_INTERNO}>
                 {LABELS_MODELO_OPERACIONAL.sistema_interno}
               </option>
+              <option value={MODELOS_OPERACIONAIS.SEGURANCA_INFORMACAO}>
+                {LABELS_MODELO_OPERACIONAL.seguranca_informacao}
+              </option>
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Tipo de unidade (multi-cliente). Defaults do produto entram no book; abaixo você pode

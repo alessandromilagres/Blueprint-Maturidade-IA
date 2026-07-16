@@ -21,7 +21,8 @@ export const MODELOS_OPERACIONAIS = Object.freeze({
   DESENVOLVIMENTO: 'desenvolvimento',
   DADOS: 'dados',
   SISTEMA: 'sistema',
-  SISTEMA_INTERNO: 'sistema_interno'
+  SISTEMA_INTERNO: 'sistema_interno',
+  SEGURANCA_INFORMACAO: 'seguranca_informacao'
 });
 
 export const LABELS_MODELO_OPERACIONAL = Object.freeze({
@@ -32,7 +33,8 @@ export const LABELS_MODELO_OPERACIONAL = Object.freeze({
   desenvolvimento: 'Desenvolvimento (engenharia / SDLC)',
   dados: 'Dados (plataforma / analytics / qualidade)',
   sistema: 'Sistema (aplicações / sistemas de negócio)',
-  sistema_interno: 'Sistema interno (ERP / RH / tools corporativas)'
+  sistema_interno: 'Sistema interno (ERP / RH / tools corporativas)',
+  seguranca_informacao: 'Segurança da Informação (policies / IAM / infosec)'
 });
 
 export function normalizarModeloOperacional(valor) {
@@ -82,6 +84,19 @@ export function normalizarModeloOperacional(valor) {
   }
   if (raw === 'sistema' || raw === 'sistemas' || raw === 'systems') {
     return MODELOS_OPERACIONAIS.SISTEMA;
+  }
+  if (
+    raw === 'seguranca_informacao' ||
+    raw === 'seguranca' ||
+    raw === 'seguranca_da_informacao' ||
+    raw === 'infosec' ||
+    raw === 'si' ||
+    raw === 'cyber' ||
+    raw === 'ciso' ||
+    raw === 'cybersec' ||
+    raw === 'info_sec'
+  ) {
+    return MODELOS_OPERACIONAIS.SEGURANCA_INFORMACAO;
   }
   if (Object.values(MODELOS_OPERACIONAIS).includes(raw)) return raw;
   return null;

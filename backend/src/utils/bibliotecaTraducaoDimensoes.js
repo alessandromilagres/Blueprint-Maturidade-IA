@@ -1,6 +1,7 @@
 /**
  * Tradução de dimensões SATF por modelo operacional
- * (delivery | sustentacao | coe | infraestrutura | desenvolvimento | dados | sistema | sistema_interno).
+ * (delivery | sustentacao | coe | infraestrutura | desenvolvimento | dados | sistema |
+ * sistema_interno | seguranca_informacao).
  * Fonte humana: backend/src/config/biblioteca_traducao_dimensoes.yaml
  * Runtime: objeto embutido abaixo (sem dependência YAML).
  */
@@ -77,6 +78,11 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
       unidade: 'Sistema interno (modelo operacional)',
       natureza:
         'Sistemas internos corporativos (ERP, RH, financeiro, tools internas) — operação e evolução de plataformas internas, não carteira multi-cliente ITSM'
+    },
+    seguranca_informacao: {
+      unidade: 'Segurança da Informação (modelo operacional)',
+      natureza:
+        'Infosec corporativa — políticas, IAM, classificação de dados, vulnerabilidades/gates, resposta a incidentes de segurança e controles de uso de IA (não COE/fábrica, não ITSM Sustentação, não Delivery)'
     }
   },
   dimensoes: {
@@ -169,6 +175,18 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
         benchmark_fonte: 'Práticas de ERP/application management interno — citar fonte',
         proibido:
           'Não tratar como carteira multi-cliente ITSM (FCR por contrato) nem como fábrica de código novo Delivery.'
+      },
+      seguranca_informacao: {
+        perguntas_e_metricas: [
+          'Aderência a padrões de secure SDLC / policy-as-code nos pipelines sob governança de SI',
+          'Cobertura de gates de segurança (SAST/SCA/secrets) em repositórios e mudanças críticas',
+          'Lead time de remediação de achados de segurança vs. SLA por severidade',
+          'Padronização de baselines e checklists de segurança para times consumidores',
+          'Uso de IA para priorização de findings e revisão de controles (com HITL)'
+        ],
+        benchmark_fonte: 'Práticas de AppSec / secure SDLC (OWASP, NIST) — citar fonte',
+        proibido:
+          'Não usar DORA de Delivery, FCR de service desk ITSM nem métricas de fábrica COE como foco principal — o escopo é engenharia de controles e gates de segurança.'
       }
     },
     D5_plataforma_arquitetura: {
@@ -232,6 +250,16 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Inventário de integrações internas e pontos de falha conhecidos',
           'Capacidade de escala da plataforma interna vs. demanda das áreas de negócio'
         ]
+      },
+      seguranca_informacao: {
+        perguntas_e_metricas: [
+          'Arquitetura de identidade (IAM/IdP, MFA, federação) e modelo de privilégios',
+          'Segmentação de rede / zero-trust e controles de acesso a workloads sensíveis',
+          'Plataforma de segurança (SIEM/SOAR, vault de secrets, CASB) com cobertura documentada',
+          'ADRs de decisões de arquitetura de segurança e escala de monitoramento'
+        ],
+        proibido:
+          'Não reduzir a landing zone cloud/SRE genérica nem portfolio de apps — o foco é controles e plataforma de segurança.'
       }
     },
     D6_dados_contexto_conhecimento: {
@@ -293,6 +321,16 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Base de erros conhecidos e workarounds de plataformas internas',
           'Contexto recuperável para agentes de suporte a usuários internos'
         ]
+      },
+      seguranca_informacao: {
+        perguntas_e_metricas: [
+          'Inventário e classificação de dados/ativos (público, interno, confidencial, restrito)',
+          'Catálogo de controles e políticas de SI versionadas e adotadas',
+          'Base de conhecimento de incidentes de segurança e playbooks de resposta',
+          'Contexto injetável para agentes de análise (threat intel, CMDB, owners de ativo)'
+        ],
+        proibido:
+          'Não usar KB de service desk ITSM (FCR/N1–N3) nem catálogo analítico de Dados como proxy — o foco é classificação, políticas e contexto de risco.'
       }
     },
     D7_seguranca_qualidade: {
@@ -363,6 +401,23 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Taxa de incidentes causados por mudança interna vs. volume de mudanças'
         ],
         proibido: 'Não usar defeitos/CT de app mobile do cliente como métrica principal de sistema interno.'
+      },
+      seguranca_informacao: {
+        escopo:
+          'DIMENSÃO PRIMÁRIA — núcleo da missão de Segurança da Informação (controles, vulnerabilidades, qualidade de defesa e uso seguro de IA).',
+        perguntas_e_metricas: [
+          'MTTR / tempo de remediação de vulnerabilidades por severidade (CVE/finding)',
+          'Cobertura e eficácia de gates (SAST/DAST/SCA/secrets) e taxa de bypass',
+          'IAM least-privilege, revisões de acesso e SoD em sistemas críticos',
+          'Controles de PII/dados sensíveis e prevenção de vazamento (DLP)',
+          'Taxa de falso positivo vs. verdadeiros positivos em alertas de segurança',
+          'Resposta a incidentes de segurança (MTTD/MTTR, post-mortem, lições aprendidas)',
+          'Controles e gates para uso de IA (prompt injection, dados em modelos, shadow AI)'
+        ],
+        benchmark_fonte:
+          'Benchmarks de vulnerability management / SOC (NIST, CIS, ENISA) — citar fonte; nunca reaproveitar defeitos/CT de Delivery',
+        proibido:
+          "Nunca usar 'defeitos/CT' de desenvolvimento, FCR de mesa ITSM nem DORA de Delivery como métrica principal — o foco é segurança da informação e qualidade dos controles."
       }
     },
     D8_modernizacao_legado: {
@@ -425,6 +480,16 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Migração assistida por IA de regras/processos documentados',
           'Priorização de módulos internos por risco operacional e valor ao colaborador'
         ]
+      },
+      seguranca_informacao: {
+        perguntas_e_metricas: [
+          'Modernização de controles legados (firewall rules, VPN flat, autenticação fraca)',
+          'Plano de remediação de sistemas/EOL com risco de segurança elevado',
+          'Substituição de ferramentas de SI legadas por plataforma integrada (com roadmap)',
+          'Priorização de dívida de segurança por exposição e impacto de negócio'
+        ],
+        proibido:
+          'Não tratar como modernização de código Delivery nem como backlog de ERP interno — o foco é risco e controles legados.'
       }
     },
     D9_finops_valor: {
@@ -483,6 +548,16 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'ROI de automações em processos ERP/RH/financeiro',
           'Showback interno de custo de sistemas corporativos para áreas consumidoras'
         ]
+      },
+      seguranca_informacao: {
+        perguntas_e_metricas: [
+          'Custo de ferramentas e headcount de SI vs. risco residual documentado',
+          'ROI de remediação e automação de controles (horas economizadas × redução de exposição)',
+          'Showback/chargeback de custo de segurança por unidade consumidora quando aplicável',
+          'Custo de incidentes evitados / perdas estimadas vs. investimento em controles'
+        ],
+        proibido:
+          'Não usar ROI de piloto Delivery nem erosão de margem de contrato ITSM como narrativa principal de SI.'
       }
     },
     D10_fabrica_agentica: {
@@ -557,6 +632,17 @@ export const BIBLIOTECA_TRADUCAO_DIMENSOES = Object.freeze({
           'Auditabilidade de acessos e ações sugeridas em sistemas sensíveis (RH/financeiro)'
         ],
         nota: 'Priorizar assistência a processo interno; não assumir carteira multi-cliente ITSM.'
+      },
+      seguranca_informacao: {
+        perguntas_e_metricas: [
+          'Agentes para triagem/priorização de alertas de segurança e sugestão de contenção',
+          'Contexto injetável: playbooks IR, inventário de ativos, classificação de dados, threat intel',
+          'Escopo delegável: enriquecer alerta, sugerir remediação, redigir post-mortem — com HITL antes de ação em produção',
+          'Auditabilidade de decisões do agente (quem aprovou, o que foi alterado, evidência)',
+          'Controles contra uso indevido de IA (vazamento de dados sensíveis em prompts/modelos)'
+        ],
+        nota:
+          'Preferir modo sugerir/read-only antes de contenção automatizada; nunca assumir fábrica de código COE nem triagem N1–N3 de ITSM.'
       }
     }
   }

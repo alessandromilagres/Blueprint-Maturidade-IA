@@ -8,6 +8,11 @@ export const UNIDADE_GERAL_NOME = 'Geral';
 export const UNIDADE_GERAL_DESCRICAO =
   'Consolidado enterprise — todos os colaboradores sem unidade específica ou vinculados explicitamente a Geral.';
 
+/** Peso da avaliação na unidade home (unidade principal do usuário). */
+export const PESO_AVALIACAO_UNIDADE_HOME = 1;
+/** Peso da avaliação em unidade governada (gestor multi-unidade). */
+export const PESO_AVALIACAO_UNIDADE_GOVERNADA = 0.5;
+
 /** Templates sugeridos — SATF TI v3 (D1–D11). */
 export const TEMPLATES_DIMENSOES_FOCO_SATF = {
   engenharia: ['D4', 'D5', 'D10'],
@@ -574,6 +579,14 @@ export async function ensureUnidadeEmpresaSchema() {
       '— use backend/scripts/fix-usuario-empresa-unidade-id.sql como owner do banco.'
     );
   }
+  try {
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "Usuario" ADD COLUMN IF NOT EXISTS "unidadesGovernadasIds" TEXT'
+    );
+    console.log('[schema] Usuario.unidadesGovernadasIds verificada.');
+  } catch (e) {
+    console.warn('[schema] Usuario.unidadesGovernadasIds:', e?.message || e);
+  }
 }
 
 /**
@@ -689,19 +702,139 @@ export function resolverUnidadeEfetivaIdUsuario(usuario, unidadeGeralId) {
   return Number.isFinite(g) && g > 0 ? g : null;
 }
 
+/** Parseia `Usuario.unidadesGovernadasIds` (JSON array ou lista) → number[]. */
+export function parseUnidadesGovernadasIds(raw) {
+  if (raw == null || raw === '') return [];
+  if (Array.isArray(raw)) {
+    return [
+      ...new Set(
+        raw
+          .map((v) => Number(v))
+          .filter((n) => Number.isFinite(n) && n > 0)
+          .map((n) => Math.trunc(n))
+      )
+    ];
+  }
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    return [Math.trunc(raw)];
+  }
+  if (typeof raw !== 'string') return [];
+  const s = raw.trim();
+  if (!s) return [];
+  try {
+    const parsed = JSON.parse(s);
+    if (Array.isArray(parsed)) return parseUnidadesGovernadasIds(parsed);
+  } catch {
+    /* lista separada por vírgula */
+  }
+  return [
+    ...new Set(
+      s
+        .split(/[,\s;]+/)
+        .map((p) => Number(p))
+        .filter((n) => Number.isFinite(n) && n > 0)
+        .map((n) => Math.trunc(n))
+    )
+  ];
+}
+
+/**
+ * Normaliza input de API/UI para persistência.
+ * @returns {{ ok: true, ids: number[], json: string|null } | { ok: false, error: string, ids: number[] }}
+ */
+export function normalizarUnidadesGovernadasIdsInput(valor, { empresaId, unidadesValidas } = {}) {
+  if (valor === undefined) {
+    return { ok: true, ids: undefined, json: undefined };
+  }
+  if (valor === null || valor === '') {
+    return { ok: true, ids: [], json: null };
+  }
+  const ids = parseUnidadesGovernadasIds(valor);
+  if (unidadesValidas != null) {
+    const validSet = new Set(
+      (unidadesValidas || [])
+        .map((u) => (typeof u === 'number' ? u : Number(u?.id)))
+        .filter((n) => Number.isFinite(n) && n > 0)
+    );
+    const invalidos = ids.filter((id) => !validSet.has(id));
+    if (invalidos.length) {
+      return {
+        ok: false,
+        error: `Unidades governadas inválidas ou inativas nesta empresa: ${invalidos.join(', ')}`,
+        ids: []
+      };
+    }
+  }
+  void empresaId;
+  return {
+    ok: true,
+    ids,
+    json: ids.length > 0 ? JSON.stringify(ids) : null
+  };
+}
+
+/**
+ * Papel do usuário no filtro por unidade: home (peso 1), governada (peso 0,5) ou null (fora).
+ * Home tem precedência se a unidade filtrada for ao mesmo tempo home e governada.
+ */
+export function usuarioPapelInclusaoUnidade(usuario, filtroUnidadeId, unidadeGeralId) {
+  if (filtroUnidadeId == null) return null;
+  const alvo = Number(filtroUnidadeId);
+  if (!Number.isFinite(alvo) || alvo <= 0) return null;
+  const efetiva = resolverUnidadeEfetivaIdUsuario(usuario, unidadeGeralId);
+  if (efetiva === alvo) return 'home';
+  const governadas = parseUnidadesGovernadasIds(usuario?.unidadesGovernadasIds);
+  if (governadas.includes(alvo)) return 'governada';
+  return null;
+}
+
 export function usuarioIncluidoNoFiltroUnidadeEmpresa(usuario, filtroUnidadeId, unidadeGeralId) {
   if (filtroUnidadeId == null) return true;
   const alvo = Number(filtroUnidadeId);
   if (!Number.isFinite(alvo) || alvo <= 0) return true;
-  const efetiva = resolverUnidadeEfetivaIdUsuario(usuario, unidadeGeralId);
-  return efetiva === alvo;
+  return usuarioPapelInclusaoUnidade(usuario, alvo, unidadeGeralId) != null;
+}
+
+/**
+ * Anota cada avaliação com papel/peso de inclusão na unidade filtrada.
+ * Sem filtro (enterprise): não altera — média simples entre avaliações.
+ */
+export function anotarAvaliacoesInclusaoUnidade(avaliacoes, filtroUnidadeId, unidadeGeralId) {
+  const list = avaliacoes || [];
+  if (filtroUnidadeId == null) return list;
+  const alvo = Number(filtroUnidadeId);
+  if (!Number.isFinite(alvo) || alvo <= 0) return list;
+
+  for (const av of list) {
+    const papel = usuarioPapelInclusaoUnidade(av.usuario, alvo, unidadeGeralId);
+    if (papel === 'home') {
+      av.inclusaoUnidade = 'home';
+      av.pesoConsolidadoUnidade = PESO_AVALIACAO_UNIDADE_HOME;
+      av.gestorMultiUnidade = false;
+    } else if (papel === 'governada') {
+      av.inclusaoUnidade = 'governada';
+      av.pesoConsolidadoUnidade = PESO_AVALIACAO_UNIDADE_GOVERNADA;
+      av.gestorMultiUnidade = true;
+    }
+  }
+  return list;
+}
+
+/** Resposta de API: `unidadesGovernadasIds` como number[]. */
+export function mapUsuarioUnidadesGovernadasResponse(usuario) {
+  if (!usuario || typeof usuario !== 'object') return usuario;
+  return {
+    ...usuario,
+    unidadesGovernadasIds: parseUnidadesGovernadasIds(usuario.unidadesGovernadasIds)
+  };
 }
 
 export function filtrarAvaliacoesPorUnidadeEmpresa(avaliacoes, filtroUnidadeId, unidadeGeralId) {
   if (filtroUnidadeId == null) return avaliacoes;
-  return (avaliacoes || []).filter((av) =>
+  const filtradas = (avaliacoes || []).filter((av) =>
     usuarioIncluidoNoFiltroUnidadeEmpresa(av.usuario, filtroUnidadeId, unidadeGeralId)
   );
+  return anotarAvaliacoesInclusaoUnidade(filtradas, filtroUnidadeId, unidadeGeralId);
 }
 
 function ordenarUnidadesEmpresa(unidadesEmpresa = []) {

@@ -10,8 +10,18 @@ import { areaForaDaMediaGeral } from './frameworkScoringPolicy.js';
 export { nivelNumericoDeScore };
 
 /**
+ * Peso da avaliação no consolidado por unidade (gestor multi-unidade).
+ * Se `pesoConsolidadoUnidade` for número finito > 0, usa-o; senão peso 1 (média simples).
+ */
+export function pesoConsolidadoAvaliacao(avaliacao) {
+  const p = Number(avaliacao?.pesoConsolidadoUnidade);
+  return Number.isFinite(p) && p > 0 ? p : 1;
+}
+
+/**
  * Mesma agregação do GET /api/dashboard/projeto/:id:
  * média por área em cada avaliador → média entre avaliadores; por pergunta, média das respostas válidas.
+ * Com `avaliacao.pesoConsolidadoUnidade` finito (ex.: 0,5 governada), usa média ponderada entre avaliadores.
  *
  * @param {object} [options]
  * @param {Map<number, number>} [options.pesosPorArea] Pesos (percentuais) por areaId das dimensões
@@ -58,6 +68,7 @@ export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas
 
   const scoresPorArea = areasOrdenadas.map((area) => {
     let somaScores = 0;
+    let somaPesos = 0;
     let countAvaliacoes = 0;
 
     avaliacoesFinalizadas.forEach((avaliacao) => {
@@ -68,15 +79,18 @@ export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas
       if (respostasArea.length > 0) {
         const media =
           respostasArea.reduce((acc, r) => acc + r.pontuacao, 0) / respostasArea.length;
-        somaScores += media;
+        const peso = pesoConsolidadoAvaliacao(avaliacao);
+        somaScores += media * peso;
+        somaPesos += peso;
         countAvaliacoes++;
       }
     });
 
-    const mediaArea = countAvaliacoes > 0 ? somaScores / countAvaliacoes : 0;
+    const mediaArea = somaPesos > 0 ? somaScores / somaPesos : 0;
 
     const perguntas = (area.perguntas || []).map((pergunta) => {
       let somaPergunta = 0;
+      let somaPesosPergunta = 0;
       let countRespostas = 0;
       avaliacoesFinalizadas.forEach((avaliacao) => {
         if (!areaContaParaAvaliacao(avaliacao, area.id, todasAreaIds)) return;
@@ -84,11 +98,13 @@ export function calcularScoresConsolidadoMaturidade(avaliacoesFinalizadas, areas
           (r) => r.perguntaId === pergunta.id && r.pontuacao !== null
         );
         if (resposta) {
-          somaPergunta += resposta.pontuacao;
+          const peso = pesoConsolidadoAvaliacao(avaliacao);
+          somaPergunta += resposta.pontuacao * peso;
+          somaPesosPergunta += peso;
           countRespostas++;
         }
       });
-      const scorePergunta = countRespostas > 0 ? somaPergunta / countRespostas : 0;
+      const scorePergunta = somaPesosPergunta > 0 ? somaPergunta / somaPesosPergunta : 0;
       return {
         numero: pergunta.numero,
         texto: pergunta.texto,

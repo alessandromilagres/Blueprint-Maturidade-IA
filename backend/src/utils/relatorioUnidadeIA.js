@@ -7,6 +7,7 @@ import {
   mapUnidadeEmpresaResponse,
   parseFiltroEmpresaUnidadeId,
   usuarioIncluidoNoFiltroUnidadeEmpresa,
+  anotarAvaliacoesInclusaoUnidade,
   formatarDimensoesFocoSatfDisplay,
   formatarDimensoesFocoMitDisplay,
   parseDimensoesFocoSatfJson,
@@ -80,12 +81,13 @@ export function filtrarAvaliacoesRelatorioProjeto(
   avaliacoes,
   { idsVersao, filtroNivelMax, filtroUnidadeId, unidadeGeralId }
 ) {
-  return (avaliacoes || []).filter(
+  const filtradas = (avaliacoes || []).filter(
     (av) =>
       idsVersao.has(Number(av.id)) &&
       usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax) &&
       usuarioIncluidoNoFiltroUnidadeEmpresa(av.usuario, filtroUnidadeId, unidadeGeralId)
   );
+  return anotarAvaliacoesInclusaoUnidade(filtradas, filtroUnidadeId, unidadeGeralId);
 }
 
 /**

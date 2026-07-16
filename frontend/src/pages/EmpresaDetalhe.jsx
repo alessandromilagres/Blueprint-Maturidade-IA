@@ -67,6 +67,9 @@ export default function EmpresaDetalhe() {
         telefone: item?.telefone || '',
         empresaId: parseInt(id),
         empresaUnidadeId: item?.empresaUnidadeId ? String(item.empresaUnidadeId) : '',
+        unidadesGovernadasIds: Array.isArray(item?.unidadesGovernadasIds)
+          ? item.unidadesGovernadasIds.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+          : [],
         role: item?.role || 'avaliador',
         ativo: item?.ativo !== false,
       });
@@ -128,6 +131,9 @@ export default function EmpresaDetalhe() {
         telefone: formData.telefone || null,
         empresaId: formData.empresaId,
         empresaUnidadeId: formData.empresaUnidadeId ? parseInt(formData.empresaUnidadeId, 10) : null,
+        unidadesGovernadasIds: Array.isArray(formData.unidadesGovernadasIds)
+          ? formData.unidadesGovernadasIds.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+          : [],
         role: formData.role || 'avaliador',
       };
       if (editingItem) {
@@ -642,7 +648,42 @@ export default function EmpresaDetalhe() {
                 ))}
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Usado em relatórios IA por área (fase 2). Vazio = Geral.
+              Unidade principal (home). Vazio = Geral. Peso 1 no consolidado da unidade.
+            </p>
+          </div>
+          <div>
+            <label className="label">Unidades que governa (gestor multi-unidade)</label>
+            <div className="max-h-40 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 p-2 space-y-1.5">
+              {(empresa?.unidadesEmpresa || [])
+                .filter((u) => u.ativo !== false)
+                .map((u) => {
+                  const checked = (formData.unidadesGovernadasIds || []).includes(u.id);
+                  return (
+                    <label
+                      key={u.id}
+                      className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        checked={checked}
+                        onChange={(e) => {
+                          const ids = new Set(formData.unidadesGovernadasIds || []);
+                          if (e.target.checked) ids.add(u.id);
+                          else ids.delete(u.id);
+                          setFormData({ ...formData, unidadesGovernadasIds: [...ids] });
+                        }}
+                      />
+                      <span>
+                        {u.nome}
+                        {u.ehPadrao ? ' (padrão)' : ''}
+                      </span>
+                    </label>
+                  );
+                })}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Uma avaliação conta nessas unidades com peso menor (0,5); a unidade principal continua com peso 1.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-4">

@@ -110,6 +110,15 @@ export const usuarioSchemas = {
         z.literal('')
       ])
       .optional()
+      .nullable(),
+    unidadesGovernadasIds: z
+      .union([
+        z.array(z.coerce.number().int().positive()),
+        z.string(),
+        z.null(),
+        z.literal('')
+      ])
+      .optional()
       .nullable()
   }),
 
@@ -126,6 +135,15 @@ export const usuarioSchemas = {
       .union([
         z.number().int().positive(),
         z.string().regex(/^\d+$/).transform(Number),
+        z.null(),
+        z.literal('')
+      ])
+      .optional()
+      .nullable(),
+    unidadesGovernadasIds: z
+      .union([
+        z.array(z.coerce.number().int().positive()),
+        z.string(),
         z.null(),
         z.literal('')
       ])

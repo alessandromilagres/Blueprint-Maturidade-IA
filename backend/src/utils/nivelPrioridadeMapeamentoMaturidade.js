@@ -114,7 +114,11 @@ export function blocoAvaliadoresConsolidadoMarkdown(avaliacoesFiltradas, filtroM
   const linhas = avaliacoesFiltradas.map((av) => {
     const u = av.usuario || {};
     const n = nivelPrioridadeMapeamentoMaturidadeDoUsuario(u);
-    return `- **${u.nome || 'Sem nome'}** (${u.email || '—'}) — prioridade **${n}**`;
+    const notaGovernada =
+      av.inclusaoUnidade === 'governada' || av.gestorMultiUnidade === true
+        ? ' (gestor multi-unidade, peso 0,5)'
+        : '';
+    return `- **${u.nome || 'Sem nome'}** (${u.email || '—'}) — prioridade **${n}**${notaGovernada}`;
   });
   return `## Avaliadores no consolidado\n\n*${titulo}.*\n\n${linhas.join('\n')}\n`;
 }

@@ -727,6 +727,11 @@ export default function DashboardProjeto() {
       {!exibirAvaliadoresPorUnidade && avaliador.empresaUnidadeNome && (
         <p className="text-cyan-400/80 text-xs mt-1">{avaliador.empresaUnidadeNome}</p>
       )}
+      {(avaliador.gestorMultiUnidade || avaliador.inclusaoUnidade === 'governada') && (
+        <p className="text-amber-300/90 text-xs mt-1">
+          gestor multi-unidade (peso 0,5)
+        </p>
+      )}
       <p className="text-slate-500 text-xs mt-2">
         {avaliador.areasSelecionadas?.length || 0} áreas avaliadas
       </p>

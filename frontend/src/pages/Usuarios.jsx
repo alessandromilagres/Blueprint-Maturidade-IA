@@ -65,6 +65,7 @@ export default function Usuarios() {
     telefone: '',
     empresaId: '',
     empresaUnidadeId: '',
+    unidadesGovernadasIds: [],
     role: 'avaliador',
     ativo: true,
     nivelPrioridadeMapeamentoMaturidade: 1
@@ -171,6 +172,7 @@ export default function Usuarios() {
       telefone: '',
       empresaId: empresas[0]?.id || '',
       empresaUnidadeId: '',
+      unidadesGovernadasIds: [],
       role: 'avaliador',
       ativo: true,
       nivelPrioridadeMapeamentoMaturidade: 1
@@ -189,6 +191,9 @@ export default function Usuarios() {
       telefone: usuario.telefone || '',
       empresaId: usuario.empresaId,
       empresaUnidadeId: usuario.empresaUnidadeId ? String(usuario.empresaUnidadeId) : '',
+      unidadesGovernadasIds: Array.isArray(usuario.unidadesGovernadasIds)
+        ? usuario.unidadesGovernadasIds.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+        : [],
       role: usuario.role || 'avaliador',
       ativo: usuario.ativo !== false,
       nivelPrioridadeMapeamentoMaturidade:
@@ -221,6 +226,9 @@ export default function Usuarios() {
         } else {
           p.empresaUnidadeId = parseInt(p.empresaUnidadeId, 10);
         }
+        p.unidadesGovernadasIds = Array.isArray(p.unidadesGovernadasIds)
+          ? p.unidadesGovernadasIds.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+          : [];
         return p;
       };
       if (usuarioEditando) {
@@ -856,7 +864,12 @@ export default function Usuarios() {
               <select
                 value={form.empresaId}
                 onChange={(e) =>
-                  setForm({ ...form, empresaId: e.target.value, empresaUnidadeId: '' })
+                  setForm({
+                    ...form,
+                    empresaId: e.target.value,
+                    empresaUnidadeId: '',
+                    unidadesGovernadasIds: []
+                  })
                 }
                 required
                 className="input"
@@ -888,7 +901,49 @@ export default function Usuarios() {
                   ))}
               </select>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Para relatórios IA por área. Vazio = unidade Geral.
+                Unidade principal (home). Vazio = unidade Geral. Peso 1 no consolidado da unidade.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Unidades que governa (gestor multi-unidade)
+              </label>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 p-2 space-y-1.5">
+                {!form.empresaId ? (
+                  <p className="text-xs text-gray-500">Selecione a empresa primeiro.</p>
+                ) : (
+                  unidadesEmpresa
+                    .filter((u) => u.ativo !== false)
+                    .map((u) => {
+                      const checked = (form.unidadesGovernadasIds || []).includes(u.id);
+                      return (
+                        <label
+                          key={u.id}
+                          className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            checked={checked}
+                            onChange={(e) => {
+                              const ids = new Set(form.unidadesGovernadasIds || []);
+                              if (e.target.checked) ids.add(u.id);
+                              else ids.delete(u.id);
+                              setForm({ ...form, unidadesGovernadasIds: [...ids] });
+                            }}
+                          />
+                          <span>
+                            {u.nome}
+                            {u.ehPadrao ? ' (padrão)' : ''}
+                          </span>
+                        </label>
+                      );
+                    })
+                )}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Uma avaliação conta nessas unidades com peso menor (0,5); a unidade principal continua com peso 1.
               </p>
             </div>
 

@@ -134,7 +134,8 @@ import {
 } from './utils/nivelPrioridadeMapeamentoMaturidade.js';
 import {
   calcularScoresConsolidadoMaturidade,
-  nivelNumericoDeScore
+  nivelNumericoDeScore,
+  pesoConsolidadoAvaliacao
 } from './utils/scoresConsolidadoProjetoMaturidade.js';
 import {
   ensureProjetoDimensaoConfigSchema,
@@ -206,6 +207,9 @@ import {
   mapUnidadeEmpresaResponse,
   parseFiltroEmpresaUnidadeId,
   usuarioIncluidoNoFiltroUnidadeEmpresa,
+  anotarAvaliacoesInclusaoUnidade,
+  normalizarUnidadesGovernadasIdsInput,
+  mapUsuarioUnidadesGovernadasResponse,
   montarAvaliadoresPorUnidade,
   unidadeEfetivaDoUsuario
 } from './utils/empresaUnidade.js';
@@ -1558,6 +1562,11 @@ app.get('/api/empresas/:id', async (req, res) => {
       ...mapUnidadeEmpresaResponse(u),
       _count: u._count
     }));
+    empresaComLogo.usuarios = (empresaComLogo.usuarios || []).map((u) => {
+      const { senha, ...rest } = u;
+      void senha;
+      return mapUsuarioUnidadesGovernadasResponse(rest);
+    });
     empresaComLogo.projetos = await enriquecerProjetosComFramework(prisma, empresaComLogo.projetos || []);
     res.json(empresaComLogo);
   } catch (error) {
@@ -1650,7 +1659,9 @@ app.get('/api/usuarios', async (req, res) => {
       include: { empresa: true, empresaUnidade: true },
       orderBy: { createdAt: 'desc' }
     });
-    const usuariosSemSenha = usuarios.map(({ senha, ...u }) => u);
+    const usuariosSemSenha = usuarios.map(({ senha, ...u }) =>
+      mapUsuarioUnidadesGovernadasResponse(u)
+    );
     res.json(usuariosSemSenha);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1672,7 +1683,7 @@ app.get('/api/usuarios/:id', async (req, res) => {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
     const { senha, ...usuarioSemSenha } = usuario;
-    res.json(usuarioSemSenha);
+    res.json(mapUsuarioUnidadesGovernadasResponse(usuarioSemSenha));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1682,8 +1693,19 @@ app.post('/api/usuarios', validate(usuarioSchemas.criar), async (req, res) => {
   try {
     await refreshUsuarioNivelPrioridadeColumnFlag();
     await refreshUsuarioEmpresaUnidadeColumnFlag();
-    const { nome, email, senha, cargo, telefone, empresaId, role, ativo, nivelPrioridadeMapeamentoMaturidade, empresaUnidadeId } =
-      req.body;
+    const {
+      nome,
+      email,
+      senha,
+      cargo,
+      telefone,
+      empresaId,
+      role,
+      ativo,
+      nivelPrioridadeMapeamentoMaturidade,
+      empresaUnidadeId,
+      unidadesGovernadasIds
+    } = req.body;
 
     const usuarioExistente = await prisma.usuario.findUnique({ where: { email } });
     if (usuarioExistente) {
@@ -1698,6 +1720,21 @@ app.post('/api/usuarios', validate(usuarioSchemas.criar), async (req, res) => {
     const valUnidade = await validarUnidadeParaEmpresa(empresaUnidadeId, empresaId);
     if (!valUnidade.ok) {
       return res.status(400).json({ error: valUnidade.error });
+    }
+
+    const unidadesAtivas =
+      unidadesGovernadasIds !== undefined
+        ? await prisma.unidadeEmpresa.findMany({
+            where: { empresaId, ativo: true },
+            select: { id: true }
+          })
+        : null;
+    const valGovernadas = normalizarUnidadesGovernadasIdsInput(unidadesGovernadasIds, {
+      empresaId,
+      unidadesValidas: unidadesAtivas
+    });
+    if (!valGovernadas.ok) {
+      return res.status(400).json({ error: valGovernadas.error });
     }
     
     let senhaCriptografada = null;
@@ -1714,6 +1751,9 @@ app.post('/api/usuarios', validate(usuarioSchemas.criar), async (req, res) => {
         telefone,
         empresaId,
         empresaUnidadeId: valUnidade.unidade?.id ?? null,
+        ...(unidadesGovernadasIds !== undefined
+          ? { unidadesGovernadasIds: valGovernadas.json }
+          : {}),
         role: role || 'avaliador',
         ativo: ativo !== false,
         nivelPrioridadeMapeamentoMaturidade: nivelPrioridadeMapeamentoMaturidade ?? 1
@@ -1721,7 +1761,7 @@ app.post('/api/usuarios', validate(usuarioSchemas.criar), async (req, res) => {
       include: { empresa: true, empresaUnidade: true }
     });
 
-    const { senha: _, ...usuarioSemSenha } = usuario;
+    const { senha: _, ...usuarioSemSenha } = mapUsuarioUnidadesGovernadasResponse(usuario);
     let avisoCompatibilidade = null;
     if (
       !isUsuarioNivelPrioridadeColumnPresentInDb() &&
@@ -1799,6 +1839,21 @@ app.put('/api/usuarios/:id', validate(usuarioSchemas.atualizar), async (req, res
       }
       dadosAtualizar.empresaUnidadeId = valUnidade.unidade?.id ?? null;
     }
+
+    if (dadosAtualizar.unidadesGovernadasIds !== undefined && empresaIdEfetivo) {
+      const unidadesAtivas = await prisma.unidadeEmpresa.findMany({
+        where: { empresaId: empresaIdEfetivo, ativo: true },
+        select: { id: true }
+      });
+      const valGovernadas = normalizarUnidadesGovernadasIdsInput(
+        dadosAtualizar.unidadesGovernadasIds,
+        { empresaId: empresaIdEfetivo, unidadesValidas: unidadesAtivas }
+      );
+      if (!valGovernadas.ok) {
+        return res.status(400).json({ error: valGovernadas.error });
+      }
+      dadosAtualizar.unidadesGovernadasIds = valGovernadas.json;
+    }
     
     const usuario = await prisma.usuario.update({
       where: { id },
@@ -1806,7 +1861,7 @@ app.put('/api/usuarios/:id', validate(usuarioSchemas.atualizar), async (req, res
       include: { empresa: true, empresaUnidade: true }
     });
     
-    const { senha: _, ...usuarioSemSenha } = usuario;
+    const { senha: _, ...usuarioSemSenha } = mapUsuarioUnidadesGovernadasResponse(usuario);
     res.json(
       avisoCompatibilidade ? { ...usuarioSemSenha, avisoCompatibilidade } : usuarioSemSenha
     );
@@ -4342,10 +4397,14 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
     );
     const totalAvaliadoresVersao = avaliacoesNaVersao.length;
 
-    const avaliacoesFinalizadas = avaliacoesNaVersao.filter(
-      (av) =>
-        usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax) &&
-        usuarioIncluidoNoFiltroUnidadeEmpresa(av.usuario, filtroUnidadeId, unidadeGeral?.id)
+    const avaliacoesFinalizadas = anotarAvaliacoesInclusaoUnidade(
+      avaliacoesNaVersao.filter(
+        (av) =>
+          usuarioIncluidoNoFiltroNivelMapeamentoMaturidade(av.usuario, filtroNivelMax) &&
+          usuarioIncluidoNoFiltroUnidadeEmpresa(av.usuario, filtroUnidadeId, unidadeGeral?.id)
+      ),
+      filtroUnidadeId,
+      unidadeGeral?.id
     );
     const totalAvaliadores = avaliacoesFinalizadas.length;
 
@@ -4391,6 +4450,7 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
     const metodologiaScore = metodologiaScoreFramework(frameworkMaturidade, { setorRegulado });
     let scoresPorAreaTodas = areas.map(area => {
       let somaScores = 0;
+      let somaPesos = 0;
       let countAvaliacoes = 0;
       
       avaliacoesFinalizadas.forEach(avaliacao => {
@@ -4404,12 +4464,14 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
         if (respostasArea.length > 0) {
           const somapontos = respostasArea.reduce((acc, r) => acc + r.pontuacao, 0);
           const media = somapontos / respostasArea.length;
-          somaScores += media;
+          const peso = pesoConsolidadoAvaliacao(avaliacao);
+          somaScores += media * peso;
+          somaPesos += peso;
           countAvaliacoes++;
         }
       });
       
-      const mediaArea = countAvaliacoes > 0 ? somaScores / countAvaliacoes : 0;
+      const mediaArea = somaPesos > 0 ? somaScores / somaPesos : 0;
       const cfg = dimensoesConfigProjeto.get(area.id);
       const foraDaMediaGeral = cfg?.foraDaMediaGeral ?? areaForaDaMediaGeral(area);
 
@@ -4454,18 +4516,21 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
     areas.forEach(area => {
       area.perguntas.forEach(pergunta => {
         let somaScores = 0;
+        let somaPesos = 0;
         let countRespostas = 0;
         
         avaliacoesFinalizadas.forEach(avaliacao => {
           if (!areaContaParaAvaliacao(avaliacao, area.id, todasAreaIds)) return;
           const resposta = avaliacao.respostas.find(r => r.perguntaId === pergunta.id && r.pontuacao !== null);
           if (resposta) {
-            somaScores += resposta.pontuacao;
+            const peso = pesoConsolidadoAvaliacao(avaliacao);
+            somaScores += resposta.pontuacao * peso;
+            somaPesos += peso;
             countRespostas++;
           }
         });
         
-        const mediaEtapa = countRespostas > 0 ? somaScores / countRespostas : 0;
+        const mediaEtapa = somaPesos > 0 ? somaScores / somaPesos : 0;
         
         scoresPorEtapa.push({
           perguntaId: pergunta.id,
@@ -4524,6 +4589,10 @@ app.get('/api/dashboard/projeto/:id', async (req, res) => {
           nivelPrioridadeMapeamentoMaturidadeDoUsuario(a.usuario),
         empresaUnidadeId,
         empresaUnidadeNome,
+        inclusaoUnidade: a.inclusaoUnidade || null,
+        pesoConsolidadoUnidade:
+          a.pesoConsolidadoUnidade != null ? a.pesoConsolidadoUnidade : null,
+        gestorMultiUnidade: a.gestorMultiUnidade === true,
         avaliacaoId: a.id,
         dataAvaliacao: a.updatedAt,
         areasSelecionadas: a.areasSelecionadas ? JSON.parse(a.areasSelecionadas) : areas.map((ar) => ar.id),

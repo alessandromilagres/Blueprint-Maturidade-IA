@@ -77,6 +77,8 @@ model Usuario {
   nivelPrioridadeMapeamentoMaturidade Int @default(1)
   /// Unidade organizacional (null = tratado como "Geral" da empresa)
   empresaUnidadeId Int?
+  /// JSON array de IDs de UnidadeEmpresa que o usuário governa (gestor multi-unidade); peso 0,5 no consolidado por unidade
+  unidadesGovernadasIds String? @db.Text
   empresaId Int
   ativo     Boolean   @default(true)
   createdAt DateTime  @default(now())

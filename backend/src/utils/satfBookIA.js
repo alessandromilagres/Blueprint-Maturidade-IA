@@ -132,6 +132,14 @@ import {
   softAiFailureMessageForBook,
   shrinkPromptToCharBudget
 } from './aiPromptBudget.js';
+import {
+  montarPromptPolirDescricaoUnidade,
+  montarPromptTabelaResumoRoadmap,
+  instrucaoOrcamentoTabelaResumo,
+  instrucaoOrcamentoProximosPassos,
+  normalizarDescricaoUnidadeOrcamento,
+  gerarComValidacaoQualidade
+} from './bookSecaoQualidade.js';
 
 function mediaSetorTiBenchmark(setor) {
   const s = String(setor || '').toLowerCase();
@@ -963,6 +971,7 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
   if (exigeUnidade) {
     const nRoadmap = numeroSecaoPrincipalSatfUnidade(4, mapaRenumeracaoSecoes);
     const nProximos = numeroSecaoPrincipalSatfUnidade(8, mapaRenumeracaoSecoes);
+    const dimsTabela = dimsParaSecao3;
 
     chunks.push({
       id: 'sec_4',
@@ -970,39 +979,59 @@ Comece com "# 1. METODOLOGIA SATF TI v3".`,
       prompt: `${regrasTaxonomia}
 # ${nRoadmap}. ROADMAP ENGENHARIA & PLATAFORMA (30-60-90 dias)
 
-Gere **SOMENTE** a Seção ${nRoadmap} em Markdown. **PARE** antes de "# ${nProximos}." — não gere Próximos Passos nem seções dedicadas de D10/D11/Capacitação.
+Gere **SOMENTE** a Seção ${nRoadmap} em Markdown — subseções ${nRoadmap}.1 a ${nRoadmap}.4.
+**PARE** antes de "### ${nRoadmap}.5" e antes de "# ${nProximos}." — a Tabela Resumo e os Próximos Passos vêm em chunks dedicados.
 
 Estrutura **obrigatória e única** (não renumerar nem repetir):
 ### ${nRoadmap}.1 Visão Geral do Horizonte
 ### ${nRoadmap}.2 Horizonte 30 dias
 ### ${nRoadmap}.3 Horizonte 60 dias
 ### ${nRoadmap}.4 Horizonte 90 dias
-### ${nRoadmap}.5 Tabela Resumo do Roadmap
 
-**PROIBIDO:** segunda sequência ${nRoadmap}.2/${nRoadmap}.3/${nRoadmap}.4 (ex.: "Fase 60/90 dias", "Resumo de Evolução") depois de ${nRoadmap}.5.
+**PROIBIDO:** gerar \`### ${nRoadmap}.5 Tabela Resumo\` neste chunk.
 **PROIBIDO:** inventar "Score atual (oficial)" — se houver tabela de evolução, copie **exatamente** os scores oficiais do bloco DADOS (nunca use meta 90d como score atual).
 Ao referenciar gaps e iniciativas, use dimensões SATF com nomes oficiais do bloco DADOS.${focoUnidadeTxt}
 **PROIBIDO** citar D1/D2 (ou outras fora do foco) mesmo como "referência cruzada".
 
 DADOS:\n${dados}`,
-      maxTokens: 4000
+      maxTokens: 3200
     });
     await reportarChunkPreparado('Roadmap engenharia 30-60-90');
 
     chunks.push({
+      id: 'sec_4_tabela',
+      label: 'Tabela resumo do roadmap',
+      qualidadeTipo: 'tabela_resumo',
+      qualidadeOpts: { tipo: 'tabela_resumo', linhasTabelaEsperadas: Math.max(1, dimsTabela.length) },
+      prompt: montarPromptTabelaResumoRoadmap({
+        regrasTaxonomia,
+        nRoadmap,
+        nProximos,
+        dimensoesEscopo: dimsTabela,
+        focoUnidadeTxt,
+        dados
+      }),
+      maxTokens: 2200
+    });
+    await reportarChunkPreparado('Tabela resumo do roadmap');
+
+    chunks.push({
       id: 'sec_5',
       label: 'Próximos passos 30 dias',
+      qualidadeTipo: 'proximos',
+      qualidadeOpts: { tipo: 'proximos', maxItensProximos: 4 },
       prompt: `${regrasTaxonomia}
 # ${nProximos}. Próximos Passos e Encerramento
 
 Gere **SOMENTE** a Seção ${nProximos} (subseções ${nProximos}.1–${nProximos}.4). **Não** gere seção 6+ nem Apêndice numerado como seção principal.
 
-7–10 ações numeradas com responsável, entregável e prazo. Foco TI e unidade "${unidadeMeta?.nome || 'esta unidade'}".
+${instrucaoOrcamentoProximosPassos({ maxItens: 4 })}
+Foco TI e unidade "${unidadeMeta?.nome || 'esta unidade'}".
 Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).${focoUnidadeTxt}
 **PROIBIDO** atribuir ações a dimensões fora do foco (inclui D1/D2 se excluídas), mesmo como "referência cruzada".
 
 DADOS:\n${dados}`,
-      maxTokens: 4000
+      maxTokens: 2800
     });
     await reportarChunkPreparado('Próximos passos 30 dias');
 
@@ -1029,6 +1058,8 @@ Estrutura **obrigatória e única** (não renumerar nem repetir):
 ### ${n4}.3 Horizonte 60 dias
 ### ${n4}.4 Horizonte 90 dias
 ### ${n4}.5 Tabela Resumo do Roadmap
+
+${instrucaoOrcamentoTabelaResumo(dimensoesDiagnostico, { nRoadmap: n4 })}
 
 **PROIBIDO:** segunda sequência ${n4}.2/${n4}.3/${n4}.4 após ${n4}.5.
 **PROIBIDO:** inventar "Score atual (oficial)" — copie scores oficiais do bloco DADOS.
@@ -1103,16 +1134,19 @@ DADOS:\n${dados}`,
   chunks.push({
     id: 'sec_8',
     label: 'Próximos passos 30 dias',
+    qualidadeTipo: 'proximos',
+    qualidadeOpts: { tipo: 'proximos', maxItensProximos: 4 },
     prompt: `${regrasTaxonomia}
 # ${n8}. Próximos Passos e Encerramento
 
 Gere **SOMENTE** a Seção ${n8} (subseções ${n8}.1–${n8}.4). **Não** gere seção 9+ nem Apêndice numerado como seção principal.
 
-7–10 ações numeradas com responsável, entregável e prazo. Foco TI.
+${instrucaoOrcamentoProximosPassos({ maxItens: 4 })}
+Foco TI.
 Cada ação deve indicar dimensão SATF relacionada (Dn — nome oficial).
 
 DADOS:\n${dados}`,
-    maxTokens: 4000
+    maxTokens: 3200
   });
   await reportarChunkPreparado('Próximos passos 30 dias');
 
@@ -1198,6 +1232,8 @@ async function executarChunksLoop({
   let providerUsado = null;
   let modelUsado = null;
   const avisosProvedor = [];
+  const avisosQualidade = [];
+  const chunksStopMeta = [];
 
   const systemPrompt = `${SYSTEM_PROMPT_PERSONA_BOOK_SATF}
 ${blocoRegrasTaxonomiaSatfPrompt()}
@@ -1220,7 +1256,7 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
       }
       return;
     }
-    if (/^sec_[4-8]$/.test(id)) {
+    if (/^sec_[4-8]$/.test(id) || id === 'sec_4_tabela' || id === 'sec_4b') {
       partesPosSec3.push(texto);
       return;
     }
@@ -1259,10 +1295,38 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
     }
 
     try {
-      const resultado = await callAIWithContinuation(chunk.prompt, systemPrompt, {
-        temperature: chunk.id.startsWith('sec_3_') ? 0.45 : 0.5,
-        maxTokens: chunk.maxTokens || 4000
-      });
+      const gerarFn = async (prompt, maxTok) => {
+        const resultado = await callAIWithContinuation(prompt, systemPrompt, {
+          temperature: chunk.id.startsWith('sec_3_') ? 0.45 : 0.5,
+          maxTokens: maxTok || chunk.maxTokens || 4000
+        });
+        return resultado;
+      };
+
+      let resultado;
+      if (chunk.qualidadeTipo) {
+        resultado = await gerarComValidacaoQualidade({
+          prompt: chunk.prompt,
+          maxTokens: chunk.maxTokens || 4000,
+          gerarFn,
+          qualidadeOpts: chunk.qualidadeOpts || { tipo: chunk.qualidadeTipo },
+          chunkId: chunk.id,
+          chunkLabel: chunk.label
+        });
+        if (resultado.warning) avisosQualidade.push(resultado.warning);
+        if (resultado.meta) chunksStopMeta.push(resultado.meta);
+      } else {
+        resultado = await gerarFn(chunk.prompt, chunk.maxTokens || 4000);
+        chunksStopMeta.push({
+          chunkId: chunk.id,
+          chunkLabel: chunk.label,
+          stopReason: resultado.stopReason || null,
+          truncated: Boolean(resultado.truncated),
+          qualidadeOk: true,
+          qualidadeRetry: false
+        });
+      }
+
       const m = String(chunk.id || '').match(/^sec_3_(\d+)$/);
       if (m) {
         const dimIdx = parseInt(m[1], 10) - 1;
@@ -1320,6 +1384,13 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
           totalChunks: chunks.length,
           chunkLabel: chunk.label,
           chunkId: chunk.id,
+          stopReason: resultado.stopReason || null,
+          truncated: Boolean(resultado.truncated),
+          qualidadeOk: resultado.meta?.qualidadeOk ?? true,
+          qualidadeRetry: Boolean(resultado.meta?.qualidadeRetry),
+          ...(resultado.warning ? { avisoQualidade: resultado.warning } : {}),
+          ...(avisosQualidade.length ? { avisosQualidade: avisosQualidade.slice(-5) } : {}),
+          chunksStopMeta: chunksStopMeta.slice(-8),
           ...(avisoFallback
             ? { ultimoFallback: avisoFallback, avisosProvedor: avisosProvedor.slice(-5) }
             : {})
@@ -1477,7 +1548,9 @@ Gere SOMENTE as seções pedidas. Markdown com # ## ###.`;
     totalTokensSaida,
     providerUsado,
     modelUsado,
-    avisosProvedor
+    avisosProvedor,
+    avisosQualidade,
+    chunksStopMeta
   };
 }
 
@@ -1948,8 +2021,16 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   }
 
   const startTime = Date.now();
-  const { markdown: markdownBruto, totalTokensEntrada, totalTokensSaida, providerUsado, modelUsado, avisosProvedor } =
-    await executarChunksLoop({
+  const {
+    markdown: markdownBruto,
+    totalTokensEntrada: tokensChunksIn,
+    totalTokensSaida: tokensChunksOut,
+    providerUsado,
+    modelUsado,
+    avisosProvedor,
+    avisosQualidade = [],
+    chunksStopMeta = []
+  } = await executarChunksLoop({
       chunks,
       dimensoesDiagnostico,
       ordemNomes,
@@ -1966,6 +2047,60 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
       numPaiDiagnostico: 3,
       exigeUnidade
     });
+
+  let totalTokensEntrada = tokensChunksIn;
+  let totalTokensSaida = tokensChunksOut;
+  let unidadeMetaParaCapa = unidadeMeta;
+
+  if (exigeUnidade && unidadeMeta) {
+    const descCadastro = String(unidadeMeta.descricao || '').trim();
+    let descPolida = normalizarDescricaoUnidadeOrcamento(descCadastro);
+    if (descCadastro && descCadastro !== '—') {
+      try {
+        const polimento = await gerarComValidacaoQualidade({
+          prompt: montarPromptPolirDescricaoUnidade(descCadastro),
+          maxTokens: 400,
+          gerarFn: async (prompt, maxTok) =>
+            callAIWithContinuation(prompt, SYSTEM_PROMPT_PERSONA_BOOK_SATF, {
+              temperature: 0.3,
+              maxTokens: maxTok || 400
+            }),
+          qualidadeOpts: { tipo: 'descricao', maxPalavrasDescricao: 140 },
+          chunkId: 'desc_unidade',
+          chunkLabel: 'Descrição da unidade'
+        });
+        totalTokensEntrada += polimento.tokensEntrada || 0;
+        totalTokensSaida += polimento.tokensSaida || 0;
+        const texto = String(polimento.content || '')
+          .replace(/^#+\s*.*$/gm, '')
+          .replace(/\*\*Descrição\*\*/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (texto && texto !== '—') {
+          descPolida = normalizarDescricaoUnidadeOrcamento(texto);
+        }
+        if (polimento.warning) avisosQualidade.push(polimento.warning);
+        chunksStopMeta.push(polimento.meta);
+        if (relatorioJobId && atualizarProgressoJobBook) {
+          await atualizarProgressoJobBook(relatorioJobId, {
+            etapa: 'Polindo descrição da unidade…',
+            metadata: JSON.stringify({
+              fase: 'descricao_unidade',
+              stopReason: polimento.stopReason || null,
+              truncated: Boolean(polimento.truncated),
+              qualidadeOk: polimento.meta?.qualidadeOk,
+              ...(polimento.warning ? { avisoQualidade: polimento.warning } : {}),
+              chunksStopMeta: chunksStopMeta.slice(-8)
+            })
+          });
+        }
+      } catch (descErr) {
+        console.warn('[Book SATF] Polimento descrição falhou — usando normalização local:', descErr?.message);
+        descPolida = normalizarDescricaoUnidadeOrcamento(descCadastro);
+      }
+    }
+    unidadeMetaParaCapa = { ...unidadeMeta, descricao: descPolida };
+  }
 
   const markdownBrutoRenumerado = mapaRenumeracaoSecoes
     ? renumerarSecoesPrincipaisBookSatfUnidade(markdownBruto, mapaRenumeracaoSecoes)
@@ -2029,7 +2164,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     projetoNome: projeto.nome,
     avaliacoesFiltradas,
     filtroNivelMax,
-    unidadeMeta: exigeUnidade ? unidadeMeta : null,
+    unidadeMeta: exigeUnidade ? unidadeMetaParaCapa : null,
     secaoDashboard: exigeUnidade ? secaoDashboardUnidade : null,
     exigeUnidade
   });
@@ -2096,6 +2231,8 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
         ).length
       : 0,
     avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined,
+    avisosQualidade: avisosQualidade.length ? avisosQualidade : undefined,
+    chunksStopMeta: chunksStopMeta.length ? chunksStopMeta : undefined,
     temGlossarioFatos: regrasFatos.temGlossario,
     contextoFatosHash: regrasFatos.hash,
     validacaoFatos
@@ -2134,6 +2271,7 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     provider: providerUsado,
     model: modelUsado,
     avisosProvedor: avisosProvedor.length ? avisosProvedor : undefined,
+    avisosQualidade: avisosQualidade.length ? avisosQualidade : undefined,
     tokens: { entrada: totalTokensEntrada, saida: totalTokensSaida },
     tempoResposta: tempoTotal,
     chunksGerados: chunks.length,

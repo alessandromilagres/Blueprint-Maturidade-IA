@@ -74,6 +74,13 @@ import {
   shrinkPromptToCharBudget,
   softAiFailureMessageForBook
 } from './aiPromptBudget.js';
+import {
+  instrucaoOrcamentoProximosPassos,
+  montarPromptPolirDescricaoUnidade,
+  normalizarDescricaoUnidadeOrcamento,
+  gerarComValidacaoQualidade,
+  blocoInstrucaoFecharFrasePrompt
+} from './bookSecaoQualidade.js';
 
 function tipoRelatorioBookUnidadeBlueprint(modoRapido) {
   return modoRapido ? 'book_unidade_rapido' : 'book_unidade';
@@ -231,6 +238,7 @@ ${blocoContexto ? `${blocoContexto}\n` : ''}${blocoDesejosIa ? `${blocoDesejosIa
   const systemBase = modoRapido ? SYSTEM_PROMPT_PERSONA_BOOK_RAPIDO : SYSTEM_PROMPT_PERSONA_BOOK;
   const systemPrompt = `${systemBase}
 ${instrucoesUnidade}
+${blocoInstrucaoFecharFrasePrompt()}
 Gere SOMENTE o conteúdo solicitado em Markdown. Não duplique capas de avaliadores/unidade.`;
 
   const startTime = Date.now();
@@ -238,11 +246,13 @@ Gere SOMENTE o conteúdo solicitado em Markdown. Não duplique capas de avaliado
   let totalTokensSaida = 0;
   let providerUsado = getProvider().name;
   let modelUsado = getProvider().defaultModel;
+  const avisosQualidade = [];
+  const chunksStopMeta = [];
   const partesMetodologia = [];
   const partesSumario = [];
   const partesDimensoes = [];
   const dimsComDadosLoop = dimsParaChunks.length ? dimsParaChunks : dimensoesRelevantes;
-  const totalChunks = dimsComDadosLoop.length + 4;
+  const totalChunks = dimsComDadosLoop.length + 5;
 
   let relatorioJobId = null;
   const jobIdParam = req.query.jobId;
@@ -256,7 +266,7 @@ Gere SOMENTE o conteúdo solicitado em Markdown. Não duplique capas de avaliado
     }
   }
 
-  async function reportarProgresso(chunkAtual, mensagem) {
+  async function reportarProgresso(chunkAtual, mensagem, extraMeta = {}) {
     if (!relatorioJobId || !atualizarProgressoJobBook) return;
     const pct = Math.min(
       95,
@@ -269,12 +279,15 @@ Gere SOMENTE o conteúdo solicitado em Markdown. Não duplique capas de avaliado
         fase: 'geracao',
         chunkAtual,
         totalChunks,
-        mensagem
+        mensagem,
+        ...extraMeta,
+        ...(chunksStopMeta.length ? { chunksStopMeta: chunksStopMeta.slice(-8) } : {}),
+        ...(avisosQualidade.length ? { avisosQualidade: avisosQualidade.slice(-5) } : {})
       })
     });
   }
 
-  async function chamarIa(userPrompt, maxTokens) {
+  async function chamarIaRaw(userPrompt, maxTokens) {
     const resultado = await callAIWithContinuation(
       userPrompt,
       systemPrompt,
@@ -285,13 +298,43 @@ Gere SOMENTE o conteúdo solicitado em Markdown. Não duplique capas de avaliado
     totalTokensSaida += resultado.tokensSaida || 0;
     providerUsado = resultado.provider || providerUsado;
     modelUsado = resultado.model || modelUsado;
+    return resultado;
+  }
+
+  async function chamarIa(userPrompt, maxTokens) {
+    const resultado = await chamarIaRaw(userPrompt, maxTokens);
+    chunksStopMeta.push({
+      chunkId: 'dim',
+      stopReason: resultado.stopReason || null,
+      truncated: Boolean(resultado.truncated)
+    });
     return resultado.content || '';
   }
 
   /** Soft-fail: não aborta o book nem grava JSON bruto do provedor no markdown. */
-  async function chamarIaComEsqueleto(userPrompt, maxTokens, { label, esqueleto }) {
+  async function chamarIaComEsqueleto(userPrompt, maxTokens, { label, esqueleto, qualidadeOpts = null }) {
     try {
-      return await chamarIa(userPrompt, maxTokens);
+      if (qualidadeOpts) {
+        const out = await gerarComValidacaoQualidade({
+          prompt: userPrompt,
+          maxTokens,
+          gerarFn: async (prompt, maxTok) => chamarIaRaw(prompt, maxTok),
+          qualidadeOpts,
+          chunkId: qualidadeOpts.tipo || label,
+          chunkLabel: label
+        });
+        if (out.warning) avisosQualidade.push(out.warning);
+        if (out.meta) chunksStopMeta.push(out.meta);
+        return out.content || '';
+      }
+      const resultado = await chamarIaRaw(userPrompt, maxTokens);
+      chunksStopMeta.push({
+        chunkId: label,
+        chunkLabel: label,
+        stopReason: resultado.stopReason || null,
+        truncated: Boolean(resultado.truncated)
+      });
+      return resultado.content || '';
     } catch (err) {
       console.error(`[Book Unidade Blueprint] Erro em ${label}:`, err?.message || err);
       return esqueleto(softAiFailureMessageForBook(err));
@@ -514,12 +557,14 @@ Parágrafo conectando gaps da unidade ${unidadeMeta.nome} ao plano 30/60/90.
 
 ## 4.2 Cronograma
 Tabela: Horizonte (30/60/90) | Iniciativa | Dimensão | Owner | Entregável | Status
+ORÇAMENTO: uma linha por iniciativa prioritária das dimensões em foco; células de ação ≤20 palavras.
 
 ## 4.3 Rituais de governança
 Bullets: cadência de acompanhamento, métricas de revisão, critério de sucesso da unidade.`,
       modoRapido ? 2200 : 3500,
       {
         label: 'roadmap',
+        qualidadeOpts: { tipo: 'generico' },
         esqueleto: (msg) => `# 4. ROADMAP ENGENHARIA 30-60-90 DIAS DA UNIDADE
 
 ## 4.1 Visão integrada
@@ -549,16 +594,18 @@ Gere SOMENTE "# 5. Próximos Passos e Encerramento" + ## 5.1–5.3.
 # 5. Próximos Passos e Encerramento
 
 ## 5.1 Ações prioritárias (30 dias)
-7–10 ações numeradas com responsável, entregável e prazo — exclusivas da unidade ${unidadeMeta.nome}.
+${instrucaoOrcamentoProximosPassos({ maxItens: 4 })}
+Ações exclusivas da unidade ${unidadeMeta.nome}.
 
 ## 5.2 Critérios de sucesso
 Bullets objetivos para a próxima rodada de avaliação.
 
 ## 5.3 Encerramento
 1 parágrafo de fechamento executivo.`,
-      modoRapido ? 2000 : 3200,
+      modoRapido ? 1800 : 2800,
       {
         label: 'próximos passos',
+        qualidadeOpts: { tipo: 'proximos', maxItensProximos: 4 },
         esqueleto: (msg) => `# 5. Próximos Passos e Encerramento
 
 ## 5.1 Ações prioritárias (30 dias)
@@ -594,6 +641,39 @@ Documento parcial da unidade **${unidadeMeta.nome}** — scores oficiais preserv
 
   markdown = normalizarSecoesBookUnidadeBlueprint(markdown);
 
+  let unidadeMetaParaCapa = unidadeMeta;
+  const descCadastro = String(unidadeMeta.descricao || '').trim();
+  let descPolida = normalizarDescricaoUnidadeOrcamento(descCadastro);
+  if (descCadastro && descCadastro !== '—') {
+    try {
+      await reportarProgresso(totalChunks, 'Polindo descrição da unidade');
+      const polimento = await gerarComValidacaoQualidade({
+        prompt: montarPromptPolirDescricaoUnidade(descCadastro),
+        maxTokens: 400,
+        gerarFn: async (prompt, maxTok) => chamarIaRaw(prompt, maxTok),
+        qualidadeOpts: { tipo: 'descricao', maxPalavrasDescricao: 140 },
+        chunkId: 'desc_unidade',
+        chunkLabel: 'Descrição da unidade'
+      });
+      const texto = String(polimento.content || '')
+        .replace(/^#+\s*.*$/gm, '')
+        .replace(/\*\*Descrição\*\*/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (texto && texto !== '—') {
+        descPolida = normalizarDescricaoUnidadeOrcamento(texto);
+      }
+      if (polimento.warning) avisosQualidade.push(polimento.warning);
+      if (polimento.meta) chunksStopMeta.push(polimento.meta);
+    } catch (descErr) {
+      console.warn(
+        '[Book Unidade Blueprint] Polimento descrição falhou — usando normalização local:',
+        descErr?.message
+      );
+    }
+  }
+  unidadeMetaParaCapa = { ...unidadeMeta, descricao: descPolida };
+
   let relatorioComCorpo = !modoRapido
     ? posicionarApendicesMetodologicosComoUltimaSecao(markdown, {
         framework: 'blueprint',
@@ -609,7 +689,7 @@ Documento parcial da unidade **${unidadeMeta.nome}** — scores oficiais preserv
     projetoNome: projeto.nome,
     avaliacoesFiltradas,
     filtroNivelMax,
-    unidadeMeta,
+    unidadeMeta: unidadeMetaParaCapa,
     exigeUnidade: true,
     modoIndice: 'unidade'
   });
@@ -635,6 +715,8 @@ Documento parcial da unidade **${unidadeMeta.nome}** — scores oficiais preserv
     totalAvaliadores: avaliacoesFiltradas.length,
     filtroNivelPrioridadeMapeamentoMaturidadeAplicado: filtroNivelMax,
     planoAcaoUnidade: planoAcaoRelevante,
+    avisosQualidade: avisosQualidade.length ? avisosQualidade : undefined,
+    chunksStopMeta: chunksStopMeta.length ? chunksStopMeta : undefined,
     ...metadadosUnidadeDadosUsados(unidadeMeta, filtroUnidadeId),
     projetoVersao,
     modoGeracao: modoRapido ? 'book_unidade_rapido' : 'book_unidade',

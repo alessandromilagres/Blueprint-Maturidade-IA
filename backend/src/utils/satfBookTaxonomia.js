@@ -9,6 +9,7 @@ import {
   aplicarNumSecaoRotuloDimensao
 } from './bookModoRapidoMarkdown.js';
 import { codigoEfetivoDimensaoFramework } from './bookDadosDimensao.js';
+import { blocoInstrucaoFecharFrasePrompt } from './bookSecaoQualidade.js';
 
 /** Dimensões oficiais SATF (código + nome). */
 export const SATF_DIMENSOES_CANONICAS = SATF_FRAMEWORK_SEED.map((d) => ({
@@ -119,6 +120,7 @@ REGRAS DE TAXONOMIA SATF (CRÍTICO — NUNCA VIOLAR):
 - Book SATF tem seções **1–8**; não duplique numeração nem gere capítulos 9–13.
 - **Uma seção por chunk:** se o prompt pede só a seção 4, **pare** antes de "# 5."; nunca antecipe seções 5–8 dentro de chunks anteriores.
 - **Hierarquia de títulos Markdown:** \`# N.\` = seções principais 1–8; \`## 3.N Dimensão — …\` = somente cabeçalhos de dimensão na seção 3; \`### N.M\` = subseções (ex.: ### 1.1, ### 4.2, ### 5.1). **Não** use \`##\` para subseções fora da seção 3.
+${blocoInstrucaoFecharFrasePrompt()}
 `;
 }
 
@@ -129,6 +131,8 @@ const SECAO_MAX_POR_CHUNK_SATF = {
   sec_2: 2,
   sec_3: 3,
   sec_4: 4,
+  sec_4_tabela: 4,
+  sec_4b: 4,
   sec_5: 5,
   sec_6: 6,
   sec_7: 7,

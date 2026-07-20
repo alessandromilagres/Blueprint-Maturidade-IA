@@ -5,6 +5,60 @@ import {
 } from './mitTrajetoriaFinanceira.js';
 import { ORDEM_DIMENSOES_FRAMEWORK } from './ordemDimensoesFramework.js';
 import { softAiFailureMessageForBook } from './aiPromptBudget.js';
+import { codigoEfetivoDimensaoFramework } from './bookDadosDimensao.js';
+
+function normalizarNomeDimensaoParaMatch(nome) {
+  return String(nome || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, 'e')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function nomesDimensaoEquivalentes(a, b) {
+  const na = normalizarNomeDimensaoParaMatch(a);
+  const nb = normalizarNomeDimensaoParaMatch(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  // Tokens significativos (ex.: "fabrica agentica" ⊂ "fabrica agentica de software")
+  const tokensA = na.split(/\s+/).filter((t) => t.length >= 4);
+  const tokensB = new Set(nb.split(/\s+/).filter((t) => t.length >= 4));
+  if (tokensA.length >= 2 && tokensA.every((t) => tokensB.has(t))) return true;
+  if (tokensB.size >= 2) {
+    const arrB = [...tokensB];
+    if (arrB.every((t) => tokensA.includes(t))) return true;
+  }
+  return false;
+}
+
+/**
+ * Corrige `Dn — Nome` quando o nome canônico da dimensão aparece com código errado
+ * (ex.: LLM escreve "D8 — Fábrica Agêntica" sendo D10).
+ */
+export function forcarCodigoDimensaoCorretoNoMarkdown(markdown, dim, framework = 'satf') {
+  const codigo = String(codigoEfetivoDimensaoFramework(dim, framework) || dim?.codigoFramework || '')
+    .trim()
+    .toUpperCase();
+  const nome = String(dim?.area || dim?.nome || '').trim();
+  if (!codigo || !nome) return String(markdown || '');
+  if (!/^D\d{1,2}$/.test(codigo) && !/^BP\d{1,2}$/.test(codigo)) return String(markdown || '');
+
+  const prefix = codigo.startsWith('BP') ? 'BP' : 'D';
+  const re = new RegExp(`\\b(${prefix}\\d{1,2})(\\s*[—–-]\\s*)([^\\n|*]+)`, 'gi');
+
+  return String(markdown || '').replace(re, (full, codEncontrado, sep, nomeRaw) => {
+    const nomeLimpo = String(nomeRaw || '')
+      .replace(/\s*\(.*?\)\s*$/, '')
+      .replace(/\s*·.*$/, '')
+      .trim();
+    if (!nomesDimensaoEquivalentes(nomeLimpo, nome)) return full;
+    if (String(codEncontrado).toUpperCase() === codigo) return full;
+    return `${codigo}${sep}${nomeRaw}`;
+  });
+}
 
 function resumirPergunta(texto, max = 90) {
   const t = String(texto || '').trim();
@@ -182,7 +236,8 @@ export function montarBlocoSecao3Dimensao({
   const partes = [];
   if (isFirst) partes.push(introducaoSecao3BookMarkdown(totalDimensoes, { modoRapido }));
   partes.push(aplicarNumSecaoRotuloDimensao(numSecao, dim, { bookCompleto }));
-  const corpo = limparConteudoIaSecao3Dimensao(conteudoIa, numSecao, { bookCompleto });
+  let corpo = limparConteudoIaSecao3Dimensao(conteudoIa, numSecao, { bookCompleto });
+  if (corpo) corpo = forcarCodigoDimensaoCorretoNoMarkdown(corpo, dim, 'satf');
   if (corpo) partes.push(corpo);
   return partes.join('\n\n').trim();
 }

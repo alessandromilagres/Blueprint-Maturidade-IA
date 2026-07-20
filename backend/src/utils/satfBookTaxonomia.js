@@ -343,9 +343,45 @@ function formatarScoreCelulaComoExistente(valor, celulaAtual) {
   return String(celulaAtual || '').includes(',') ? fixed.replace('.', ',') : fixed;
 }
 
+function cabecalhoAtivaCorrecaoScoreAtual(linha) {
+  const t = String(linha || '');
+  return (
+    /Score\s+[Aa]tual(\s*\(\s*oficial\s*\))?/i.test(t) ||
+    /Resumo de Evolu[cç][aã]o de Maturidade/i.test(t) ||
+    /Consolida[cç][aã]o de Metas/i.test(t) ||
+    /Depend[eê]ncias?\s+Cr[ií]ticas?/i.test(t)
+  );
+}
+
+function cabecalhoMantemTabelaScoreAtual(linha) {
+  return /Evolu[cç][aã]o|Score\s+[Aa]tual|Consolida[cç][aã]o de Metas|Depend[eê]ncias?\s+Cr[ií]ticas?/i.test(
+    String(linha || '')
+  );
+}
+
 /**
- * Corrige a coluna "Score atual (oficial)" em tabelas de evolução do roadmap,
- * forçando os scores do consolidado (evita meta/alucinação como "atual").
+ * Neutraliza dependência crítica que cita Cursor Enterprise já aprovado como bloqueio pendente.
+ */
+function sanitizarDependenciaCursorJaAprovado(linha) {
+  if (!/Cursor/i.test(linha) || !/aprovad/i.test(linha)) return linha;
+  // Só age em linhas de tabela com Dn
+  if (!/^\|\s*D\d{1,2}\b/i.test(linha)) return linha;
+  return linha.replace(
+    /(\|\s*)([^|]*Cursor[^|]*)(\s*\|?\s*)$/i,
+    (full, pre, celula, pos) => {
+      const c = String(celula || '').trim();
+      if (!/Cursor/i.test(c) || !/aprovad/i.test(c)) return full;
+      if (!/depend|bloque|cr[ií]tic|pendente|aprova[cç]/i.test(c) && c.split(/\s+/).length > 12) {
+        return full;
+      }
+      return `${pre}Cursor Enterprise já aprovado (não bloqueia)${pos}`;
+    }
+  );
+}
+
+/**
+ * Corrige colunas "Score atual (oficial)" / "Score Atual" em tabelas de evolução
+ * e "Consolidação de Metas" do roadmap, forçando scores do consolidado.
  */
 export function corrigirScoresOficiaisTabelaEvolucaoRoadmapSatf(markdown, dimensoes = []) {
   const scores = mapaScoresOficiaisPorCodigoSatf(dimensoes);
@@ -354,26 +390,56 @@ export function corrigirScoresOficiaisTabelaEvolucaoRoadmapSatf(markdown, dimens
   const linhas = String(markdown || '').split('\n');
   const saida = [];
   let emTabelaEvolucao = false;
+  let idxScoreAtual = -1;
 
   for (const linha of linhas) {
-    if (
-      /Score atual\s*\(\s*oficial\s*\)/i.test(linha) ||
-      /Resumo de Evolu[cç][aã]o de Maturidade/i.test(linha)
-    ) {
+    if (cabecalhoAtivaCorrecaoScoreAtual(linha)) {
       emTabelaEvolucao = true;
+      idxScoreAtual = -1;
+      if (linha.trim().startsWith('|')) {
+        const cells = linha.split('|').slice(1, -1).map((c) => c.trim());
+        idxScoreAtual = cells.findIndex((c) => /Score\s+[Aa]tual/i.test(c));
+      }
     }
 
     if (/^#\s+\d+\.\s+/.test(linha)) {
       emTabelaEvolucao = false;
+      idxScoreAtual = -1;
     } else if (
       emTabelaEvolucao &&
       /^#{2,4}\s+\d+\.\d+\b/.test(linha) &&
-      !/Evolu[cç][aã]o|Score atual/i.test(linha)
+      !cabecalhoMantemTabelaScoreAtual(linha)
     ) {
       emTabelaEvolucao = false;
+      idxScoreAtual = -1;
     }
 
-    if (emTabelaEvolucao) {
+    if (emTabelaEvolucao && linha.trim().startsWith('|')) {
+      const cells = linha.split('|').slice(1, -1).map((c) => c.trim());
+      if (cells.length && cells.every((c) => /^:?-{3,}:?$/.test(c.replace(/\s/g, '')))) {
+        saida.push(linha);
+        continue;
+      }
+      if (cells.some((c) => /Score\s+[Aa]tual/i.test(c))) {
+        idxScoreAtual = cells.findIndex((c) => /Score\s+[Aa]tual/i.test(c));
+        saida.push(linha);
+        continue;
+      }
+
+      const mDim = (cells[0] || '').match(/^(D\d{1,2})\b/i);
+      if (mDim && scores.has(mDim[1].toUpperCase())) {
+        const cod = mDim[1].toUpperCase();
+        const scoreIdx = idxScoreAtual >= 1 ? idxScoreAtual : 1;
+        if (cells[scoreIdx] != null && /[\d]/.test(cells[scoreIdx])) {
+          cells[scoreIdx] = formatarScoreCelulaComoExistente(scores.get(cod), cells[scoreIdx]);
+          let corrigida = `| ${cells.join(' | ')} |`;
+          corrigida = sanitizarDependenciaCursorJaAprovado(corrigida);
+          saida.push(corrigida);
+          continue;
+        }
+      }
+
+      // Fallback: padrão legado Dimensão|Score logo após o nome
       const m = linha.match(
         /^(\|\s*)(D\d{1,2})(\s*[—–-]\s*[^|]*\|\s*)([\d]+[.,]\d+|\d+)(\s*\|.*)$/i
       );
@@ -381,7 +447,9 @@ export function corrigirScoresOficiaisTabelaEvolucaoRoadmapSatf(markdown, dimens
         const cod = m[2].toUpperCase();
         if (scores.has(cod)) {
           const fmt = formatarScoreCelulaComoExistente(scores.get(cod), m[4]);
-          saida.push(`${m[1]}${m[2]}${m[3]}${fmt}${m[5]}`);
+          let corrigida = `${m[1]}${m[2]}${m[3]}${fmt}${m[5]}`;
+          corrigida = sanitizarDependenciaCursorJaAprovado(corrigida);
+          saida.push(corrigida);
           continue;
         }
       }

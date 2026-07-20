@@ -85,7 +85,8 @@ import {
   instrucaoPromptSecao3SemCabecalhos,
   relatorioBookSecao3Completo,
   limparConteudoIaSecao3Dimensao,
-  contarDimensoesSecao3Book
+  contarDimensoesSecao3Book,
+  forcarCodigoDimensaoCorretoNoMarkdown
 } from './bookModoRapidoMarkdown.js';
 import { blocoGuiaProgressaoDimensaoSatf } from './guiasProgressaoFramework.js';
 import {
@@ -317,6 +318,8 @@ ${tabelaDim}`;
 ### ${numSecao}.5 Recomendações Específicas (3–4 ações numeradas${temDesejosIa ? '; ≥1 ancorada em Desejos IA dos DADOS' : ''}: título + parágrafo com entregável, sistema, squad, prazo; ancoradas no escopo e documentação do projeto)
 ### ${numSecao}.6 KPIs de Acompanhamento (tabela: KPI | Baseline | Meta 6m | Meta 12m — mínimo 4 linhas; inclua score SATF da dimensão como KPI de evolução)
 
+**CÓDIGO DA DIMENSÃO (obrigatório):** use exatamente **${codigoEfetivoDimensaoFramework(dim, 'satf') || dim.codigoFramework || 'Dn'} — ${dim.area}** em todo o texto e nas tabelas (ex.: Fábrica Agêntica = **D10**, nunca D8).
+
 ${regrasAntiGenericidade}
 ${blocoPapel}
 ${blocoTraducaoModelo}
@@ -370,6 +373,7 @@ function montarBlocoSecao3DimensaoSatf({
   // Book por unidade: limpeza no modo completo para preservar ### 3.x.1–6.
   const bookCompleto = exigeUnidade ? true : !modoRapido;
   let corpo = limparConteudoIaSecao3Dimensao(conteudoIa, numSecao, { bookCompleto });
+  if (corpo) corpo = forcarCodigoDimensaoCorretoNoMarkdown(corpo, dim);
   if (corpo && inventarioDocumentos?.entregaveis?.length) {
     corpo = complementarSecao3EntregaveisEscopo(corpo, dim.area, inventarioDocumentos, numSecao, {
       modoRapido: exigeUnidade ? false : modoRapido
@@ -989,12 +993,15 @@ Estrutura **obrigatória e única** (não renumerar nem repetir):
 ### ${nRoadmap}.4 Horizonte 90 dias
 
 **PROIBIDO:** gerar \`### ${nRoadmap}.5 Tabela Resumo\` neste chunk.
-**PROIBIDO:** inventar "Score atual (oficial)" — se houver tabela de evolução, copie **exatamente** os scores oficiais do bloco DADOS (nunca use meta 90d como score atual).
+**PROIBIDO:** inventar "Score atual", "Score Atual" ou "Score atual (oficial)" — se emitir tabela de evolução / Consolidação de Metas, copie **exatamente** os scores oficiais do bloco DADOS (nunca use meta 30/60/90d nem valores genéricos 2,00→2,25→2,50 como score atual).
+**PROIBIDO:** listar aprovação de Cursor Enterprise (ou similar) como dependência crítica **pendente** se o glossário/DADOS indicar que já está aprovado.
 Ao referenciar gaps e iniciativas, use dimensões SATF com nomes oficiais do bloco DADOS.${focoUnidadeTxt}
 **PROIBIDO** citar D1/D2 (ou outras fora do foco) mesmo como "referência cruzada".
 
 DADOS:\n${dados}`,
-      maxTokens: 3200
+      maxTokens: 3200,
+      qualidadeTipo: 'generico',
+      qualidadeOpts: { tipo: 'generico' }
     });
     await reportarChunkPreparado('Roadmap engenharia 30-60-90');
 
@@ -1062,11 +1069,14 @@ Estrutura **obrigatória e única** (não renumerar nem repetir):
 ${instrucaoOrcamentoTabelaResumo(dimensoesDiagnostico, { nRoadmap: n4 })}
 
 **PROIBIDO:** segunda sequência ${n4}.2/${n4}.3/${n4}.4 após ${n4}.5.
-**PROIBIDO:** inventar "Score atual (oficial)" — copie scores oficiais do bloco DADOS.
+**PROIBIDO:** inventar "Score atual", "Score Atual" ou "Score atual (oficial)" — copie scores oficiais do bloco DADOS (nunca progressões genéricas 2,00→2,25→2,50 como score atual).
+**PROIBIDO:** listar aprovação de Cursor Enterprise como dependência crítica pendente se o glossário/DADOS indicar que já está aprovado.
 Ao referenciar gaps e iniciativas, use **somente** dimensões SATF D1–D11 com nomes oficiais do bloco DADOS.
 
 DADOS:\n${dados}`,
-    maxTokens: 4000
+    maxTokens: 4000,
+    qualidadeTipo: 'generico',
+    qualidadeOpts: { tipo: 'generico' }
   });
   await reportarChunkPreparado('Roadmap engenharia 30-60-90');
 

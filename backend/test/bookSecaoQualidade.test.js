@@ -13,7 +13,9 @@ import {
   escolherMelhorConteudoQualidade,
   gerarComValidacaoQualidade,
   listarDimensoesTabelaResumo,
-  blocoInstrucaoFecharFrasePrompt
+  blocoInstrucaoFecharFrasePrompt,
+  pareceTruncado,
+  linhaContinuaMeioPalavra
 } from '../src/utils/bookSecaoQualidade.js';
 import { blocoRegrasTaxonomiaSatfPrompt } from '../src/utils/satfBookTaxonomia.js';
 
@@ -153,6 +155,12 @@ describe('bookSecaoQualidade — validação próximos passos', () => {
 6. F.
 `;
 
+  const meioPalavra = `### 4.3 Horizonte 60 dias
+
+**Ação 4.3** — Publicar playbook de agentes.
+ido: Tech Lead / Arquiteto de Soluções. **Prazo:** Semana 8.
+`;
+
   it('aceita até 4 itens fechados', () => {
     const v = validarSecaoBookQualidade(boa, { tipo: 'proximos', maxItensProximos: 4 });
     assert.equal(v.ok, true, JSON.stringify(v.problemas));
@@ -168,6 +176,17 @@ describe('bookSecaoQualidade — validação próximos passos', () => {
     const v = validarSecaoBookQualidade(excesso, { tipo: 'proximos', maxItensProximos: 4 });
     assert.equal(v.ok, false);
     assert.ok(v.problemas.some((p) => p.tipo === 'proximos_excesso'));
+  });
+
+  it('detecta continuação mid-word (ido: Tech Lead)', () => {
+    assert.equal(linhaContinuaMeioPalavra('ido: Tech Lead / Arquiteto'), true);
+    assert.equal(pareceTruncado('Owner suger'), true);
+    const v = validarSecaoBookQualidade(meioPalavra, { tipo: 'generico' });
+    assert.equal(v.ok, false);
+    assert.ok(
+      v.problemas.some((p) => p.tipo === 'linha_meio_palavra'),
+      JSON.stringify(v.problemas)
+    );
   });
 });
 

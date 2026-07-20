@@ -143,6 +143,10 @@ function ehSeparadorTabela(celulas) {
   return celulas.every((c) => /^:?-{3,}:?$/.test(c.replace(/\s/g, '')));
 }
 
+/** Sufixos típicos de corte mid-word no início de linha (ex.: "ido: Tech Lead" de "Owner sugerido:"). */
+const INICIO_CONTINUACAO_MEIO_PALAVRA =
+  /^(ido|ados?|adas?|ção|ções|mente|suger|ndo|ndo:|ada:|ado:|ido:|sugerido)\b/i;
+
 /**
  * Heurística: texto parece truncado (corta no meio / termina com vírgula / " e" / barra).
  */
@@ -152,6 +156,9 @@ export function pareceTruncado(texto) {
   if (/[,;/]\s*$/.test(t)) return true;
   if (/\s+e\s*$/i.test(t)) return true;
   if (/\s+(de|da|do|dos|das|para|com|em|no|na|por|que|ou)\s*$/i.test(t)) return true;
+  // "Owner suger" incompleto (padrão recorrente no gerador)
+  if (/\bOwner\s+suger\b/i.test(t) && !/\bOwner\s+sugerido\b/i.test(t)) return true;
+  if (INICIO_CONTINUACAO_MEIO_PALAVRA.test(t)) return true;
   // corta no meio de palavra: termina com letra minúscula sem pontuação e sem espaço recente longo
   if (/[a-záàâãéêíóôõúç]$/i.test(t) && !PONTUACAO_FINAL_OK.test(t)) {
     const ultima = t.split(/\s+/).pop() || '';
@@ -162,6 +169,31 @@ export function pareceTruncado(texto) {
     }
   }
   return false;
+}
+
+/**
+ * Linhas que começam no meio de uma palavra (spillover de truncamento entre linhas).
+ */
+export function linhaContinuaMeioPalavra(linha) {
+  const t = String(linha || '').trim();
+  if (!t || t.startsWith('#') || t.startsWith('|') || t.startsWith('>') || t.startsWith('```')) {
+    return false;
+  }
+  if (INICIO_CONTINUACAO_MEIO_PALAVRA.test(t)) return true;
+  if (/^Owner\s+suger\b/i.test(t) && !/^Owner\s+sugerido\b/i.test(t)) return true;
+  return false;
+}
+
+function validarContinuacoesMeioPalavra(markdown) {
+  const problemas = [];
+  for (const linha of String(markdown || '').split('\n')) {
+    const t = linha.trim();
+    if (!t || t.length < 8) continue;
+    if (linhaContinuaMeioPalavra(linha)) {
+      problemas.push({ tipo: 'linha_meio_palavra', trecho: t.slice(0, 120) });
+    }
+  }
+  return problemas;
 }
 
 function validarParagrafosPontuacao(markdown) {
@@ -283,6 +315,7 @@ export function validarSecaoBookQualidade(markdown, opts = {}) {
 
   problemas.push(...validarTabelas(texto));
   problemas.push(...validarListasNumeradas(texto));
+  problemas.push(...validarContinuacoesMeioPalavra(texto));
   if (tipo !== 'tabela_resumo') {
     problemas.push(...validarParagrafosPontuacao(texto));
   }

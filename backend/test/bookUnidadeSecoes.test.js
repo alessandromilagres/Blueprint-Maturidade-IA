@@ -160,6 +160,51 @@ acoes`;
     assert.doesNotMatch(out, /\| 2,2 \|/);
     assert.doesNotMatch(out, /\| 1,8 \|/);
   });
+
+  it('corrige Score Atual em Consolidação de Metas (não só Score atual oficial)', () => {
+    const md = `# 4. ROADMAP
+### 4.4 Consolidação de Metas e Dependências Críticas
+| Dimensão | Score Atual | Meta 30d | Meta 60d | Meta 90d | Dependência Crítica |
+|----------|-------------|----------|----------|----------|---------------------|
+| D3 — Pessoas, Cultura & Capacitação | 2,00 | 2,25 | 2,50 | 2,75 | Aprovação de Cursor Enterprise (já aprovado) |
+| D6 — Dados, Contexto & Conhecimento | 2,00 | 2,25 | 2,50 | 2,75 | Owner dados |
+| D10 — Fábrica Agêntica de Software | 1,00 | 1,50 | 2,00 | 2,50 | Licenças |
+### 4.5 Tabela Resumo
+| Dimensão | Ação |
+| D3 — Pessoas | OK |
+# 5. Próximos`;
+    const dims = [
+      { area: 'Pessoas, Cultura & Capacitação', codigoFramework: 'D3', score: 2.33 },
+      { area: 'Dados, Contexto & Conhecimento', codigoFramework: 'D6', score: 1.66 },
+      { area: 'Fábrica Agêntica de Software', codigoFramework: 'D10', score: 2.05 }
+    ];
+    const out = corrigirScoresOficiaisTabelaEvolucaoRoadmapSatf(md, dims);
+    assert.match(out, /D3[^\n]*\| 2,33 \|/);
+    assert.match(out, /D6[^\n]*\| 1,66 \|/);
+    assert.match(out, /D10[^\n]*\| 2,05 \|/);
+    assert.doesNotMatch(out, /D3[^\n]*\| 2,00 \|/);
+    assert.doesNotMatch(out, /D10[^\n]*\| 1,00 \|/);
+    assert.match(out, /não bloqueia/i);
+  });
+});
+
+describe('forcarCodigoDimensaoCorretoNoMarkdown', () => {
+  it('corrige D8 — Fábrica Agêntica para D10', async () => {
+    const { forcarCodigoDimensaoCorretoNoMarkdown } = await import(
+      '../src/utils/bookModoRapidoMarkdown.js'
+    );
+    const md = `Na dimensão **D8 — Fábrica Agêntica de Software** o gap é alto.
+| KPI | Baseline |
+| Score D8 — Fábrica Agêntica | 2,05 |`;
+    const out = forcarCodigoDimensaoCorretoNoMarkdown(md, {
+      area: 'Fábrica Agêntica de Software',
+      codigoFramework: 'D10',
+      score: 2.05
+    });
+    assert.match(out, /D10 — Fábrica Agêntica de Software/);
+    assert.match(out, /Score D10 — Fábrica Agêntica/);
+    assert.doesNotMatch(out, /D8 — Fábrica/);
+  });
 });
 
 describe('normalizacao book unidade Blueprint', () => {

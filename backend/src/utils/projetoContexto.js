@@ -604,16 +604,16 @@ export function inventarioDocumentosContextoFromArquivos(arquivos = []) {
   const outros = [];
 
   for (const arq of arquivos) {
-    const nome = arq?.nomeOriginal || '';
+    const nome = String(arq?.nomeOriginal || '').trim();
+    if (!nome) continue;
     const letra = extrairLetraEntregavel(nome);
     if (letra) {
       entregaveis.add(letra);
+      // Mantém o nome do arquivo no inventário (multi-projeto: não só a letra A–H).
+      outros.push(nome);
       continue;
     }
-    const lower = nome.toLowerCase();
-    if (/status[_\s-]*pilotos|plano[_\s-]*ataque|plano[_\s-]*comercial/i.test(lower)) {
-      outros.push(nome);
-    }
+    outros.push(nome);
   }
 
   return {
@@ -658,7 +658,7 @@ export function blocoInventarioDocumentosMarkdown(inventario) {
   }
   linhas.push('');
   linhas.push(
-    '> **Regra para a IA:** Cite **todos** os Entregáveis A–H listados acima quando forem relevantes à dimensão. **E–H não podem ser ignorados** se estiverem no contexto — especialmente em D1, D3, D9, D10. Use **exatamente** os rótulos acima (E = Roteiro de Pilotos, H = Diagnóstico de Clientes — não renomeie). Se um entregável não se aplicar à dimensão, escreva explicitamente "Entregável X: não aplicável nesta dimensão".'
+    '> **Regra para a IA:** Cite os Entregáveis A–H e demais anexos listados quando forem relevantes à dimensão. **Proibido** afirmar que um processo/artefato "não está documentado" se o nome ou o conteúdo constar neste inventário, no glossário ou nos trechos anexados. Use rótulos canônicos A–H quando houver letra (E = Roteiro de Pilotos; H = Diagnóstico de Clientes — não renomeie). Se um item não se aplicar à dimensão, escreva "não aplicável nesta dimensão".'
   );
   return `## Inventário de documentos do escopo\n\n${linhas.join('\n')}`;
 }
@@ -730,7 +730,7 @@ export async function blocoContextoProjetoMarkdown(prisma, projetoId) {
   partes.push('## Contexto do cliente (material de referência do projeto)');
   partes.push('');
   partes.push(
-    '> **Instrução à IA:** Priorize este material para personalizar o relatório. Cite processos, sistemas e iniciativas documentados — **incluindo todos os Entregáveis A–H anexados** (não limite-se a A–D). O que não estiver aqui nem no assessment deve ser marcado como inferência ou "não documentado" — evite texto genérico de mercado.'
+    '> **Instrução à IA:** Priorize este material para personalizar o relatório. Cite processos, sistemas e iniciativas **deste** projeto/unidade — incluindo todos os anexos listados (Entregáveis A–H e demais arquivos). **Proibido** dizer que algo "não está documentado" se constar no glossário, no inventário de anexos ou nos trechos extraídos. Só use "não documentado no contexto do projeto" quando realmente não houver menção nestes DADOS. Evite texto genérico de mercado.'
   );
   if (temGlossario) {
     partes.push(
@@ -818,7 +818,7 @@ export function projetoTemContextoCadastrado(blocoContextoMarkdown) {
 /** Regra extra no system prompt do book quando há contexto — reforça Seção 3. */
 export function blocoInstrucoesSistemaSecao3ComContexto() {
   return `
-15. **Contexto do cliente cadastrado (Seção 3 — CRÍTICO):** quando o bloco "Contexto do cliente" estiver nos DADOS, a Seção 3 deve ser escrita para **este** cliente. **Proibido** texto genérico de mercado ("empresa de tecnologia de médio porte", "fintech típica", "SaaS B2B" etc.) salvo se constar no contexto. Personalize diagnóstico, riscos, recomendações e KPIs com iniciativas, sistemas, pilotos, métricas e público-alvo documentados. **Se o inventário listar Entregáveis E–H, eles devem ser citados** nas dimensões pertinentes (D1, D3, D9, D10 em especial) — não omita documentação de escopo cadastrada. **Se houver glossário de fatos canônicos, ele vence anexos antigos em conflito.**`;
+15. **Contexto do cliente cadastrado (Seção 3 — CRÍTICO):** quando o bloco "Contexto do cliente" estiver nos DADOS, a Seção 3 deve ser escrita para **este** projeto/unidade (multi-cliente: use só o que estiver nos DADOS). **Proibido** texto genérico de mercado salvo se constar no contexto. Personalize com iniciativas, sistemas e artefatos documentados. **Não omita** anexos/inventário listados. **Proibido** contradizer glossário ou anexos com "não documentado" / lacuna inventada. **Se houver glossário de fatos canônicos, ele vence anexos antigos em conflito.**`;
 }
 
 /** Carrega regras de glossário/termos proibidos para validação pós-geração e prompts.

@@ -119,7 +119,7 @@ export function blocoMarkdownGlossarioFatosCanonicos(caracteristicas) {
 
 export function blocoInstrucoesPrioridadeGlossario() {
   return `
-16. **Glossário de fatos canônicos (PRIORIDADE MÁXIMA):** quando presente nos DADOS, é a fonte de verdade sobre pilotos, aprovações, nomenclatura e status de iniciativas. **Anexos e desejos IA são secundários** se conflitarem. Nunca use termos da lista "Termos proibidos".`;
+16. **Glossário de fatos canônicos (PRIORIDADE MÁXIMA):** quando presente nos DADOS, é a fonte de verdade sobre pilotos, aprovações, nomenclatura e status de iniciativas **deste projeto**. **Anexos e desejos IA são secundários** se conflitarem com o glossário. Nunca use termos da lista "Termos proibidos". **Não invente lacunas de documentação** que o glossário ou os anexos do projeto contradizem (ex.: não afirmar "não documentado" / "só X formalizado" se o pacote do projeto registra o contrário).`;
 }
 
 export function hashContextoFatosBook(caracteristicas, updatedAt) {

@@ -94,7 +94,29 @@ Termos recorrentes neste book de maturidade em IA (SysMap Blueprint IA).
 `;
 }
 
-export function montarApendiceMetodologiaSatf() {
+export function montarApendiceMetodologiaSatf({
+  exigeUnidade = false,
+  nDimensoesEscopo = null,
+  codigosEscopo = []
+} = {}) {
+  const nEscopo =
+    nDimensoesEscopo != null && Number(nDimensoesEscopo) > 0 ? Number(nDimensoesEscopo) : null;
+  const listaEscopo =
+    Array.isArray(codigosEscopo) && codigosEscopo.length
+      ? codigosEscopo.map((c) => String(c).toUpperCase()).join(', ')
+      : '';
+
+  const blocoEscopoUnidade =
+    exigeUnidade && nEscopo
+      ? `
+### A.2.1 Escopo deste book (unidade)
+
+Este documento analisa **${nEscopo} dimensão(ões)** em foco${listaEscopo ? `: **${listaEscopo}**` : ''}.
+O **score geral** e o status de certificação referem-se **somente** a esse escopo — não ao catálogo completo D1–D11.
+A tabela A.2 lista o instrumento SATF completo (referência metodológica). Dimensões fora do foco (incluindo **D11**, se não listada acima) **não** entram no diagnóstico nem no score geral deste book.
+`
+      : '';
+
   return `# APÊNDICES METODOLÓGICOS
 
 ## Apêndice A — Metodologia Aplicada
@@ -106,13 +128,14 @@ Este book foi produzido com o instrumento **SATF TI v3 — IA Maturidade TI**, d
 | Elemento | Descrição |
 |----------|-----------|
 | **Versão** | SATF TI v3 (2026) |
-| **Dimensões** | 11 (D1–D11) — ver tabela abaixo |
+| **Dimensões (catálogo)** | 11 (D1–D11) — ver tabela abaixo |
+| **Escopo deste book** | ${exigeUnidade && nEscopo ? `${nEscopo} dimensão(ões) em foco${listaEscopo ? ` (${listaEscopo})` : ''}` : 'Conforme dimensões ativas / em foco nos DADOS'} |
 | **Escala** | N1–N5 (Inexistente → Otimizado) |
 | **Público-alvo** | CTO, VP Engenharia, heads de plataforma, arquitetura, SRE, delivery |
 | **Score oficial** | Nota certificada pelo consultor ou teto por evidência documentada |
 | **Score declarado** | Autodeclaração do cliente — gap vs oficial deve ser explicitado quando relevante |
 
-### A.2 Dimensões oficiais (D1–D11)
+### A.2 Dimensões oficiais (D1–D11) — catálogo do instrumento
 
 | Código | Dimensão |
 |--------|----------|
@@ -126,8 +149,8 @@ Este book foi produzido com o instrumento **SATF TI v3 — IA Maturidade TI**, d
 | D8 | Modernização & Sustentação de Legado |
 | D9 | FinOps, Valor & Apoio ao Negócio |
 | D10 | Fábrica Agêntica de Software *(fora da média geral)* |
-| D11 | Conformidade Regulatória de IA |
-
+| D11 | Conformidade Regulatória de IA *(catálogo; só no diagnóstico se estiver no escopo)* |
+${blocoEscopoUnidade}
 ### A.3 Três camadas de avaliação
 
 1. **Coleta Likert** — questionário por dimensão aplicado a avaliadores de TI/engenharia.
@@ -160,7 +183,7 @@ Termos recorrentes no instrumento SATF TI v3 e neste book.
 | **Evidência SATF** | Artefato exigido para sustentar notas altas (≥ 4) — documento, métrica ou processo auditável. |
 | **Score oficial** | Nota validada/certificada — base para diagnóstico e roadmap deste book. |
 | **Score declarado** | Autodeclaração do cliente antes ou independente da certificação. |
-| **D11** | Dimensão de Conformidade Regulatória de IA — inventário, classificação de risco, LGPD técnico. |
+| **D11** | Conformidade Regulatória de IA — no catálogo SATF; no book por unidade só entra se estiver no escopo de foco. |
 | **Guardrails** | Controles de segurança e política aplicados a prompts, tools e saídas de LLM. |
 | **Tech radar** | Catálogo de tecnologias em Adotar / Experimentar / Avaliar / Evitar. |
 | **DORA** | Métricas de performance de entrega de software (lead time, deploy frequency, MTTR, CFR). |
@@ -174,8 +197,8 @@ export function montarApendicesMetodologicosBlueprint(_glossarioProjetoIgnorado 
   return `${montarApendiceMetodologiaBlueprint()}\n\n${montarApendiceGlossarioBlueprint()}`.trim();
 }
 
-export function montarApendicesMetodologicosSatf(_glossarioProjetoIgnorado = '') {
-  return `${montarApendiceMetodologiaSatf()}\n\n${montarApendiceGlossarioSatf()}`.trim();
+export function montarApendicesMetodologicosSatf(opts = {}) {
+  return `${montarApendiceMetodologiaSatf(opts)}\n\n${montarApendiceGlossarioSatf()}`.trim();
 }
 
 /** Indica se o book já contém o bloco canônico de apêndices metodológicos no final. */
@@ -216,14 +239,20 @@ export function posicionarApendicesMetodologicosComoUltimaSecao(markdown, option
   const { corpo, apendices: existente } = extrairBlocoApendicesMetodologicos(limpo);
   if (!corpo && !existente) return String(limpo || '').trim();
 
-  const { framework = 'blueprint' } = options;
+  const { framework = 'blueprint', exigeUnidade = false, nDimensoesEscopo = null, codigosEscopo = [] } =
+    options;
   // glossarioProjeto (se passado) é ignorado de propósito — não republicar no Apêndice B.
   const existenteLimpo = existente ? removerGlossarioFatosCanonicosDoMarkdown(existente) : null;
+  // Book por unidade: sempre regenera apêndice com escopo — evita template enterprise ("10 dims"/D11 sem ressalva).
   const bloco =
-    existenteLimpo && bookTemApendicesMetodologicos(existenteLimpo)
+    !exigeUnidade && existenteLimpo && bookTemApendicesMetodologicos(existenteLimpo)
       ? existenteLimpo
       : framework === 'satf'
-        ? montarApendicesMetodologicosSatf()
+        ? montarApendicesMetodologicosSatf({
+            exigeUnidade,
+            nDimensoesEscopo,
+            codigosEscopo
+          })
         : montarApendicesMetodologicosBlueprint();
 
   if (!corpo) return bloco;

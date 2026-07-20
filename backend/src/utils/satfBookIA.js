@@ -51,7 +51,7 @@ import {
 import { listarAreasDoProjeto } from './areaFrameworkCatalog.js';
 import { mapaApresentacaoDimensoes } from './projetoDimensoesConfig.js';
 import { calcularScoresConsolidadoMaturidade, nivelNumericoDeScore } from './scoresConsolidadoProjetoMaturidade.js';
-import { enriquecerScoresDashboardSatf } from './projetoDimensaoCertificacao.js';
+import { enriquecerScoresDashboardSatf, agregarScoresECertificacaoPorDimensoes } from './projetoDimensaoCertificacao.js';
 import { ordenarAreasPorFramework, blocoOrdemDimensoesFrameworkMarkdown, TOTAL_DIMENSOES_SATF, garantirTodasDimensoesFramework } from './ordemDimensoesFramework.js';
 import { montarComparativoVersoesProjeto, blocoEvolucaoVersoesMarkdown } from './evolucaoVersoesProjeto.js';
 import {
@@ -537,11 +537,26 @@ function montarDadosBlockSatf({
   const blocoCert = certificacaoSatf
     ? `## Certificação consultor
 - Status geral: **${certificacaoSatf.statusGeral}**
-- Dimensões pendentes: **${certificacaoSatf.pendentes}**
-- Certificadas: **${certificacaoSatf.certificadas}**
-- Rebaixadas: **${certificacaoSatf.rebaixadas}**
+- Dimensões no escopo deste book: **${certificacaoSatf.totalDimensoesEscopo ?? certificacaoSatf.totalDimensoes ?? '—'}**${
+        Array.isArray(certificacaoSatf.codigosEscopo) && certificacaoSatf.codigosEscopo.length
+          ? ` (${certificacaoSatf.codigosEscopo.join(', ')})`
+          : ''
+      }
+- Dimensões pendentes (neste escopo): **${certificacaoSatf.pendentes}**
+- Certificadas (neste escopo): **${certificacaoSatf.certificadas}**
+- Rebaixadas (neste escopo): **${certificacaoSatf.rebaixadas}**
 - Score geral declarado: **${scoreGeralDeclarado?.toFixed(2) ?? '—'}**
-- Score geral **oficial** (usar no diagnóstico): **${scoreGeral.toFixed(2)}**`
+- Score geral **oficial** (usar no diagnóstico): **${scoreGeral.toFixed(2)}**
+${
+  certificacaoSatf.escopoUnidade
+    ? `- **Regra:** o score geral deste book é a média ponderada **somente** das dimensões listadas acima — **proibido** citar "10 dimensões" do framework completo ou misturar dims fora do foco.`
+    : ''
+}
+${
+  certificacaoSatf.escopoUnidade
+    ? `- **Proibido** explicar gap declarado↔oficial com "peso 2× em D7" se os gaps por dimensão forem zero; peso 2× só existe com setor regulado e afeta igualmente declarado e oficial.`
+    : ''
+}`
     : '';
 
   const blocoEscopoFoco = exigeUnidade ? blocoEscopoFocoUnidadeSatf(unidadeMeta) : '';
@@ -682,13 +697,25 @@ ${blocoAvaliadoresConsolidadoMarkdown(avaliacoesFiltradas, filtroNivelMax)}`
   if (desejos) partes.push(desejos);
 
   if (certificacaoSatf) {
+    const escopoTxt =
+      certificacaoSatf.escopoUnidade &&
+      Array.isArray(certificacaoSatf.codigosEscopo) &&
+      certificacaoSatf.codigosEscopo.length
+        ? ` (${certificacaoSatf.codigosEscopo.join(', ')})`
+        : '';
     partes.push(`## Certificação consultor
 - Status geral: **${certificacaoSatf.statusGeral}**
-- Dimensões pendentes: **${certificacaoSatf.pendentes}**
-- Certificadas: **${certificacaoSatf.certificadas}**
-- Rebaixadas: **${certificacaoSatf.rebaixadas}**
+- Dimensões no escopo deste book: **${certificacaoSatf.totalDimensoesEscopo ?? certificacaoSatf.totalDimensoes ?? '—'}**${escopoTxt}
+- Dimensões pendentes (neste escopo): **${certificacaoSatf.pendentes}**
+- Certificadas (neste escopo): **${certificacaoSatf.certificadas}**
+- Rebaixadas (neste escopo): **${certificacaoSatf.rebaixadas}**
 - Score geral declarado: **${scoreGeralDeclarado?.toFixed(2) ?? '—'}**
-- Score geral **oficial** (usar no diagnóstico): **${scoreGeral.toFixed(2)}**`);
+- Score geral **oficial** (usar no diagnóstico): **${scoreGeral.toFixed(2)}**
+${
+  certificacaoSatf.escopoUnidade
+    ? '- **Regra:** score geral = média ponderada **somente** das dimensões em escopo — **proibido** "10 dimensões" ou dims fora do foco.\n- **Proibido** explicar gap declarado↔oficial com "peso 2× em D7" quando gaps por dimensão forem zero.'
+    : ''
+}`);
   }
 
   await reportar('taxonomia', 'Pacote de dados — taxonomia e scores…');
@@ -823,9 +850,10 @@ async function montarChunksSatf({
 Gere SOMENTE a Seção 1 do book SATF TI v3 por unidade, em Markdown condensado:
 
 # 1. METODOLOGIA SATF TI v3
-- Instrumento SysMap **SATF TI v3 — IA Maturidade TI** para maturidade de IA em **TI e engenharia** (11 dimensões D1–D11, escala N1–N5)
+- Instrumento SysMap **SATF TI v3 — IA Maturidade TI** para maturidade de IA em **TI e engenharia** (catálogo D1–D11; **este book analisa só as dimensões em escopo nos DADOS**)
 - Três camadas: coleta Likert → evidência obrigatória (nota ≥4) → certificação consultor
 - Como interpretar score **oficial** vs declarado
+- Score geral e certificação pendente: use **somente** os números do bloco Certificação/Resultado geral nos DADOS (escopo da unidade) — **proibido** escrever "10 dimensões" ou "todas as dimensões do modelo" se o escopo listar menos
 - **Não** apresente MIT CISR, SysMap Blueprint IA ou 16 dimensões como metodologia deste documento
 
 Público: CTO / engenharia. Metodologia = **SATF TI v3** exclusivamente.
@@ -850,6 +878,8 @@ Gere SOMENTE a Seção 2 do book SATF por unidade:
 # 2. SUMÁRIO EXECUTIVO
 - 1 parágrafo diagnóstico da unidade "${unidadeMeta?.nome || 'esta unidade'}" (situação atual)${focoUnidadeTxt}
 - Tabela: Score oficial | Nível | Gap vs declarado (se houver) | Certificação pendente? | Avaliadores
+- O **Score Geral** da tabela deve ser **reproduzível** a partir dos scores oficiais das dimensões em escopo nos DADOS (média ponderada pelos pesos; D10 fora da média se aparecer). Se não fechar, use o score geral oficial dos DADOS e **não invente** explicação com "peso 2× em D7" quando gaps por dimensão forem zero.
+- Certificação: use a contagem de dims **deste escopo** (bloco Certificação) — **proibido** "pendente (10 dimensões)" se o escopo tiver outra quantidade.
 - 5 insights em bullet (foco engenharia/plataforma/SDLC; **somente** dimensões SATF em escopo nos DADOS)
 - Subseção **Evolução entre rodadas** se dados disponíveis
 
@@ -1790,9 +1820,33 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
     );
   }
 
+  // Book por unidade: score geral e certificação = somente dims de foco/escopo
+  // (não o composto enterprise de ~10 dims ativas dos avaliadores).
+  let dimsEscopoUnidadeParaScore = null;
+  if (exigeUnidade) {
+    const baseFoco = unidadeComFocoDefinido(unidadeMeta)
+      ? dimensoesSecao3BookUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
+      : filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'satf');
+    dimsEscopoUnidadeParaScore = filtrarDimensoesPorModeloOperacional(baseFoco, unidadeMeta);
+    if (dimsEscopoUnidadeParaScore.length) {
+      const agregado = agregarScoresECertificacaoPorDimensoes(dimsEscopoUnidadeParaScore);
+      scoreGeral = agregado.scoreGeralOficial;
+      scoreGeralDeclarado = agregado.scoreGeralDeclarado;
+      const codigosEscopo = dimsEscopoUnidadeParaScore
+        .map((d) => String(codigoEfetivoDimensaoFramework(d, 'satf') || d.codigoFramework || '').toUpperCase())
+        .filter((c) => /^D\d{1,2}$/.test(c));
+      certificacaoSatf = {
+        ...agregado.certificacaoResumo,
+        totalDimensoesEscopo: dimsEscopoUnidadeParaScore.length,
+        codigosEscopo
+      };
+    }
+  }
+
   const nivel = nivelNumericoDeScore(scoreGeral);
   const dimsRelevantesUnidade = exigeUnidade
-    ? filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
+    ? dimsEscopoUnidadeParaScore ||
+      filtrarDimensoesFocoUnidade(dimensoesDiagnostico, unidadeMeta, 'satf')
     : dimensoesDiagnostico;
   const dimsParaDados =
     exigeUnidade && unidadeComFocoDefinido(unidadeMeta) ? dimsRelevantesUnidade : dimensoesDiagnostico;
@@ -2181,7 +2235,10 @@ export async function executarGeracaoBookSatf(req, res, deps, opts = {}) {
   const relatorioFinal = !modoRapido
     ? posicionarApendicesMetodologicosComoUltimaSecao(relatorioComCapas, {
         framework: 'satf',
-        glossarioProjeto: regrasFatos.glossario
+        glossarioProjeto: regrasFatos.glossario,
+        exigeUnidade,
+        nDimensoesEscopo: certificacaoSatf?.totalDimensoesEscopo ?? dimsEscopoUnidadeParaScore?.length ?? null,
+        codigosEscopo: certificacaoSatf?.codigosEscopo || []
       })
     : relatorioComCapas;
 

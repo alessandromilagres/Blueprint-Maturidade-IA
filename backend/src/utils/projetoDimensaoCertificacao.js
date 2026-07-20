@@ -176,6 +176,86 @@ export function aplicarCertificacaoAosScores(scoresPorArea, certMap, options = {
   };
 }
 
+function entraNaMediaGeralDim(a) {
+  return a?.foraDeEscopo !== true && a?.foraDaMediaGeral !== true;
+}
+
+function mediaPonderadaOuSimples(dimensoes, campoScore) {
+  const paraMedia = (dimensoes || []).filter((a) => {
+    if (!entraNaMediaGeralDim(a)) return false;
+    const v = Number(a?.[campoScore] ?? a?.score ?? 0);
+    return Number.isFinite(v) && v > 0;
+  });
+  if (!paraMedia.length) return 0;
+  const comPeso = paraMedia.some((a) => Number(a.peso) > 0);
+  if (comPeso) {
+    let soma = 0;
+    let pesos = 0;
+    for (const a of paraMedia) {
+      const p = Number(a.peso) || 0;
+      if (p <= 0) continue;
+      soma += Number(a[campoScore] ?? a.score) * p;
+      pesos += p;
+    }
+    return pesos > 0 ? soma / pesos : 0;
+  }
+  return (
+    paraMedia.reduce((acc, a) => acc + Number(a[campoScore] ?? a.score), 0) / paraMedia.length
+  );
+}
+
+/**
+ * Agrega score geral (declarado/oficial) e resumo de certificação a partir de um
+ * subconjunto de dimensões — usado no book por unidade (só dims de foco/escopo).
+ */
+export function agregarScoresECertificacaoPorDimensoes(dimensoes = []) {
+  const lista = Array.isArray(dimensoes) ? dimensoes : [];
+  const scoreGeralOficial = mediaPonderadaOuSimples(
+    lista,
+    lista.some((d) => d.scoreOficial != null) ? 'scoreOficial' : 'score'
+  );
+  const scoreGeralDeclarado = mediaPonderadaOuSimples(
+    lista,
+    lista.some((d) => d.scoreDeclarado != null) ? 'scoreDeclarado' : 'score'
+  );
+
+  const dimsAtivas = lista.filter(
+    (a) =>
+      entraNaMediaGeralDim(a) &&
+      !a.semDadosConsolidados &&
+      Number(a.scoreDeclarado ?? a.score ?? 0) > 0
+  );
+  const pendentes = dimsAtivas.filter((a) => (a.certificacao?.status || 'pendente') === 'pendente');
+  const certificadas = dimsAtivas.filter((a) => a.certificacao?.status === 'certificado');
+  const rebaixadas = dimsAtivas.filter((a) => a.certificacao?.status === 'rebaixado');
+  const codigosEscopo = lista
+    .map((d) => String(d.codigoFramework || d.codigo || '').trim().toUpperCase())
+    .filter((c) => /^D\d{1,2}$/.test(c));
+
+  return {
+    scoreGeralOficial: parseFloat(Number(scoreGeralOficial).toFixed(2)),
+    scoreGeralDeclarado: parseFloat(Number(scoreGeralDeclarado).toFixed(2)),
+    certificacaoResumo: {
+      statusGeral:
+        pendentes.length === 0 && dimsAtivas.length > 0
+          ? 'certificado'
+          : dimsAtivas.length === 0
+            ? 'sem_dados'
+            : 'pendente',
+      totalDimensoes: dimsAtivas.length,
+      totalDimensoesEscopo: lista.length,
+      codigosEscopo,
+      pendentes: pendentes.length,
+      certificadas: certificadas.length,
+      rebaixadas: rebaixadas.length,
+      escopoUnidade: true,
+      temGapDeclaradoVsOficial: lista.some(
+        (a) => (a.certificacao?.gapDeclaradoVsOficial || 0) > 0.05
+      )
+    }
+  };
+}
+
 export async function montarPainelCertificacaoSatf(
   prisma,
   projetoId,

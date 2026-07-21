@@ -2,7 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   blocoDescricaoUnidadeMarkdown,
-  blocoUnidadeRelatorioMarkdown
+  blocoUnidadeRelatorioMarkdown,
+  extrairEscopoBibliotecaRelatorio
 } from '../src/utils/relatorioUnidadeIA.js';
 
 const DESC_MULTILINHA = `COE-IA (Centro de Excelência de IA) — Descrição Breve
@@ -60,5 +61,26 @@ describe('blocoUnidadeRelatorioMarkdown — Descrição multilinha', () => {
     // Após o rótulo, o texto multilinha permanece contínuo (sem quebra de list item)
     const aposDesc = md.slice(idxDesc);
     assert.match(aposDesc, /^\*\*Descrição\*\*\n\nCOE-IA \(Centro de Excelência de IA\) — Descrição Breve\n\nMissão da área:/);
+  });
+});
+
+describe('extrairEscopoBibliotecaRelatorio', () => {
+  it('marca book geral como escopo geral', () => {
+    assert.deepEqual(extrairEscopoBibliotecaRelatorio('completo', null), {
+      escopo: 'geral',
+      empresaUnidadeId: null,
+      unidadeNome: null
+    });
+  });
+
+  it('extrai nome da unidade do snapshot', () => {
+    assert.deepEqual(
+      extrairEscopoBibliotecaRelatorio('book_unidade', {
+        escopoRelatorio: 'unidade_organizacional',
+        filtroEmpresaUnidadeIdAplicado: 12,
+        filtroEmpresaUnidade: { id: 12, nome: 'COE-IA' }
+      }),
+      { escopo: 'unidade', empresaUnidadeId: 12, unidadeNome: 'COE-IA' }
+    );
   });
 });

@@ -19,6 +19,7 @@ import exportacaoRoutes from './routes/exportacao.js';
 import diagnosticoRoutes from './routes/diagnostico.js';
 import relatoriosIARoutes, { salvarRelatorioIA } from './routes/relatorios-ia.js';
 import relatoriosIAJobsRoutes from './routes/relatorios-ia-jobs.js';
+import assistenteRoutes from './routes/assistente.js';
 import empresaLogoRoutes from './routes/empresa-logo.js';
 import regulatorioRoutes from './routes/regulatorio.js';
 import iniciativasRoutes from './routes/iniciativas.js';
@@ -153,6 +154,7 @@ import {
   blocoInstrucoesPrioridadeGlossario,
   carregarRegrasFatosContextoProjeto
 } from './utils/projetoContexto.js';
+import { ensureAssistenteSchema } from './utils/assistenteSchema.js';
 import { validarFatosCanonicosBook } from './utils/projetoContextoFatos.js';
 import { blocoBenchmarkDimensaoPrompt } from './utils/bibliotecaBenchmarksMercado.js';
 import {
@@ -1511,6 +1513,9 @@ app.use('/api/projetos', projetoContextoRoutes);
 // Rotas de relatórios IA persistidos (versionamento + biblioteca)
 app.use('/api/relatorios-ia', relatoriosIARoutes);
 app.use('/api/relatorios-ia-jobs', relatoriosIAJobsRoutes);
+
+// Assistente Agentica — chat de ajuda (sistema, tese, dimensões, projeto)
+app.use('/api/assistente', assistenteRoutes);
 
 // ==================== EMPRESAS ====================
 
@@ -9615,6 +9620,7 @@ initPrismaUsuarioColumnProbe()
   .then(() => ensureProjetoDimensaoConfigSchema(prisma))
   .then(() => ensureProjetoContextoSchema(prisma))
   .then(() => ensureProjetoFrameworkSchema(prisma))
+  .then(() => ensureAssistenteSchema(prisma))
   .then(async () => {
     try {
       await ensureAreaFrameworkSchema(prisma);

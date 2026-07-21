@@ -29,6 +29,7 @@ import {
   Target,
   TrendingUp,
   Info,
+  MessagesSquare,
 } from 'lucide-react';
 import { useTheme, COLOR_THEMES } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -223,6 +224,22 @@ export default function Layout() {
                 />
               )}
 
+              {!ehAvaliador && (
+                <NavLink
+                  to="/assistente"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                      isActive
+                        ? 'bg-blue-600/30 text-white font-medium'
+                        : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                    }`
+                  }
+                >
+                  <MessagesSquare className="w-4 h-4" />
+                  <span>Assistente</span>
+                </NavLink>
+              )}
+
               {/* Especificações - oculto para avaliadores */}
               {!ehAvaliador && (
                 <NavLink
@@ -256,6 +273,7 @@ export default function Layout() {
                     { to: '/dashboard/comparativo-empresa', icon: Building2, label: 'Comparativo por Empresa' },
                     { to: '/dashboard/projetos-ranking', icon: BarChart3, label: 'Ranking Projetos' },
                     { to: '/biblioteca-ia', icon: Library, label: 'Biblioteca de Relatórios IA' },
+                    { to: '/assistente', icon: MessagesSquare, label: 'Assistente Agentica' },
                   ]}
                 />
               )}

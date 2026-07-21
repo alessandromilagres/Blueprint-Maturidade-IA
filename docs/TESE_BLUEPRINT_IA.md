@@ -8,7 +8,7 @@
 
 Este documento apresenta o **Blueprint IA** (também referido como **Blueprint Agêntico** na documentação metodológica completa), um framework e uma plataforma para avaliação sistemática da maturidade em Inteligência Artificial (IA) em organizações empresariais e para especificação técnica de produtos de IA. O sistema fundamenta-se no modelo MIT CISR Enterprise AI Maturity (Weill, Woerner & Sebastian, 2024) e incorpora conceitos de frameworks reconhecidos como McKinsey Value Creation, SFIA, NIST AI RMF e ADKAR/Prosci.
 
-A proposta organiza-se em **três módulos integrados**: (1) **Avaliação de Maturidade Empresarial**, com escolha de **framework por projeto** — **Blueprint 16** (16 dimensões, 108 perguntas, visão enterprise/C-Level alinhada ao MIT CISR) ou **SATF TI v3** (11 dimensões, 70 perguntas, visão de engenharia, plataforma, legado e Fábrica Agêntica para TI/CTO); (2) **Avaliação de Produtos IA-First**, com 8 perguntas universais de Transformação Agêntica e **12 verticais setoriais** com 6 perguntas cada (72 perguntas verticais), totalizando **80 perguntas** por avaliação de produto; e (3) **Especificação Automática**, que gera documentação de produto e engenharia (por exemplo PRD, requisitos, arquitetura e blueprint de construção) com apoio de IA generativa e **arquitetura multi-provedor** (Anthropic, OpenAI, Groq), com **exportação** de relatórios em Markdown, Word e PDF.
+A proposta organiza-se em **três módulos integrados**: (1) **Avaliação de Maturidade Empresarial**, com escolha de **framework por projeto** — **Blueprint 16** (16 dimensões, 108 perguntas, visão enterprise/C-Level alinhada ao MIT CISR) ou **SATF TI v3** (11 dimensões, 70 perguntas, visão de engenharia, plataforma, legado e Fábrica Agêntica para TI/CTO), com recortes por **unidade organizacional**; (2) **Avaliação de Produtos IA-First**, com 8 perguntas universais de Transformação Agêntica e **12 verticais setoriais** com 6 perguntas cada (72 perguntas verticais), totalizando **80 perguntas** por avaliação de produto; e (3) **Especificação Automática**, que gera documentação de produto e engenharia (por exemplo PRD, requisitos, arquitetura e blueprint de construção) com apoio de IA generativa e **arquitetura multi-provedor** (Anthropic, OpenAI, Groq), com **exportação** de relatórios em Markdown, Word e PDF. A plataforma inclui ainda **Biblioteca IA** versionada (escopo Geral ou por unidade) e o **Assistente Agentica** (copiloto com RAG e permissões por unidade).
 
 O framework oferece métricas quantitativas, projeções financeiras de ROI, benchmarking setorial e continuidade entre diagnóstico e entrega técnica, permitindo identificar gaps, priorizar investimentos e acelerar a jornada de transformação digital com IA.
 
@@ -616,7 +616,7 @@ Score         ├──────────────┼──────
 
 O Blueprint IA transforma a metodologia da tese em um fluxo operacional de diagnóstico, análise, geração de relatórios e especificação. A plataforma parte do cadastro de empresas, projetos, produtos e usuários; distribui avaliações por convite; consolida respostas; gera painéis executivos; e usa IA generativa para produzir relatórios e documentos técnicos.
 
-O funcionamento pode ser resumido em nove etapas:
+O funcionamento pode ser resumido em dez etapas:
 
 1. **Configuração inicial**: administradores cadastram empresas, usuários, projetos (com **escolha de framework**: Blueprint 16 ou SATF TI v3), produtos, custos de referência e provedores de IA.
 2. **Planejamento da avaliação**: o sistema sugere dimensões de avaliação a partir do cargo do avaliador, usando a matriz Cargo × Dimensão, mas permite ajuste manual.
@@ -625,8 +625,9 @@ O funcionamento pode ser resumido em nove etapas:
 5. **Consolidação**: o motor de scoring calcula progresso, score por dimensão, score geral ponderado e recortes por avaliador, projeto, produto e empresa.
 6. **Análise comparativa**: a tela de análise de avaliações permite comparar avaliadores finalizados por dimensão, identificar divergências e observar critérios escolhidos.
 7. **Dashboards executivos**: painéis de prontidão e comparativo por empresa apoiam priorização por score, conclusão, riscos e potencial de escala.
-8. **Relatórios e biblioteca IA**: relatórios estratégicos e books completos são gerados em background, salvos em biblioteca versionada e exportados em Markdown, Word ou PDF.
-9. **Especificação e execução**: a partir do diagnóstico e dos dados do produto, o módulo de especificação automática gera PRD, requisitos, arquitetura, cronograma, custos e blueprint de construção.
+8. **Relatórios e biblioteca IA**: relatórios estratégicos e books (empresa **geral** ou **por unidade organizacional**) são gerados em background, salvos em biblioteca versionada com indicação de escopo, e exportados em Markdown, Word ou PDF.
+9. **Assistente Agentica**: copiloto com RAG sobre manual, tese, contexto do projeto e books autorizados; modos de pergunta, feedback e permissões por unidade.
+10. **Especificação e execução**: a partir do diagnóstico e dos dados do produto, o módulo de especificação automática gera PRD, requisitos, arquitetura, cronograma, custos e blueprint de construção.
 
 ### 10.2 Papéis e Acessos
 
@@ -718,7 +719,31 @@ Esse desenho evita timeout no navegador, permite continuidade mesmo em relatóri
 
 **Isolamento por framework (Jul/2026):** projetos SATF usam módulos dedicados (`satfBookIA.js`, `satfRelatorioExecutivoIA.js`) com validação taxonômica pós-geração; projetos Blueprint mantêm fluxo MIT CISR e 16 dimensões inalterados.
 
-### 10.8 Arquitetura Técnica Resumida
+**Escopo Geral × por unidade:** cada geração pode cobrir a empresa/projeto inteiro (**Geral**) ou uma **unidade organizacional** (`EmpresaUnidade`), com tipos dedicados (`book_unidade*`, `executivo_unidade`, variantes SATF). O snapshot do relatório registra a unidade aplicada; a **Biblioteca IA** exibe o escopo (Geral ou “Por unidade · nome”) e permite filtrar por ele.
+
+### 10.8 Unidades Organizacionais e Governança Multi-Unidade
+
+Empresas podem cadastrar **unidades organizacionais** (ex.: Delivery, COE-IA, Sustentação), incluindo a unidade canônica **Geral**. Usuários têm:
+
+- **Unidade home** (`empresaUnidadeId`) — vínculo principal do avaliador/gestor
+- **Unidades governadas** (`unidadesGovernadasIds`) — unidades adicionais sob responsabilidade do gestor (peso 0,5 no consolidado por unidade; home = peso 1)
+
+No diagnóstico filtrado por unidade, entram avaliações de home ∪ governadas. Nos **relatórios por unidade**, o book usa o escopo e as dimensões em foco da unidade. No **Assistente Agentica**, usuários com home e/ou governadas só recuperam books/relatórios dessas unidades (além dos de escopo Geral); `admin` e `sysmap` mantêm visão completa.
+
+### 10.9 Assistente Agentica
+
+A plataforma inclui o **Assistente Agentica** (`/assistente`): copiloto de produto e metodologia com:
+
+1. **RAG híbrido** (palavra-chave + embeddings) sobre manual do sistema, excertos de tese/guias, contexto do projeto e **última versão** de cada tipo de relatório IA indexado
+2. **Modos de pergunta**: Automático, Como usar, Metodologia, Este projeto, Deste book
+3. **Fontes clicáveis** para abrir o relatório ou a tela citada
+4. **Ações contextuais** (glossário, book, certificação, dashboard, etc.)
+5. **Feedback** 👍/👎 com motivo, usado para afinar dicas em perguntas seguintes
+6. **Permissões finas** por unidade (item acima) e isolamento por empresa no acesso ao projeto
+
+Conversas são persistidas por usuário. Relatórios antigos indexam sob demanda na primeira recuperação ou ao salvar nova versão.
+
+### 10.10 Arquitetura Técnica Resumida
 
 | Camada | Tecnologia / Função |
 |--------|----------------------|
@@ -727,26 +752,28 @@ Esse desenho evita timeout no navegador, permite continuidade mesmo em relatóri
 | Backend | Node.js, Express, Prisma |
 | Banco de dados | PostgreSQL em produção |
 | IA generativa | Provedores configuráveis: Anthropic, OpenAI e Groq |
-| Autenticação | JWT e rotas protegidas por perfil |
+| Assistente / RAG | Chunks e embeddings persistidos; streaming SSE |
+| Autenticação | JWT e rotas protegidas por perfil; escopo por empresa/unidade |
 | Auditoria operacional | Eventos de convite, abertura, início, salvamento e finalização |
 | Deploy | Azure DevOps, Docker/Docker Compose, Nginx/HTTPS |
 | Exportação | Markdown, Word e PDF |
 
-### 10.9 Artefatos Gerados
+### 10.11 Artefatos Gerados
 
 Ao final de um ciclo, a organização pode obter:
 
 - Dashboard executivo de maturidade
 - Dashboard de prontidão executiva
 - Comparativo executivo por empresa
-- Score consolidado por empresa, projeto, produto, dimensão e avaliador
+- Score consolidado por empresa, projeto, produto, dimensão e avaliador (e por unidade, quando aplicável)
 - Trilha operacional de avaliadores e alertas de qualidade
-- Relatório estratégico C-Level
-- Book completo de maturidade em IA
+- Relatório estratégico C-Level (geral ou por unidade)
+- Book completo de maturidade em IA (geral ou por unidade; Blueprint ou SATF)
 - Análise comparativa de avaliações por dimensão
 - Relatórios exportáveis em Word, Markdown e PDF
 - Especificações técnicas de produto IA-First
-- Biblioteca histórica de relatórios IA versionados
+- Biblioteca histórica de relatórios IA versionados, com escopo Geral/unidade
+- Conversas e respostas do Assistente Agentica ancoradas em fontes autorizadas
 
 ---
 
@@ -765,6 +792,8 @@ O **Blueprint IA** apresenta um framework e uma plataforma robustos, cientificam
 5. **Benchmarking**: Capacidade de comparação setorial e identificação de gaps
 6. **Da avaliação à entrega**: Módulo de **especificação automática**, exportação multi-formato e arquitetura multi-provedor de IA generativa
 7. **Operacionalização do diagnóstico**: Convites, fluxo restrito de avaliador, respostas "sem informação", matriz Cargo × Dimensão, análise comparativa e geração assíncrona de relatórios IA
+8. **Unidades organizacionais**: Diagnóstico e books por unidade, consolidado com home/governadas e Biblioteca com escopo Geral × unidade
+9. **Assistente Agentica**: Copiloto com RAG, modos de pergunta, fontes clicáveis, feedback e permissões finas por unidade
 
 ### 11.3 Limitações e Trabalhos Futuros
 
@@ -841,9 +870,19 @@ O Blueprint IA permite às organizações:
 ---
 
 *Documento atualizado em: Julho de 2026*
-*Versão: 2.6*
+*Versão: 2.7*
 
 ---
+
+### Nota de Atualização (v2.7)
+
+Esta versão documenta a **operação por unidades organizacionais** e o **Assistente Agentica** (Jul/2026):
+
+1. **Unidades** (`EmpresaUnidade`): home do usuário, unidades governadas (peso 0,5 no consolidado) e filtros de diagnóstico por unidade
+2. **Relatórios Geral × por unidade**: tipos `book_unidade*`, `executivo_unidade` e variantes SATF; snapshot com metadados de unidade
+3. **Biblioteca IA**: badge e filtro de escopo (Geral ou Por unidade · nome)
+4. **Assistente Agentica**: RAG (manual, tese, contexto, books), modos, fontes clicáveis, ações, feedback 👍/👎 e permissões finas (home ∪ governadas; `admin`/`sysmap` sem restrição de unidade)
+5. **Glossário/fatos canônicos** no contexto do projeto (prioridade sobre anexos) permanece como reforço de qualidade factual dos books
 
 ### Nota de Atualização (v2.6)
 

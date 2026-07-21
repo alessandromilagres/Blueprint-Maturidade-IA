@@ -12,11 +12,11 @@ Este framework metodológico fundamenta-se em modelos acadêmicos consolidados �
 
 A plataforma oferece três módulos integrados:
 
-1. **Avaliação de Maturidade Empresarial**: escolha de **framework por projeto** — **Blueprint 16** (16 dimensões, 108 perguntas, C-Level/MIT) ou **SATF TI v3** (11 dimensões, 70 perguntas, TI/engenharia com evidência obrigatória e certificação); múltiplos avaliadores, seleção de dimensões por cargo e respostas "sem informação"
+1. **Avaliação de Maturidade Empresarial**: escolha de **framework por projeto** — **Blueprint 16** (16 dimensões, 108 perguntas, C-Level/MIT) ou **SATF TI v3** (11 dimensões, 70 perguntas, TI/engenharia com evidência obrigatória e certificação); múltiplos avaliadores, seleção de dimensões por cargo, respostas "sem informação" e recortes por **unidade organizacional**
 2. **Avaliação de Produtos IA-First**: 8 perguntas universais de Transformação Agêntica + 12 verticais setoriais
-3. **Especificação Automática**: Geração de documentação técnica completa via IA generativa, biblioteca de relatórios IA e exportações multi-formato
+3. **Especificação Automática**: Geração de documentação técnica completa via IA generativa, biblioteca de relatórios IA (Geral ou por unidade) e exportações multi-formato — complementada pelo **Assistente Agentica** (copiloto com RAG)
 
-> **Nota de atualização — Junho/2026**: esta tese narrativa foi preservada como documento extenso do Blueprint Agêntico. Para a síntese mais alinhada ao sistema implementado, consulte também `docs/TESE_BLUEPRINT_IA.md`; para o fluxo operacional ponta a ponta, consulte `docs/COMO_SISTEMA_FUNCIONA.md`.
+> **Nota de atualização — Julho/2026**: esta tese narrativa foi preservada como documento extenso do Blueprint Agêntico. Para a síntese mais alinhada ao sistema implementado (unidades, Biblioteca e Assistente), consulte `docs/TESE_BLUEPRINT_IA.md` v2.7; para o fluxo operacional ponta a ponta, consulte `docs/COMO_SISTEMA_FUNCIONA.md`.
 
 **Palavras-chave**: Inteligência Artificial, Multi-Agent Systems, Maturidade Organizacional, Transformação Agêntica, Transformação Digital, ROI em IA, Especificação Automática, LLMs.
 
@@ -218,8 +218,9 @@ O Blueprint Agêntico opera como uma plataforma de diagnóstico e execução:
 3. **Resposta guiada**: avaliadores acessam uma entrada restrita, respondem perguntas com critérios de 1 a 5, recebem esclarecimentos enriquecidos e podem marcar "sem informação" quando não possuem evidência.
 4. **Consolidação**: o motor de cálculo gera progresso, score por dimensão, score geral ponderado, comparações por avaliador e análises por projeto/produto/empresa.
 5. **Análise e decisão**: dashboards, análise de avaliações por dimensão e relatórios executivos mostram gaps, divergências, prioridades e oportunidades de ROI.
-6. **Geração IA em background**: relatórios estratégicos e books completos rodam como jobs em background, são versionados em biblioteca e podem ser exportados.
-7. **Especificação automática**: produtos IA-First podem gerar PRD, requisitos, arquitetura, estimativas e blueprint de construção a partir dos dados coletados.
+6. **Geração IA em background**: relatórios estratégicos e books (escopo **Geral** ou **por unidade organizacional**) rodam como jobs em background, são versionados na Biblioteca IA (com indicação de escopo) e podem ser exportados.
+7. **Assistente Agentica**: copiloto com RAG sobre manual, tese, contexto do projeto e books autorizados (respeitando home ∪ unidades governadas); modos de pergunta, fontes clicáveis e feedback.
+8. **Especificação automática**: produtos IA-First podem gerar PRD, requisitos, arquitetura, estimativas e blueprint de construção a partir dos dados coletados.
 
 ### 3.2.1 Frameworks de Maturidade: Blueprint 16 e SATF TI v3
 
@@ -242,6 +243,14 @@ O Módulo 1 suporta **dois instrumentos mutuamente exclusivos**, selecionados po
 - Fundamentação: `docs/Atual/Fundamentacao_SATF_IA_Maturidade_TI_SATF.docx` e 11 guias em `Dimensoes_Evolucao_SAT/`
 
 Detalhamento completo: `docs/TESE_BLUEPRINT_IA.md` (§3.3–3.5).
+
+### 3.2.2 Unidades Organizacionais, Biblioteca e Assistente
+
+A plataforma modela **unidades organizacionais** por empresa (`EmpresaUnidade`), com unidade canônica **Geral**. Cada usuário pode ter **unidade home** e lista de **unidades governadas** (gestor multi-unidade: peso 0,5 no consolidado filtrado por unidade; home = 1).
+
+Relatórios IA podem ser **Gerais** (empresa/projeto) ou **por unidade** (tipos `book_unidade*`, `executivo_unidade` e variantes SATF). A Biblioteca exibe e filtra o escopo. O **Assistente Agentica** recupera apenas books das unidades home ∪ governadas (além dos Gerais) para usuários restritos; `admin` e `sysmap` veem o conjunto completo do projeto autorizado.
+
+Detalhamento operacional: `docs/TESE_BLUEPRINT_IA.md` (§10.7–10.9).
 
 ### 3.3 Stack Tecnológico
 
@@ -1326,6 +1335,7 @@ O **Blueprint Agêntico** apresenta um framework robusto e cientificamente funda
 8. **Arquitetura Multi-Provedor**: Suporte a múltiplos provedores de IA (Anthropic, OpenAI, Groq) com fallback automático
 9. **Exportação Multi-Formato**: Exportação de relatórios e especificações em Markdown, Word e PDF
 10. **Configuração Administrativa**: Interface para gestão de provedores de IA e chaves de API
+11. **Unidades e Assistente**: Diagnóstico/relatórios por unidade, Biblioteca com escopo Geral/unidade e Assistente Agentica com RAG e permissões finas
 
 ### 13.3 Arquitetura Multi-Provedor de IA
 
@@ -1442,7 +1452,7 @@ O Blueprint Agêntico permite às organizações:
 ---
 
 *Documento atualizado em: Julho de 2026*
-*Versão: 2.4*
+*Versão: 2.6*
 
 ---
 
@@ -1456,3 +1466,4 @@ O Blueprint Agêntico permite às organizações:
 | 2.3 | Junho 2026 | Alinhamento ao sistema atual: 16 dimensões, 108 perguntas, avaliadores restritos, matriz Cargo × Dimensão, análise por dimensão e relatórios IA em background |
 | 2.4 | Julho 2026 | Instrumento **SATF TI v3**: seleção por projeto, 11 dimensões, evidência obrigatória, certificação, setor regulado, D10 fora da média |
 | 2.5 | Julho 2026 | **Isolamento taxonômico SATF** em relatórios IA: pipeline dedicado, validação pós-geração, executivo TI/engenharia, export Word/MD SATF |
+| 2.6 | Julho 2026 | **Unidades organizacionais**, Biblioteca Geral/unidade e **Assistente Agentica** (RAG, modos, feedback, permissões home∪governadas) — §3.2.2 |

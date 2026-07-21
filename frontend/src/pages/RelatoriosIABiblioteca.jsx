@@ -137,6 +137,7 @@ export default function RelatoriosIABiblioteca() {
   const [stats, setStats] = useState(null);
   const [busca, setBusca] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('todos');
+  const [filtroEscopo, setFiltroEscopo] = useState('todos');
   const [filtroEmpresa, setFiltroEmpresa] = useState('');
   const [empresas, setEmpresas] = useState([]);
   const [excluindoId, setExcluindoId] = useState(null);
@@ -190,6 +191,8 @@ export default function RelatoriosIABiblioteca() {
 
   const filtrados = relatorios.filter(r => {
     if (filtroTipo !== 'todos' && r.tipo !== filtroTipo) return false;
+    if (filtroEscopo === 'geral' && r.escopo !== 'geral') return false;
+    if (filtroEscopo === 'unidade' && r.escopo !== 'unidade') return false;
     if (filtroEmpresa && String(r.projeto?.empresa?.id) !== String(filtroEmpresa)) return false;
     if (busca) {
       const q = busca.toLowerCase();
@@ -197,7 +200,8 @@ export default function RelatoriosIABiblioteca() {
         r.titulo?.toLowerCase().includes(q) ||
         r.projeto?.nome?.toLowerCase().includes(q) ||
         r.projeto?.empresa?.nome?.toLowerCase().includes(q) ||
-        r.setor?.toLowerCase().includes(q)
+        r.setor?.toLowerCase().includes(q) ||
+        r.unidadeNome?.toLowerCase().includes(q)
       );
     }
     return true;
@@ -278,7 +282,7 @@ export default function RelatoriosIABiblioteca() {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar por empresa, projeto, setor..."
+              placeholder="Buscar por empresa, projeto, setor, unidade..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -301,6 +305,16 @@ export default function RelatoriosIABiblioteca() {
             <option value="book_unidade_rapido">Book Blueprint unidade (rápido)</option>
             <option value="book_unidade_satf">Book SATF por unidade</option>
             <option value="book_unidade_satf_rapido">Book SATF unidade (rápido)</option>
+          </select>
+
+          <select
+            value={filtroEscopo}
+            onChange={(e) => setFiltroEscopo(e.target.value)}
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="todos">Escopo: todos</option>
+            <option value="geral">Geral (empresa)</option>
+            <option value="unidade">Por unidade</option>
           </select>
 
           <select
@@ -389,9 +403,27 @@ export default function RelatoriosIABiblioteca() {
                       {r.projeto?.empresa?.nome || '—'}
                     </p>
                   </div>
-                  <p className="text-xs text-slate-600 mb-3 line-clamp-1 pl-5">
+                  <p className="text-xs text-slate-600 mb-2 line-clamp-1 pl-5">
                     {r.projeto?.nome || '—'}
                   </p>
+
+                  <div className="mb-3 pl-5">
+                    {r.escopo === 'unidade' ? (
+                      <span
+                        className="inline-flex max-w-full items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-800"
+                        title={r.unidadeNome || 'Relatório por unidade'}
+                      >
+                        <Layers className="h-2.5 w-2.5 flex-shrink-0" />
+                        <span className="truncate">
+                          Por unidade{r.unidadeNome ? ` · ${r.unidadeNome}` : ''}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                        Geral
+                      </span>
+                    )}
+                  </div>
 
                   {/* Métricas */}
                   <div className="grid grid-cols-3 gap-2 mb-3 text-center">

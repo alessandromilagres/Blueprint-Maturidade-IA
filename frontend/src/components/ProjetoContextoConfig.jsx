@@ -423,7 +423,10 @@ export default function ProjetoContextoConfig({ projetoId, editable = false }) {
   }
 
   return (
-    <div className="card border border-violet-200 bg-violet-50/30 dark:border-violet-900/40 dark:bg-violet-950/20">
+    <div
+      id="projeto-contexto"
+      className="card border border-violet-200 bg-violet-50/30 dark:border-violet-900/40 dark:bg-violet-950/20"
+    >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">

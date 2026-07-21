@@ -5,7 +5,7 @@ import {
   filtroNivelRelatorioIACompativel
 } from '../utils/nivelPrioridadeMapeamentoMaturidade.js';
 import { parseFiltroEmpresaUnidadeId } from '../utils/empresaUnidade.js';
-import { filtroUnidadeRelatorioIACompativel } from '../utils/relatorioUnidadeIA.js';
+import { filtroUnidadeRelatorioIACompativel, extrairEscopoBibliotecaRelatorio } from '../utils/relatorioUnidadeIA.js';
 import { enriquecerDadosUsadosComLogo } from '../utils/empresaLogo.js';
 import {
   TIPOS_RELATORIO_IA_VALIDOS,
@@ -58,6 +58,7 @@ router.get('/', async (req, res) => {
         setor: true,
         versao: true,
         createdAt: true,
+        dadosSnapshot: true,
         projeto: {
           select: {
             id: true,
@@ -70,8 +71,18 @@ router.get('/', async (req, res) => {
         }
       }
     });
-    
-    res.json(relatorios);
+
+    res.json(
+      relatorios.map(({ dadosSnapshot, ...r }) => {
+        const escopoMeta = extrairEscopoBibliotecaRelatorio(r.tipo, parseJsonSeguro(dadosSnapshot));
+        return {
+          ...r,
+          escopo: escopoMeta.escopo,
+          empresaUnidadeId: escopoMeta.empresaUnidadeId,
+          unidadeNome: escopoMeta.unidadeNome
+        };
+      })
+    );
   } catch (error) {
     console.error('Erro ao listar relatórios IA:', error);
     res.status(500).json({ error: 'Erro ao listar relatórios', details: error.message });
@@ -222,11 +233,33 @@ router.get('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    await prisma.relatorioIA.delete({
-      where: { id: parseInt(id) }
+    const relatorioId = parseInt(id, 10);
+
+    const existente = await prisma.relatorioIA.findUnique({
+      where: { id: relatorioId },
+      select: { id: true, projetoId: true }
     });
-    
+    if (!existente) {
+      return res.status(404).json({ error: 'Relatório não encontrado' });
+    }
+
+    await prisma.relatorioIA.delete({
+      where: { id: relatorioId }
+    });
+
+    try {
+      const { ensureAssistenteSchema } = await import('../utils/assistenteSchema.js');
+      const { invalidarCacheRelatoriosLocal } = await import('../utils/assistenteIndexacao.js');
+      await ensureAssistenteSchema();
+      await prisma.$executeRaw`
+        DELETE FROM "AssistenteChunk"
+        WHERE "fonte" = 'relatorio_ia' AND "relatorioId" = ${relatorioId}
+      `;
+      invalidarCacheRelatoriosLocal(existente.projetoId);
+    } catch (e) {
+      console.warn('[Assistente RAG] limpeza de chunks após delete:', e.message);
+    }
+
     res.json({ success: true, message: 'Relatório excluído com sucesso' });
   } catch (error) {
     console.error('Erro ao excluir relatório:', error);
@@ -301,7 +334,7 @@ export async function salvarRelatorioIA({
   
   const novaVersao = (ultimaVersao?.versao || 0) + 1;
   
-  return await prisma.relatorioIA.create({
+  const salvo = await prisma.relatorioIA.create({
     data: {
       projetoId,
       tipo,
@@ -322,6 +355,16 @@ export async function salvarRelatorioIA({
       versao: novaVersao
     }
   });
+
+  // RAG Assistente: indexa só este relatório (última versão do tipo) em background
+  try {
+    const { agendarIndexacaoRelatorioIA } = await import('../utils/assistenteIndexacao.js');
+    agendarIndexacaoRelatorioIA(salvo);
+  } catch (e) {
+    console.warn('[Assistente RAG] não foi possível agendar indexação:', e.message);
+  }
+
+  return salvo;
 }
 
 export default router;

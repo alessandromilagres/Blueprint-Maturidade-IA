@@ -65,6 +65,7 @@ import AnaliseAvaliacoes from './pages/AnaliseAvaliacoes';
 import AdminEmailConviteAvaliacao from './pages/AdminEmailConviteAvaliacao';
 import Sobre from './pages/Sobre';
 import AvaliadorEntrada from './pages/AvaliadorEntrada';
+import AssistenteAgentica from './pages/AssistenteAgentica';
 
 function App() {
   return (
@@ -125,6 +126,7 @@ function App() {
             <Route path="relatorios/:id/mit-ia" element={<RelatorioMITIA />} />
             <Route path="relatorios/:id/mit-ia-completo" element={<RelatorioMITIACompleto />} />
             <Route path="biblioteca-ia" element={<RelatoriosIABiblioteca />} />
+            <Route path="assistente" element={<AssistenteAgentica />} />
             <Route path="ir/:destino" element={<EscolherProjetoDestino />} />
             {/* Módulo de Produto IA-First */}
             <Route path="produtos" element={<Produtos />} />

@@ -845,3 +845,65 @@ model Iniciativa {
   @@index([projetoVersaoId])
   @@index([projetoId, empresaUnidadeId])
 }
+
+// ==========================================
+// ASSISTENTE AGENTICA (chat + RAG + histórico)
+// Tabelas também garantidas em runtime por ensureAssistenteSchema().
+// ==========================================
+model AssistenteConversa {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  projetoId Int?
+  titulo    String   @default("Nova conversa")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mensagens AssistenteMensagem[]
+
+  @@index([usuarioId])
+  @@index([usuarioId, updatedAt])
+}
+
+model AssistenteMensagem {
+  id         Int      @id @default(autoincrement())
+  conversaId Int
+  role       String
+  content    String   @db.Text
+  fontesJson String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  conversa AssistenteConversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  @@index([conversaId])
+}
+
+model AssistenteChunk {
+  id            Int      @id @default(autoincrement())
+  escopo        String   @default("global")
+  projetoId     Int?
+  fonte         String
+  titulo        String
+  texto         String   @db.Text
+  embeddingJson String?  @db.Text
+  hashConteudo  String?
+  relatorioId   Int?
+  updatedAt     DateTime @updatedAt
+
+  @@index([escopo, projetoId])
+  @@index([fonte])
+  @@index([relatorioId])
+}
+
+model AssistenteFeedback {
+  id         Int      @id @default(autoincrement())
+  mensagemId Int
+  conversaId Int?
+  usuarioId  Int
+  util       Boolean
+  motivo     String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([mensagemId, usuarioId])
+  @@index([usuarioId])
+}

@@ -6,6 +6,9 @@ import {
   usuarioPapelInclusaoUnidade,
   usuarioIncluidoNoFiltroUnidadeEmpresa,
   anotarAvaliacoesInclusaoUnidade,
+  usuarioTemRestricaoUnidadesAssistente,
+  idsUnidadesVisiveisAssistente,
+  usuarioPodeAcessarEscopoRelatorioAssistente,
   PESO_AVALIACAO_UNIDADE_HOME,
   PESO_AVALIACAO_UNIDADE_GOVERNADA
 } from '../src/utils/empresaUnidade.js';
@@ -119,5 +122,62 @@ describe('média ponderada consolidado por unidade', () => {
     assert.equal(scoresPorArea[0].score, 2.67);
     assert.equal(scoreGeral, 2.67);
     assert.notEqual(scoresPorArea[0].score, 3);
+  });
+});
+
+describe('Assistente — permissões finas por unidade', () => {
+  it('admin/sysmap e usuário sem vínculo não têm restrição', () => {
+    assert.equal(usuarioTemRestricaoUnidadesAssistente({ role: 'admin', empresaUnidadeId: 2 }), false);
+    assert.equal(usuarioTemRestricaoUnidadesAssistente({ role: 'sysmap', unidadesGovernadasIds: '[3]' }), false);
+    assert.equal(
+      usuarioTemRestricaoUnidadesAssistente({ role: 'gestor', empresaUnidadeId: null, unidadesGovernadasIds: null }),
+      false
+    );
+  });
+
+  it('gestor com home ou governadas fica restrito', () => {
+    assert.equal(
+      usuarioTemRestricaoUnidadesAssistente({ role: 'gestor', empresaUnidadeId: 10 }),
+      true
+    );
+    assert.equal(
+      usuarioTemRestricaoUnidadesAssistente({
+        role: 'gestor',
+        empresaUnidadeId: null,
+        unidadesGovernadasIds: '[20,30]'
+      }),
+      true
+    );
+    assert.deepEqual(
+      idsUnidadesVisiveisAssistente({
+        empresaUnidadeId: 10,
+        unidadesGovernadasIds: '[20,10]'
+      }),
+      [10, 20]
+    );
+  });
+
+  it('permite escopo geral; bloqueia unidade fora de home∪governadas', () => {
+    const gestor = {
+      role: 'gestor',
+      empresaUnidadeId: 10,
+      unidadesGovernadasIds: '[20]'
+    };
+    assert.equal(
+      usuarioPodeAcessarEscopoRelatorioAssistente(gestor, { escopo: 'geral', empresaUnidadeId: null }),
+      true
+    );
+    assert.equal(
+      usuarioPodeAcessarEscopoRelatorioAssistente(gestor, { escopo: 'unidade', empresaUnidadeId: 10 }),
+      true
+    );
+    assert.equal(
+      usuarioPodeAcessarEscopoRelatorioAssistente(gestor, { escopo: 'unidade', empresaUnidadeId: 20 }),
+      true
+    );
+    assert.equal(
+      usuarioPodeAcessarEscopoRelatorioAssistente(gestor, { escopo: 'unidade', empresaUnidadeId: 99 }),
+      false
+    );
   });
 });

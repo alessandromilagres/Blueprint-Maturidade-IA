@@ -126,6 +126,105 @@ export const usuariosApi = {
   excluir: (id) => request(`/usuarios/${id}`, { method: 'DELETE' }),
 };
 
+export const assistenteApi = {
+  chat: ({ mensagem, historico = [], projetoId = null, conversaId = null, modoPergunta = 'auto' }) =>
+    request('/assistente/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        mensagem,
+        historico,
+        projetoId: projetoId || null,
+        conversaId: conversaId || null,
+        modoPergunta
+      })
+    }),
+
+  listarConversas: () => request('/assistente/conversas'),
+  obterConversa: (id) => request(`/assistente/conversas/${id}`),
+  excluirConversa: (id) => request(`/assistente/conversas/${id}`, { method: 'DELETE' }),
+  listarModos: () => request('/assistente/modos'),
+  feedback: ({ mensagemId, util, motivo = null, conversaId = null }) =>
+    request('/assistente/feedback', {
+      method: 'POST',
+      body: JSON.stringify({ mensagemId, util, motivo, conversaId })
+    }),
+
+  /**
+   * Streaming SSE via fetch ReadableStream.
+   * handlers: { onStart, onToken, onDone, onError, onMeta }
+   */
+  async chatStream(
+    { mensagem, projetoId = null, conversaId = null, modoPergunta = 'auto' },
+    handlers = {}
+  ) {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/assistente/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        mensagem,
+        projetoId: projetoId || null,
+        conversaId: conversaId || null,
+        modoPergunta
+      })
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      window.location.href = '/login';
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `Erro HTTP ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('Stream indisponível neste navegador');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let eventName = 'message';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n');
+      buffer = parts.pop() || '';
+
+      for (const line of parts) {
+        const trimmed = line.replace(/\r$/, '');
+        if (trimmed.startsWith('event:')) {
+          eventName = trimmed.slice(6).trim();
+          continue;
+        }
+        if (trimmed.startsWith('data:')) {
+          const raw = trimmed.slice(5).trim();
+          if (!raw) continue;
+          let data = {};
+          try {
+            data = JSON.parse(raw);
+          } catch {
+            continue;
+          }
+          if (eventName === 'start') handlers.onStart?.(data);
+          else if (eventName === 'token') handlers.onToken?.(data.text || '');
+          else if (eventName === 'meta') handlers.onMeta?.(data);
+          else if (eventName === 'done') handlers.onDone?.(data);
+          else if (eventName === 'error') handlers.onError?.(data.error || 'Erro no stream');
+          eventName = 'message';
+        }
+      }
+    }
+  }
+};
+
 export const projetosApi = {
   listar: (empresaId) => request(`/projetos${empresaId ? `?empresaId=${empresaId}` : ''}`),
   buscar: (id) => request(`/projetos/${id}`),

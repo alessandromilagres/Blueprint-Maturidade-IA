@@ -23,6 +23,8 @@ import {
   filtroNivelRelatorioIACompativel
 } from './nivelPrioridadeMapeamentoMaturidade.js';
 
+import { isTipoRelatorioIAUnidade } from '../constants/tiposRelatorioIA.js';
+
 export { TIPOS_RELATORIO_IA_UNIDADE } from '../constants/tiposRelatorioIA.js';
 
 export function queryEmpresaUnidadeId(filtroUnidadeId) {
@@ -144,4 +146,32 @@ export function metadadosUnidadeDadosUsados(unidadeMeta, filtroUnidadeId) {
     filtroEmpresaUnidade: unidadeMeta,
     escopoRelatorio: 'unidade_organizacional'
   };
+}
+
+/**
+ * Metadados leves para a Biblioteca IA (sem expor o snapshot completo).
+ * @returns {{ escopo: 'geral'|'unidade', empresaUnidadeId: number|null, unidadeNome: string|null }}
+ */
+export function extrairEscopoBibliotecaRelatorio(tipo, dadosUsados = null) {
+  const snap = dadosUsados && typeof dadosUsados === 'object' ? dadosUsados : null;
+  const tipoUnidade =
+    isTipoRelatorioIAUnidade(tipo) || snap?.escopoRelatorio === 'unidade_organizacional';
+  const unidade = snap?.filtroEmpresaUnidade;
+  const idSnap = snap?.filtroEmpresaUnidadeIdAplicado;
+  const empresaUnidadeId =
+    idSnap != null && Number(idSnap) > 0
+      ? Number(idSnap)
+      : unidade?.id != null && Number(unidade.id) > 0
+        ? Number(unidade.id)
+        : null;
+  const unidadeNome = unidade?.nome ? String(unidade.nome).trim() : null;
+
+  if (tipoUnidade || empresaUnidadeId != null) {
+    return {
+      escopo: 'unidade',
+      empresaUnidadeId,
+      unidadeNome: unidadeNome || (empresaUnidadeId != null ? `Unidade #${empresaUnidadeId}` : null)
+    };
+  }
+  return { escopo: 'geral', empresaUnidadeId: null, unidadeNome: null };
 }

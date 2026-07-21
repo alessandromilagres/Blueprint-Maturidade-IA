@@ -796,6 +796,49 @@ export function usuarioIncluidoNoFiltroUnidadeEmpresa(usuario, filtroUnidadeId, 
 }
 
 /**
+ * Assistente item 8: usuário com unidade home e/ou unidades governadas
+ * só recebe books/relatórios dessas unidades (além dos de escopo geral).
+ * admin/sysmap e usuários sem vínculo de unidade mantêm visão da empresa inteira.
+ */
+export function usuarioTemRestricaoUnidadesAssistente(usuario) {
+  const role = String(usuario?.role || '').trim().toLowerCase();
+  if (role === 'admin' || role === 'sysmap') return false;
+  if (!usuario) return false;
+  if (parseUnidadesGovernadasIds(usuario.unidadesGovernadasIds).length > 0) return true;
+  const raw = usuario.empresaUnidadeId;
+  if (raw == null || raw === '') return false;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0;
+}
+
+/** IDs de unidade que o usuário pode ver no Assistente (home cadastrada ∪ governadas). */
+export function idsUnidadesVisiveisAssistente(usuario) {
+  const ids = new Set();
+  const raw = usuario?.empresaUnidadeId;
+  if (raw != null && raw !== '') {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) ids.add(Math.trunc(n));
+  }
+  for (const g of parseUnidadesGovernadasIds(usuario?.unidadesGovernadasIds)) {
+    ids.add(g);
+  }
+  return [...ids];
+}
+
+/**
+ * @param {{ escopo?: 'geral'|'unidade', empresaUnidadeId?: number|null }} escopoMeta
+ * @param {number|null} [unidadeGeralId]
+ */
+export function usuarioPodeAcessarEscopoRelatorioAssistente(usuario, escopoMeta, unidadeGeralId = null) {
+  if (!usuarioTemRestricaoUnidadesAssistente(usuario)) return true;
+  const escopo = escopoMeta?.escopo === 'unidade' ? 'unidade' : 'geral';
+  if (escopo === 'geral') return true;
+  const uid = escopoMeta?.empresaUnidadeId;
+  if (uid == null || !Number.isFinite(Number(uid)) || Number(uid) <= 0) return false;
+  return usuarioPapelInclusaoUnidade(usuario, uid, unidadeGeralId) != null;
+}
+
+/**
  * Anota cada avaliação com papel/peso de inclusão na unidade filtrada.
  * Sem filtro (enterprise): não altera — média simples entre avaliações.
  */

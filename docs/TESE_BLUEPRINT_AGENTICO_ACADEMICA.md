@@ -5,7 +5,7 @@
 
 **SysMap Solutions**
 
-**Atualizado em Junho de 2026**
+**Atualizado em Julho de 2026**
 
 ---
 
@@ -36,7 +36,7 @@
 
 # Nota de Atualização
 
-Esta versão acadêmica permanece como tratamento monográfico longo do Blueprint Agêntico. A implementação atual da plataforma evoluiu para **16 dimensões**, **108 perguntas de maturidade**, matriz **Cargo × Dimensão**, entrada restrita para avaliadores, respostas "sem informação", análise comparativa por dimensão, biblioteca de relatórios IA e geração de relatórios em background. Para a síntese metodológica atual, consulte `docs/TESE_BLUEPRINT_IA.md`; para a operação ponta a ponta, consulte `docs/COMO_SISTEMA_FUNCIONA.md`.
+Esta versão acadêmica permanece como tratamento monográfico longo do Blueprint Agêntico. A implementação atual da plataforma evoluiu para **16 dimensões**, **108 perguntas de maturidade**, matriz **Cargo × Dimensão**, entrada restrita para avaliadores, respostas "sem informação", análise comparativa por dimensão, biblioteca de relatórios IA (escopo **Geral** ou **por unidade**), geração de relatórios em background, **unidades organizacionais** (home/governadas) e o **Assistente Agentica** (RAG com permissões finas). Para a síntese metodológica atual, consulte `docs/TESE_BLUEPRINT_IA.md` (v2.7); para a operação ponta a ponta, consulte `docs/COMO_SISTEMA_FUNCIONA.md`.
 
 ---
 
@@ -815,6 +815,10 @@ O score geral SATF é média ponderada de **D1–D9 e D11** (10 dimensões). **D
 | Executivo TI / Engenharia | `executivo` | `satfRelatorioExecutivoIA.js` |
 | Book completo | `completo_satf` | `satfBookIA.js` |
 | Book modo rápido | `completo_satf_rapido` | `satfBookIA.js` (modo rápido) |
+| Executivo por unidade | `executivo_unidade` | pipeline SATF / unidade |
+| Book por unidade | `book_unidade_satf` / `book_unidade_satf_rapido` | `satfBookIA.js` + escopo unidade |
+
+A Biblioteca IA distingue escopo **Geral** (empresa/projeto) e **Por unidade** (nome da `EmpresaUnidade` no snapshot).
 
 ### Isolamento taxonômico (Jul/2026)
 
@@ -832,6 +836,16 @@ Artefatos SATF **não compartilham** prompts, blocos MIT CISR nem taxonomia Blue
 - Guias de progressão: `docs/Atual/Dimensoes_Evolucao_SAT/` (D01–D11)
 - Seed e critérios: `backend/src/data/satfFrameworkSeed.js`, `satfPerguntaCriterios.js`
 - Módulos IA: `satfBookIA.js`, `satfRelatorioExecutivoIA.js`, `satfBookTaxonomia.js`
+
+## 6B.8 Unidades Organizacionais e Assistente Agentica
+
+Complementando o Cap. 6B, a plataforma operacionaliza:
+
+1. **Unidades** por empresa, com consolidado filtrado (home peso 1; unidades governadas peso 0,5)
+2. **Books/relatórios por unidade** sem alterar a taxonomia SATF D1–D11 — apenas o conjunto de avaliações e o prompt de escopo
+3. **Assistente Agentica**: RAG sobre artefatos autorizados; gestores com vínculo de unidade não recuperam books de outras unidades
+
+Síntese alinhada à implementação: `docs/TESE_BLUEPRINT_IA.md` (§10.7–10.9).
 
 ---
 
@@ -1595,7 +1609,7 @@ contato@sysmap.com.br
 
 *Blueprint Agêntico — Transformando empresas com Inteligência Artificial*
 
-*Documento versão 2.2 — Julho de 2026*
+*Documento versão 2.4 — Julho de 2026*
 
 ---
 
@@ -1608,6 +1622,7 @@ contato@sysmap.com.br
 | 2.1 | Abril 2026 | Arquitetura Multi-Provedor de IA (Anthropic, OpenAI, Groq), Exportação Multi-Formato (MD, Word, PDF), Interface Administrativa de Configuração |
 | 2.2 | Julho 2026 | Instrumento **SATF TI v3**: seleção por projeto, 11 dimensões, evidência obrigatória, certificação consultiva, setor regulado, D10 fora da média (Cap. 6B) |
 | 2.3 | Julho 2026 | **Isolamento taxonômico SATF** em relatórios IA: pipeline dedicado, validação D1–D11, executivo TI/engenharia, export Word/MD SATF (§6B.7) |
+| 2.4 | Julho 2026 | **Unidades organizacionais**, Biblioteca Geral/unidade e **Assistente Agentica** (§6B.8); tipos `book_unidade_satf*` / `executivo_unidade` |
 
 ---
 

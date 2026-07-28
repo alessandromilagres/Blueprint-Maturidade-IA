@@ -2,20 +2,54 @@ import { prisma } from '../lib/prisma.js';
 import { ensureAssistenteSchema } from './assistenteSchema.js';
 import { parseMetaMensagemAssistente, serializarMetaMensagemAssistente } from './assistenteAcoes.js';
 
-function tituloDeMensagem(mensagem) {
-  const t = String(mensagem || '').replace(/\s+/g, ' ').trim();
+/** Gera título curto a partir da primeira mensagem do usuário (#11). */
+export function tituloDeMensagem(mensagem) {
+  let t = String(mensagem || '')
+    .replace(/\[Anexo:[^\]]*\]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!t) return 'Nova conversa';
+  // Prefere a primeira frase / linha
+  const primeira = t.split(/(?<=[.!?])\s+|\n/)[0] || t;
+  t = primeira.trim() || t;
   return t.length > 72 ? `${t.slice(0, 69)}…` : t;
 }
 
-export async function listarConversasAssistente(usuarioId, { limit = 40 } = {}) {
+function escaparLike(s) {
+  return String(s).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+export async function listarConversasAssistente(usuarioId, { limit = 40, q = '' } = {}) {
   await ensureAssistenteSchema();
   const lim = Math.min(100, Math.max(1, Number(limit) || 40));
+  const busca = String(q || '').trim().slice(0, 80);
+
+  if (!busca) {
+    const rows = await prisma.$queryRaw`
+      SELECT c."id", c."projetoId", c."titulo", c."createdAt", c."updatedAt",
+             (SELECT COUNT(*)::int FROM "AssistenteMensagem" m WHERE m."conversaId" = c."id") AS "qtdMensagens"
+      FROM "AssistenteConversa" c
+      WHERE c."usuarioId" = ${usuarioId}
+      ORDER BY c."updatedAt" DESC
+      LIMIT ${lim}
+    `;
+    return rows || [];
+  }
+
+  const pattern = `%${escaparLike(busca)}%`;
   const rows = await prisma.$queryRaw`
     SELECT c."id", c."projetoId", c."titulo", c."createdAt", c."updatedAt",
            (SELECT COUNT(*)::int FROM "AssistenteMensagem" m WHERE m."conversaId" = c."id") AS "qtdMensagens"
     FROM "AssistenteConversa" c
     WHERE c."usuarioId" = ${usuarioId}
+      AND (
+        c."titulo" ILIKE ${pattern}
+        OR EXISTS (
+          SELECT 1 FROM "AssistenteMensagem" m
+          WHERE m."conversaId" = c."id"
+            AND m."content" ILIKE ${pattern}
+        )
+      )
     ORDER BY c."updatedAt" DESC
     LIMIT ${lim}
   `;
@@ -102,6 +136,41 @@ export async function garantirConversaAssistente({
     RETURNING "id", "usuarioId", "projetoId", "titulo"
   `;
   return inserted[0];
+}
+
+/**
+ * Após a 1ª resposta, refina o título se ainda for genérico (#11).
+ */
+export async function refinarTituloConversaSeNecessario(conversaId, mensagemUsuario) {
+  const id = Number(conversaId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const novo = tituloDeMensagem(mensagemUsuario);
+  if (!novo || novo === 'Nova conversa') return null;
+
+  const rows = await prisma.$queryRaw`
+    SELECT "titulo",
+           (SELECT COUNT(*)::int FROM "AssistenteMensagem" m WHERE m."conversaId" = ${id}) AS "qtd"
+    FROM "AssistenteConversa"
+    WHERE "id" = ${id}
+    LIMIT 1
+  `;
+  const row = rows?.[0];
+  if (!row) return null;
+  // Só refinamos no início (≤3 msgs: user + assistant [+ talvez user cancel])
+  if (Number(row.qtd) > 4) return null;
+  const atual = String(row.titulo || '');
+  if (atual === novo) return atual;
+  if (atual !== 'Nova conversa' && atual.length >= 20 && !/^\s*$/.test(atual)) {
+    // Mantém título já razoável; atualiza se o novo for mais descritivo
+    if (novo.length <= atual.length) return atual;
+  }
+
+  await prisma.$executeRaw`
+    UPDATE "AssistenteConversa"
+    SET "titulo" = ${novo}, "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "id" = ${id}
+  `;
+  return novo;
 }
 
 export async function salvarMensagemAssistente({

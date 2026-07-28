@@ -13,7 +13,11 @@ import {
   ChevronRight,
   ExternalLink,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Square,
+  Paperclip,
+  Search,
+  X
 } from 'lucide-react';
 import { assistenteApi, projetosApi, empresaUnidadesApi } from '../services/api';
 import MarkdownRenderer from '../components/MarkdownRenderer';
@@ -229,13 +233,19 @@ export default function AssistenteAgentica() {
   const [modoRetrieval, setModoRetrieval] = useState('');
   const [modoPergunta, setModoPergunta] = useState('auto');
   const [modos, setModos] = useState(MODOS_DEFAULT);
+  const [buscaConversas, setBuscaConversas] = useState('');
+  const [anexo, setAnexo] = useState(null);
+  const [anexoErro, setAnexoErro] = useState('');
   const fimRef = useRef(null);
   const inputRef = useRef(null);
+  const fileRef = useRef(null);
   const salvarPrefsTimer = useRef(null);
+  const abortRef = useRef(null);
+  const buscaTimer = useRef(null);
 
-  const carregarListaConversas = useCallback(async () => {
+  const carregarListaConversas = useCallback(async (q = '') => {
     try {
-      const res = await assistenteApi.listarConversas();
+      const res = await assistenteApi.listarConversas(q ? { q } : {});
       setConversas(res.conversas || []);
     } catch {
       /* ignore */
@@ -317,8 +327,45 @@ export default function AssistenteAgentica() {
   }, [projetoId, projetos]);
 
   useEffect(() => {
-    fimRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [mensagens, enviando]);
+    if (buscaTimer.current) clearTimeout(buscaTimer.current);
+    buscaTimer.current = setTimeout(() => {
+      carregarListaConversas(buscaConversas.trim());
+    }, 280);
+    return () => {
+      if (buscaTimer.current) clearTimeout(buscaTimer.current);
+    };
+  }, [buscaConversas, carregarListaConversas]);
+
+  async function lerArquivoComoAnexo(file) {
+    if (!file) return;
+    setAnexoErro('');
+    const nome = file.name || 'anexo';
+    const ext = nome.toLowerCase().split('.').pop();
+    if (!['pdf', 'md', 'txt', 'markdown'].includes(ext)) {
+      setAnexoErro('Use PDF, Markdown (.md) ou texto (.txt).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAnexoErro('Arquivo muito grande (máx. 5 MB).');
+      return;
+    }
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const raw = String(reader.result || '');
+        const b64 = raw.includes(',') ? raw.split(',')[1] : raw;
+        resolve(b64);
+      };
+      reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
+      reader.readAsDataURL(file);
+    });
+    setAnexo({
+      nomeOriginal: nome,
+      mimeType: file.type || '',
+      arquivo: base64,
+      tamanho: file.size
+    });
+  }
 
   function onChangeProjeto(valor) {
     setProjetoId(valor);
@@ -411,6 +458,13 @@ export default function AssistenteAgentica() {
     [conversaId]
   );
 
+  const pararGeracao = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  }, []);
+
   const enviar = useCallback(
     async (textoLivre) => {
       const texto = String(textoLivre ?? input).trim();
@@ -418,13 +472,19 @@ export default function AssistenteAgentica() {
 
       setErro('');
       setInput('');
-      const novas = [...mensagens, { role: 'user', content: texto }];
+      const textoExibir = anexo
+        ? `${texto}\n\n[Anexo: ${anexo.nomeOriginal}]`
+        : texto;
+      const novas = [...mensagens, { role: 'user', content: textoExibir }];
       setMensagens(novas);
       setEnviando(true);
       setMensagens([
         ...novas,
         { role: 'assistant', content: '', fontes: null, acoes: null, id: null }
       ]);
+
+      const abort = new AbortController();
+      abortRef.current = abort;
 
       try {
         await assistenteApi.chatStream(
@@ -435,9 +495,17 @@ export default function AssistenteAgentica() {
             empresaUnidadeId: empresaUnidadeId ? Number(empresaUnidadeId) : null,
             modoPergunta,
             tom,
-            frameworkFavorito: frameworkFavorito || null
+            frameworkFavorito: frameworkFavorito || null,
+            anexo: anexo
+              ? {
+                  nomeOriginal: anexo.nomeOriginal,
+                  mimeType: anexo.mimeType,
+                  arquivo: anexo.arquivo
+                }
+              : null
           },
           {
+            signal: abort.signal,
             onStart: (data) => {
               if (data.conversaId) setConversaId(data.conversaId);
               if (data.modoRetrieval) setModoRetrieval(data.modoRetrieval);
@@ -476,8 +544,26 @@ export default function AssistenteAgentica() {
                     id: data.mensagemId || last.id,
                     content: data.resposta || last.content,
                     fontes: data.fontes || last.fontes,
-                    acoes: data.acoes || last.acoes || null
+                    acoes: data.acoes || last.acoes || null,
+                    cancelado: !!data.cancelado
                   };
+                }
+                return copy;
+              });
+              carregarListaConversas();
+            },
+            onCancel: () => {
+              setMensagens((prev) => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === 'assistant') {
+                  const base = String(last.content || '').trim();
+                  const content = base
+                    ? /interrompida/i.test(base)
+                      ? base
+                      : `${base}\n\n_(Resposta interrompida.)_`
+                    : '_(Resposta interrompida.)_';
+                  copy[copy.length - 1] = { ...last, content, cancelado: true };
                 }
                 return copy;
               });
@@ -501,13 +587,22 @@ export default function AssistenteAgentica() {
           }
         );
       } catch (e) {
-        setErro(e.message || 'Falha ao consultar o assistente');
+        if (e?.name === 'AbortError' || abort.signal.aborted) {
+          /* onCancel já tratou */
+        } else {
+          setErro(e.message || 'Falha ao consultar o assistente');
+        }
       } finally {
+        if (abortRef.current === abort) abortRef.current = null;
+        setAnexo(null);
+        setAnexoErro('');
+        if (fileRef.current) fileRef.current.value = '';
         setEnviando(false);
         inputRef.current?.focus();
       }
     },
     [
+      anexo,
       carregarListaConversas,
       conversaId,
       empresaUnidadeId,
@@ -535,9 +630,23 @@ export default function AssistenteAgentica() {
             <Plus className="h-4 w-4" />
           </button>
         </div>
+        <div className="border-b border-slate-100 px-2 py-2 dark:border-slate-700">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              value={buscaConversas}
+              onChange={(e) => setBuscaConversas(e.target.value)}
+              placeholder="Buscar conversas…"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-2 text-[11px] outline-none focus:border-cyan-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            />
+          </div>
+        </div>
         <div className="flex-1 overflow-y-auto p-2">
           {conversas.length === 0 && (
-            <p className="px-2 py-4 text-center text-[11px] text-slate-400">Nenhuma conversa ainda</p>
+            <p className="px-2 py-4 text-center text-[11px] text-slate-400">
+              {buscaConversas.trim() ? 'Nenhuma conversa encontrada' : 'Nenhuma conversa ainda'}
+            </p>
           )}
           {conversas.map((c) => (
             <div
@@ -726,9 +835,17 @@ export default function AssistenteAgentica() {
             ))}
 
             {enviando && (
-              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Buscando fontes ({modoPergunta}) e gerando resposta…
+                <span>Buscando fontes ({modoPergunta}) e gerando resposta…</span>
+                <button
+                  type="button"
+                  onClick={pararGeracao}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  <Square className="h-3 w-3 fill-current" />
+                  Parar
+                </button>
               </div>
             )}
             <div ref={fimRef} />
@@ -740,6 +857,29 @@ export default function AssistenteAgentica() {
             </div>
           )}
 
+          {(anexo || anexoErro) && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900/60">
+              {anexo && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2 py-1 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100">
+                  <Paperclip className="h-3 w-3" />
+                  {anexo.nomeOriginal}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAnexo(null);
+                      if (fileRef.current) fileRef.current.value = '';
+                    }}
+                    className="ml-0.5 rounded p-0.5 hover:bg-cyan-100 dark:hover:bg-cyan-900"
+                    title="Remover anexo"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              {anexoErro && <span className="text-amber-700 dark:text-amber-300">{anexoErro}</span>}
+            </div>
+          )}
+
           <form
             className="flex gap-2 border-t border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
             onSubmit={(e) => {
@@ -747,6 +887,25 @@ export default function AssistenteAgentica() {
               enviar();
             }}
           >
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.md,.txt,text/plain,text/markdown,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) lerArquivoComoAnexo(f).catch((err) => setAnexoErro(err.message));
+              }}
+            />
+            <button
+              type="button"
+              disabled={enviando}
+              onClick={() => fileRef.current?.click()}
+              className="inline-flex items-center justify-center self-end rounded-xl border border-slate-200 px-3 py-2.5 text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-900"
+              title="Anexar PDF, MD ou TXT (só nesta pergunta)"
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
             <textarea
               ref={inputRef}
               value={input}
@@ -770,6 +929,17 @@ export default function AssistenteAgentica() {
               {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Enviar
             </button>
+            {enviando && (
+              <button
+                type="button"
+                onClick={pararGeracao}
+                className="inline-flex items-center justify-center gap-1.5 self-end rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                title="Parar geração"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+                Parar
+              </button>
+            )}
           </form>
         </div>
       </div>

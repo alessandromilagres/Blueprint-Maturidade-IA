@@ -14,7 +14,8 @@ import {
 import {
   garantirConversaAssistente,
   salvarMensagemAssistente,
-  carregarHistoricoConversa
+  carregarHistoricoConversa,
+  refinarTituloConversaSeNecessario
 } from './assistenteHistorico.js';
 import { montarAcoesAssistente } from './assistenteAcoes.js';
 import { enriquecerFontesComLinks } from './assistenteFontes.js';
@@ -30,6 +31,11 @@ import {
   normalizarTomAssistente
 } from './assistentePreferencias.js';
 import { usuarioPodeFiltrarUnidadeAssistente } from './empresaUnidade.js';
+import {
+  processarAnexoAssistente,
+  formatarMarcadorAnexoUsuario,
+  blocoAnexoNoPrompt
+} from './assistenteAnexo.js';
 
 const MAX_HISTORICO = 10;
 const MAX_MSG = 4000;
@@ -156,7 +162,8 @@ async function montarPromptAssistente({
   modoPergunta = 'auto',
   dicasFeedback = '',
   tom = 'medio',
-  frameworkFavorito = null
+  frameworkFavorito = null,
+  blocoAnexo = ''
 }) {
   return [
     '# CATÁLOGO RÁPIDO (referência)',
@@ -174,6 +181,8 @@ async function montarPromptAssistente({
       ? `# PROJETO SELECIONADO\n\n${blocoProjeto}`
       : '# PROJETO SELECIONADO\n\n_Nenhum projeto selecionado._',
     '',
+    blocoAnexo || '',
+    '',
     dicasFeedback || '',
     '',
     formatarHistorico(historico),
@@ -181,7 +190,7 @@ async function montarPromptAssistente({
     '# PERGUNTA ATUAL DO USUÁRIO',
     mensagem,
     '',
-    'Responda com base nas fontes recuperadas e no projeto. Seja útil e fundamentado. Quando citar um book/relatório, use o título da fonte.'
+    'Responda com base nas fontes recuperadas, no projeto e no anexo desta pergunta (se houver). Seja útil e fundamentado. Quando citar um book/relatório, use o título da fonte.'
   ]
     .filter(Boolean)
     .join('\n');
@@ -253,11 +262,19 @@ async function prepararContextoChat(opts) {
     { empresaUnidadeId, unidadeNome }
   );
 
+  let anexoProcessado = null;
+  if (opts.anexo) {
+    anexoProcessado = await processarAnexoAssistente(opts.anexo);
+  }
+
+  const contentUsuario =
+    mensagem + (anexoProcessado ? formatarMarcadorAnexoUsuario(anexoProcessado) : '');
+
   const conversa = await garantirConversaAssistente({
     usuarioId,
     conversaId: opts.conversaId || null,
     projetoId: opts.projetoId ?? projetoMeta?.id ?? null,
-    primeiraMensagem: mensagem
+    primeiraMensagem: contentUsuario
   });
 
   let historico;
@@ -288,13 +305,14 @@ async function prepararContextoChat(opts) {
     modoPergunta,
     dicasFeedback,
     tom,
-    frameworkFavorito
+    frameworkFavorito,
+    blocoAnexo: blocoAnexoNoPrompt(anexoProcessado)
   });
 
   await salvarMensagemAssistente({
     conversaId: conversa.id,
     role: 'user',
-    content: mensagem
+    content: contentUsuario
   });
 
   const fontesBase = retrieval.chunks.map(({ fonte, titulo, score, relatorioId }) => ({
@@ -354,6 +372,8 @@ export async function responderAssistenteChat(opts) {
     acoes
   });
 
+  await refinarTituloConversaSeNecessario(ctx.conversa.id, ctx.mensagem);
+
   return {
     resposta,
     conversaId: ctx.conversa.id,
@@ -370,9 +390,11 @@ export async function responderAssistenteChat(opts) {
 
 /**
  * Chat com streaming: chama onEvent para cada evento; grava resposta ao final.
+ * opts.signal (AbortSignal) cancela a geração; persiste trecho parcial se houver.
  */
 export async function responderAssistenteChatStream(opts, onEvent) {
   const ctx = await prepararContextoChat(opts);
+  const signal = opts.signal || null;
 
   onEvent?.({
     type: 'start',
@@ -386,8 +408,12 @@ export async function responderAssistenteChatStream(opts, onEvent) {
   let resposta = '';
   let provider = null;
   let model = null;
+  let cancelado = false;
 
-  for await (const evt of streamAI(ctx.prompt, SYSTEM_PROMPT_ASSISTENTE, { maxTokens: 4096 })) {
+  for await (const evt of streamAI(ctx.prompt, SYSTEM_PROMPT_ASSISTENTE, {
+    maxTokens: 4096,
+    signal
+  })) {
     if (evt.type === 'meta') {
       provider = evt.provider;
       model = evt.model;
@@ -395,6 +421,9 @@ export async function responderAssistenteChatStream(opts, onEvent) {
     } else if (evt.type === 'token') {
       resposta += evt.text;
       onEvent?.({ type: 'token', text: evt.text });
+    } else if (evt.type === 'aborted') {
+      cancelado = true;
+      break;
     } else if (evt.type === 'error') {
       const err = new Error(evt.message || 'Erro no streaming');
       err.status = 502;
@@ -402,20 +431,30 @@ export async function responderAssistenteChatStream(opts, onEvent) {
     }
   }
 
-  resposta = resposta.trim();
-  if (!resposta) {
+  if (signal?.aborted) cancelado = true;
+
+  resposta = String(resposta || '').trim();
+  if (cancelado) {
+    if (!resposta) {
+      resposta = '_(Resposta interrompida.)_';
+    } else if (!/interrompida/i.test(resposta)) {
+      resposta = `${resposta}\n\n_(Resposta interrompida.)_`;
+    }
+  } else if (!resposta) {
     const err = new Error('A IA não retornou conteúdo no stream.');
     err.status = 502;
     throw err;
   }
 
-  const acoes = montarAcoesAssistente({
-    mensagem: ctx.mensagem,
-    resposta,
-    fontes: ctx.fontes,
-    projetoId: ctx.projetoMeta?.id || opts.projetoId || null,
-    frameworkMaturidade: ctx.projetoMeta?.frameworkMaturidade || null
-  });
+  const acoes = cancelado
+    ? []
+    : montarAcoesAssistente({
+        mensagem: ctx.mensagem,
+        resposta,
+        fontes: ctx.fontes,
+        projetoId: ctx.projetoMeta?.id || opts.projetoId || null,
+        frameworkMaturidade: ctx.projetoMeta?.frameworkMaturidade || null
+      });
 
   const mensagemId = await salvarMensagemAssistente({
     conversaId: ctx.conversa.id,
@@ -424,6 +463,8 @@ export async function responderAssistenteChatStream(opts, onEvent) {
     fontes: ctx.fontes,
     acoes
   });
+
+  await refinarTituloConversaSeNecessario(ctx.conversa.id, ctx.mensagem);
 
   onEvent?.({
     type: 'done',
@@ -434,7 +475,8 @@ export async function responderAssistenteChatStream(opts, onEvent) {
     acoes,
     modoPergunta: ctx.modoPergunta,
     provider,
-    model
+    model,
+    cancelado: !!cancelado
   });
 
   return {
@@ -444,6 +486,7 @@ export async function responderAssistenteChatStream(opts, onEvent) {
     fontes: ctx.fontes,
     acoes,
     provider,
-    model
+    model,
+    cancelado: !!cancelado
   };
 }

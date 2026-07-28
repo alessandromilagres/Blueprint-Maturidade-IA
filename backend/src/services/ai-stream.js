@@ -31,7 +31,8 @@ async function* streamAnthropic(prompt, systemPrompt, options = {}) {
       system: systemPrompt,
       messages: [{ role: 'user', content: prompt }],
       stream: true
-    })
+    }),
+    signal: options.signal || undefined
   });
 
   if (!response.ok) {
@@ -44,7 +45,7 @@ async function* streamAnthropic(prompt, systemPrompt, options = {}) {
       return evt.delta.text || '';
     }
     return '';
-  });
+  }, options.signal);
 }
 
 async function* streamOpenAICompatible(providerId, prompt, systemPrompt, options = {}) {
@@ -66,7 +67,8 @@ async function* streamOpenAICompatible(providerId, prompt, systemPrompt, options
         { role: 'user', content: prompt }
       ],
       stream: true
-    })
+    }),
+    signal: options.signal || undefined
   });
 
   if (!response.ok) {
@@ -77,33 +79,66 @@ async function* streamOpenAICompatible(providerId, prompt, systemPrompt, options
   yield* iterSseText(response, (evt) => {
     const piece = evt.choices?.[0]?.delta?.content;
     return piece || '';
-  });
+  }, options.signal);
 }
 
-async function* iterSseText(response, extractText) {
+function isAbortError(err) {
+  return (
+    err?.name === 'AbortError' ||
+    err?.code === 'ABORT_ERR' ||
+    /aborted|AbortError/i.test(String(err?.message || ''))
+  );
+}
+
+async function* iterSseText(response, extractText, signal) {
   const reader = response.body?.getReader();
   if (!reader) throw new Error('Resposta sem body stream');
   const decoder = new TextDecoder();
   let buffer = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith('data:')) continue;
-      const data = trimmed.slice(5).trim();
-      if (!data || data === '[DONE]') continue;
-      try {
-        const evt = JSON.parse(data);
-        const text = extractText(evt);
-        if (text) yield text;
-      } catch {
-        /* ignore partial json */
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        try {
+          await reader.cancel();
+        } catch {
+          /* ignore */
+        }
+        const err = new Error('Stream cancelado');
+        err.name = 'AbortError';
+        throw err;
       }
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const data = trimmed.slice(5).trim();
+        if (!data || data === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(data);
+          const text = extractText(evt);
+          if (text) yield text;
+        } catch {
+          /* ignore partial json */
+        }
+      }
+    }
+  } catch (e) {
+    if (isAbortError(e) || signal?.aborted) {
+      const err = new Error('Stream cancelado');
+      err.name = 'AbortError';
+      throw err;
+    }
+    throw e;
+  } finally {
+    try {
+      reader.releaseLock?.();
+    } catch {
+      /* ignore */
     }
   }
 }
@@ -127,6 +162,10 @@ export async function* streamAI(prompt, systemPrompt, options = {}) {
 
   let lastError = null;
   for (const providerId of providersToTry) {
+    if (options.signal?.aborted) {
+      yield { type: 'aborted' };
+      return;
+    }
     try {
       const model = options.model || PROVIDERS[providerId].defaultModel;
       yield { type: 'meta', provider: providerId, model };
@@ -137,10 +176,18 @@ export async function* streamAI(prompt, systemPrompt, options = {}) {
           : streamOpenAICompatible(providerId, prompt, systemPrompt, options);
 
       for await (const token of gen) {
+        if (options.signal?.aborted) {
+          yield { type: 'aborted' };
+          return;
+        }
         if (token) yield { type: 'token', text: token };
       }
       return;
     } catch (e) {
+      if (e?.name === 'AbortError' || options.signal?.aborted) {
+        yield { type: 'aborted' };
+        return;
+      }
       lastError = e;
       console.warn(`[AI stream] ${providerId} falhou:`, e.message);
     }

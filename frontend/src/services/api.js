@@ -135,7 +135,8 @@ export const assistenteApi = {
     modoPergunta = 'auto',
     empresaUnidadeId = null,
     tom = null,
-    frameworkFavorito = null
+    frameworkFavorito = null,
+    anexo = null
   }) =>
     request('/assistente/chat', {
       method: 'POST',
@@ -147,11 +148,15 @@ export const assistenteApi = {
         modoPergunta,
         empresaUnidadeId: empresaUnidadeId || null,
         tom,
-        frameworkFavorito
+        frameworkFavorito,
+        anexo: anexo || null
       })
     }),
 
-  listarConversas: () => request('/assistente/conversas'),
+  listarConversas: (params = {}) => {
+    const q = params.q ? `?q=${encodeURIComponent(params.q)}` : '';
+    return request(`/assistente/conversas${q}`);
+  },
   obterConversa: (id) => request(`/assistente/conversas/${id}`),
   excluirConversa: (id) => request(`/assistente/conversas/${id}`, { method: 'DELETE' }),
   listarModos: () => request('/assistente/modos'),
@@ -169,7 +174,8 @@ export const assistenteApi = {
 
   /**
    * Streaming SSE via fetch ReadableStream.
-   * handlers: { onStart, onToken, onDone, onError, onMeta }
+   * handlers: { onStart, onToken, onDone, onError, onMeta, signal? }
+   * Passe AbortSignal em handlers.signal (ou 3º arg) para cancelar (#9).
    */
   async chatStream(
     {
@@ -179,27 +185,40 @@ export const assistenteApi = {
       modoPergunta = 'auto',
       empresaUnidadeId = null,
       tom = null,
-      frameworkFavorito = null
+      frameworkFavorito = null,
+      anexo = null
     },
     handlers = {}
   ) {
+    const signal = handlers.signal || null;
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/assistente/chat/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({
-        mensagem,
-        projetoId: projetoId || null,
-        conversaId: conversaId || null,
-        modoPergunta,
-        empresaUnidadeId: empresaUnidadeId || null,
-        tom,
-        frameworkFavorito
-      })
-    });
+    let response;
+    try {
+      response = await fetch(`${API_URL}/assistente/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          mensagem,
+          projetoId: projetoId || null,
+          conversaId: conversaId || null,
+          modoPergunta,
+          empresaUnidadeId: empresaUnidadeId || null,
+          tom,
+          frameworkFavorito,
+          anexo: anexo || null
+        }),
+        signal: signal || undefined
+      });
+    } catch (e) {
+      if (e?.name === 'AbortError' || signal?.aborted) {
+        handlers.onCancel?.();
+        return { cancelado: true };
+      }
+      throw e;
+    }
 
     if (response.status === 401) {
       localStorage.removeItem('token');
@@ -216,41 +235,65 @@ export const assistenteApi = {
     const reader = response.body?.getReader();
     if (!reader) throw new Error('Stream indisponível neste navegador');
 
+    const onAbort = () => {
+      try {
+        reader.cancel();
+      } catch {
+        /* ignore */
+      }
+    };
+    if (signal) {
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+    }
+
     const decoder = new TextDecoder();
     let buffer = '';
     let eventName = 'message';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const parts = buffer.split('\n');
-      buffer = parts.pop() || '';
+    try {
+      while (true) {
+        if (signal?.aborted) break;
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n');
+        buffer = parts.pop() || '';
 
-      for (const line of parts) {
-        const trimmed = line.replace(/\r$/, '');
-        if (trimmed.startsWith('event:')) {
-          eventName = trimmed.slice(6).trim();
-          continue;
-        }
-        if (trimmed.startsWith('data:')) {
-          const raw = trimmed.slice(5).trim();
-          if (!raw) continue;
-          let data = {};
-          try {
-            data = JSON.parse(raw);
-          } catch {
+        for (const line of parts) {
+          const trimmed = line.replace(/\r$/, '');
+          if (trimmed.startsWith('event:')) {
+            eventName = trimmed.slice(6).trim();
             continue;
           }
-          if (eventName === 'start') handlers.onStart?.(data);
-          else if (eventName === 'token') handlers.onToken?.(data.text || '');
-          else if (eventName === 'meta') handlers.onMeta?.(data);
-          else if (eventName === 'done') handlers.onDone?.(data);
-          else if (eventName === 'error') handlers.onError?.(data.error || 'Erro no stream');
-          eventName = 'message';
+          if (trimmed.startsWith('data:')) {
+            const raw = trimmed.slice(5).trim();
+            if (!raw) continue;
+            let data = {};
+            try {
+              data = JSON.parse(raw);
+            } catch {
+              continue;
+            }
+            if (eventName === 'start') handlers.onStart?.(data);
+            else if (eventName === 'token') handlers.onToken?.(data.text || '');
+            else if (eventName === 'meta') handlers.onMeta?.(data);
+            else if (eventName === 'done') handlers.onDone?.(data);
+            else if (eventName === 'error') handlers.onError?.(data.error || 'Erro no stream');
+            eventName = 'message';
+          }
         }
       }
+    } catch (e) {
+      if (e?.name === 'AbortError' || signal?.aborted) {
+        handlers.onCancel?.();
+        return { cancelado: true };
+      }
+      throw e;
+    } finally {
+      if (signal) signal.removeEventListener('abort', onAbort);
     }
+    return { cancelado: !!(signal && signal.aborted) };
   }
 };
 

@@ -203,3 +203,24 @@ describe('assistente preferências (#6)', () => {
     assert.match(instrucaoFrameworkFavoritoNoPrompt('satf'), /SATF/i);
   });
 });
+
+describe('assistente título e anexo (#10/#11)', () => {
+  it('gera título curto sem marcador de anexo', async () => {
+    const { tituloDeMensagem } = await import('../src/utils/assistenteHistorico.js');
+    assert.equal(tituloDeMensagem(''), 'Nova conversa');
+    assert.equal(
+      tituloDeMensagem('Como fechar uma versão?\n\n[Anexo: x.pdf — 10 chars]'),
+      'Como fechar uma versão?'
+    );
+    const longo = 'a'.repeat(100);
+    assert.equal(tituloDeMensagem(longo).endsWith('…'), true);
+    assert.ok(tituloDeMensagem(longo).length <= 72);
+  });
+
+  it('valida mime de anexo do assistente', async () => {
+    const { mimeAnexoAssistentePermitido } = await import('../src/utils/assistenteAnexo.js');
+    assert.equal(mimeAnexoAssistentePermitido('a.pdf', 'application/pdf'), 'application/pdf');
+    assert.equal(mimeAnexoAssistentePermitido('a.md', ''), 'text/markdown');
+    assert.equal(mimeAnexoAssistentePermitido('a.docx', 'application/msword'), null);
+  });
+});

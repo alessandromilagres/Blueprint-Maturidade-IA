@@ -69,7 +69,8 @@ router.post('/chat', async (req, res) => {
       modoPergunta,
       tom,
       frameworkFavorito,
-      unidadeNome
+      unidadeNome,
+      anexo
     } = req.body || {};
     const out = await responderAssistenteChat({
       mensagem,
@@ -81,6 +82,7 @@ router.post('/chat', async (req, res) => {
       unidadeNome: unidadeNome || null,
       tom,
       frameworkFavorito,
+      anexo: anexo || null,
       usuario: req.usuario
     });
     res.json({
@@ -110,6 +112,13 @@ router.post('/chat', async (req, res) => {
  * POST /api/assistente/chat/stream — SSE
  */
 router.post('/chat/stream', async (req, res) => {
+  const abort = new AbortController();
+  const onClientClose = () => {
+    if (!abort.signal.aborted) abort.abort();
+  };
+  req.on('close', onClientClose);
+  req.on('aborted', onClientClose);
+
   try {
     await ensureAssistenteSchema();
     const {
@@ -120,7 +129,8 @@ router.post('/chat/stream', async (req, res) => {
       modoPergunta,
       tom,
       frameworkFavorito,
-      unidadeNome
+      unidadeNome,
+      anexo
     } = req.body || {};
 
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -139,9 +149,12 @@ router.post('/chat/stream', async (req, res) => {
         unidadeNome: unidadeNome || null,
         tom,
         frameworkFavorito,
-        usuario: req.usuario
+        anexo: anexo || null,
+        usuario: req.usuario,
+        signal: abort.signal
       },
       (evt) => {
+        if (res.writableEnded) return;
         if (evt.type === 'token') sseWrite(res, 'token', { text: evt.text });
         else if (evt.type === 'start') sseWrite(res, 'start', evt);
         else if (evt.type === 'meta') sseWrite(res, 'meta', evt);
@@ -149,7 +162,7 @@ router.post('/chat/stream', async (req, res) => {
       }
     );
 
-    res.end();
+    if (!res.writableEnded) res.end();
   } catch (error) {
     console.error('[Assistente stream]', error.message);
     if (!res.headersSent) {
@@ -157,11 +170,16 @@ router.post('/chat/stream', async (req, res) => {
       return;
     }
     try {
-      sseWrite(res, 'error', { error: error.message || 'Erro no stream' });
+      if (!res.writableEnded) {
+        sseWrite(res, 'error', { error: error.message || 'Erro no stream' });
+      }
     } catch {
       /* ignore */
     }
-    res.end();
+    if (!res.writableEnded) res.end();
+  } finally {
+    req.off?.('close', onClientClose);
+    req.off?.('aborted', onClientClose);
   }
 });
 
@@ -187,7 +205,10 @@ router.post('/feedback', async (req, res) => {
 
 router.get('/conversas', async (req, res) => {
   try {
-    const lista = await listarConversasAssistente(req.usuario.id);
+    const lista = await listarConversasAssistente(req.usuario.id, {
+      q: req.query?.q || '',
+      limit: req.query?.limit
+    });
     res.json({ ok: true, conversas: lista });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });

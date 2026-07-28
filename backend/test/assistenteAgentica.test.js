@@ -217,6 +217,26 @@ describe('assistente título e anexo (#10/#11)', () => {
     assert.ok(tituloDeMensagem(longo).length <= 72);
   });
 
+  it('normaliza filtros persistidos por conversa', async () => {
+    const { normalizarFiltrosConversa } = await import('../src/utils/assistenteHistorico.js');
+    assert.deepEqual(
+      normalizarFiltrosConversa({
+        projetoId: '12',
+        empresaUnidadeId: 0,
+        modoPergunta: 'projeto',
+        tom: 'longo',
+        frameworkFavorito: 'satf'
+      }),
+      {
+        projetoId: 12,
+        empresaUnidadeId: null,
+        modoPergunta: 'projeto',
+        tom: 'longo',
+        frameworkFavorito: 'satf'
+      }
+    );
+  });
+
   it('valida mime de anexo do assistente', async () => {
     const { mimeAnexoAssistentePermitido } = await import('../src/utils/assistenteAnexo.js');
     assert.equal(mimeAnexoAssistentePermitido('a.pdf', 'application/pdf'), 'application/pdf');

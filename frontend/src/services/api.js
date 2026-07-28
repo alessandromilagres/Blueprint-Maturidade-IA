@@ -159,6 +159,11 @@ export const assistenteApi = {
   },
   obterConversa: (id) => request(`/assistente/conversas/${id}`),
   excluirConversa: (id) => request(`/assistente/conversas/${id}`, { method: 'DELETE' }),
+  atualizarFiltrosConversa: (id, data) =>
+    request(`/assistente/conversas/${id}/filtros`, {
+      method: 'PATCH',
+      body: JSON.stringify(data || {})
+    }),
   listarModos: () => request('/assistente/modos'),
   obterPreferencias: () => request('/assistente/preferencias'),
   salvarPreferencias: (data) =>

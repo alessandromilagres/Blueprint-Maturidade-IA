@@ -1,6 +1,11 @@
 import { prisma } from '../lib/prisma.js';
 import { ensureAssistenteSchema } from './assistenteSchema.js';
 import { parseMetaMensagemAssistente, serializarMetaMensagemAssistente } from './assistenteAcoes.js';
+import { normalizarModoAssistente } from './assistenteModos.js';
+import {
+  normalizarTomAssistente,
+  normalizarFrameworkFavoritoAssistente
+} from './assistentePreferencias.js';
 
 /** Gera título curto a partir da primeira mensagem do usuário (#11). */
 export function tituloDeMensagem(mensagem) {
@@ -9,7 +14,6 @@ export function tituloDeMensagem(mensagem) {
     .replace(/\s+/g, ' ')
     .trim();
   if (!t) return 'Nova conversa';
-  // Prefere a primeira frase / linha
   const primeira = t.split(/(?<=[.!?])\s+|\n/)[0] || t;
   t = primeira.trim() || t;
   return t.length > 72 ? `${t.slice(0, 69)}…` : t;
@@ -19,6 +23,23 @@ function escaparLike(s) {
   return String(s).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
+function idOrNull(v) {
+  if (v == null || v === '' || v === 0 || v === '0') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+}
+
+/** Normaliza filtros persistidos na conversa. */
+export function normalizarFiltrosConversa(filtros = {}) {
+  return {
+    projetoId: idOrNull(filtros.projetoId),
+    empresaUnidadeId: idOrNull(filtros.empresaUnidadeId),
+    modoPergunta: normalizarModoAssistente(filtros.modoPergunta || 'auto'),
+    tom: normalizarTomAssistente(filtros.tom || 'medio'),
+    frameworkFavorito: normalizarFrameworkFavoritoAssistente(filtros.frameworkFavorito)
+  };
+}
+
 export async function listarConversasAssistente(usuarioId, { limit = 40, q = '' } = {}) {
   await ensureAssistenteSchema();
   const lim = Math.min(100, Math.max(1, Number(limit) || 40));
@@ -26,7 +47,8 @@ export async function listarConversasAssistente(usuarioId, { limit = 40, q = '' 
 
   if (!busca) {
     const rows = await prisma.$queryRaw`
-      SELECT c."id", c."projetoId", c."titulo", c."createdAt", c."updatedAt",
+      SELECT c."id", c."projetoId", c."empresaUnidadeId", c."modoPergunta", c."tom",
+             c."frameworkFavorito", c."titulo", c."createdAt", c."updatedAt",
              (SELECT COUNT(*)::int FROM "AssistenteMensagem" m WHERE m."conversaId" = c."id") AS "qtdMensagens"
       FROM "AssistenteConversa" c
       WHERE c."usuarioId" = ${usuarioId}
@@ -38,7 +60,8 @@ export async function listarConversasAssistente(usuarioId, { limit = 40, q = '' 
 
   const pattern = `%${escaparLike(busca)}%`;
   const rows = await prisma.$queryRaw`
-    SELECT c."id", c."projetoId", c."titulo", c."createdAt", c."updatedAt",
+    SELECT c."id", c."projetoId", c."empresaUnidadeId", c."modoPergunta", c."tom",
+           c."frameworkFavorito", c."titulo", c."createdAt", c."updatedAt",
            (SELECT COUNT(*)::int FROM "AssistenteMensagem" m WHERE m."conversaId" = c."id") AS "qtdMensagens"
     FROM "AssistenteConversa" c
     WHERE c."usuarioId" = ${usuarioId}
@@ -65,7 +88,8 @@ export async function obterConversaAssistente(usuarioId, conversaId) {
     throw err;
   }
   const conv = await prisma.$queryRaw`
-    SELECT "id", "usuarioId", "projetoId", "titulo", "createdAt", "updatedAt"
+    SELECT "id", "usuarioId", "projetoId", "empresaUnidadeId", "modoPergunta", "tom",
+           "frameworkFavorito", "titulo", "createdAt", "updatedAt"
     FROM "AssistenteConversa"
     WHERE "id" = ${id} AND "usuarioId" = ${usuarioId}
     LIMIT 1
@@ -97,18 +121,65 @@ export async function obterConversaAssistente(usuarioId, conversaId) {
   };
 }
 
+/**
+ * Atualiza filtros da conversa (projeto/unidade blocantes + modo/tom/framework).
+ */
+export async function atualizarFiltrosConversaAssistente(usuarioId, conversaId, filtros = {}) {
+  await ensureAssistenteSchema();
+  const id = parseInt(conversaId, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    const err = new Error('conversaId inválido');
+    err.status = 400;
+    throw err;
+  }
+  const f = normalizarFiltrosConversa(filtros);
+  const conv = await prisma.$queryRaw`
+    SELECT "id" FROM "AssistenteConversa"
+    WHERE "id" = ${id} AND "usuarioId" = ${usuarioId}
+    LIMIT 1
+  `;
+  if (!conv?.[0]) {
+    const err = new Error('Conversa não encontrada');
+    err.status = 404;
+    throw err;
+  }
+  await prisma.$executeRaw`
+    UPDATE "AssistenteConversa"
+    SET "projetoId" = ${f.projetoId},
+        "empresaUnidadeId" = ${f.empresaUnidadeId},
+        "modoPergunta" = ${f.modoPergunta},
+        "tom" = ${f.tom},
+        "frameworkFavorito" = ${f.frameworkFavorito},
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "id" = ${id}
+  `;
+  return { id, ...f };
+}
+
 export async function garantirConversaAssistente({
   usuarioId,
   conversaId = null,
   projetoId = null,
+  empresaUnidadeId = null,
+  modoPergunta = 'auto',
+  tom = 'medio',
+  frameworkFavorito = null,
   primeiraMensagem = ''
 }) {
   await ensureAssistenteSchema();
+  const f = normalizarFiltrosConversa({
+    projetoId,
+    empresaUnidadeId,
+    modoPergunta,
+    tom,
+    frameworkFavorito
+  });
 
   if (conversaId) {
     const id = parseInt(conversaId, 10);
     const conv = await prisma.$queryRaw`
-      SELECT "id", "usuarioId", "projetoId", "titulo"
+      SELECT "id", "usuarioId", "projetoId", "empresaUnidadeId", "modoPergunta", "tom",
+             "frameworkFavorito", "titulo"
       FROM "AssistenteConversa"
       WHERE "id" = ${id} AND "usuarioId" = ${usuarioId}
       LIMIT 1
@@ -118,22 +189,29 @@ export async function garantirConversaAssistente({
       err.status = 404;
       throw err;
     }
-    if (projetoId != null && Number(projetoId) > 0) {
-      await prisma.$executeRaw`
-        UPDATE "AssistenteConversa"
-        SET "projetoId" = ${Number(projetoId)}, "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "id" = ${id}
-      `;
-    }
-    return conv[0];
+    await prisma.$executeRaw`
+      UPDATE "AssistenteConversa"
+      SET "projetoId" = ${f.projetoId},
+          "empresaUnidadeId" = ${f.empresaUnidadeId},
+          "modoPergunta" = ${f.modoPergunta},
+          "tom" = ${f.tom},
+          "frameworkFavorito" = ${f.frameworkFavorito},
+          "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${id}
+    `;
+    return { ...conv[0], ...f };
   }
 
   const titulo = tituloDeMensagem(primeiraMensagem);
-  const pid = projetoId != null && Number(projetoId) > 0 ? Number(projetoId) : null;
   const inserted = await prisma.$queryRaw`
-    INSERT INTO "AssistenteConversa" ("usuarioId", "projetoId", "titulo", "createdAt", "updatedAt")
-    VALUES (${usuarioId}, ${pid}, ${titulo}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    RETURNING "id", "usuarioId", "projetoId", "titulo"
+    INSERT INTO "AssistenteConversa"
+      ("usuarioId", "projetoId", "empresaUnidadeId", "modoPergunta", "tom", "frameworkFavorito",
+       "titulo", "createdAt", "updatedAt")
+    VALUES
+      (${usuarioId}, ${f.projetoId}, ${f.empresaUnidadeId}, ${f.modoPergunta}, ${f.tom},
+       ${f.frameworkFavorito}, ${titulo}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    RETURNING "id", "usuarioId", "projetoId", "empresaUnidadeId", "modoPergunta", "tom",
+              "frameworkFavorito", "titulo"
   `;
   return inserted[0];
 }
@@ -156,12 +234,10 @@ export async function refinarTituloConversaSeNecessario(conversaId, mensagemUsua
   `;
   const row = rows?.[0];
   if (!row) return null;
-  // Só refinamos no início (≤3 msgs: user + assistant [+ talvez user cancel])
   if (Number(row.qtd) > 4) return null;
   const atual = String(row.titulo || '');
   if (atual === novo) return atual;
   if (atual !== 'Nova conversa' && atual.length >= 20 && !/^\s*$/.test(atual)) {
-    // Mantém título já razoável; atualiza se o novo for mais descritivo
     if (novo.length <= atual.length) return atual;
   }
 

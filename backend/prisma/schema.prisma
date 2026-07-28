@@ -851,12 +851,17 @@ model Iniciativa {
 // Tabelas também garantidas em runtime por ensureAssistenteSchema().
 // ==========================================
 model AssistenteConversa {
-  id        Int      @id @default(autoincrement())
-  usuarioId Int
-  projetoId Int?
-  titulo    String   @default("Nova conversa")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  usuarioId         Int
+  projetoId         Int?
+  /// Unidade organizacional do escopo desta conversa (null = Geral)
+  empresaUnidadeId  Int?
+  modoPergunta      String?
+  tom               String?
+  frameworkFavorito String?
+  titulo            String   @default("Nova conversa")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   mensagens AssistenteMensagem[]
 

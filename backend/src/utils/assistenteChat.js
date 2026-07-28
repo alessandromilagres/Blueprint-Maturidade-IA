@@ -274,6 +274,10 @@ async function prepararContextoChat(opts) {
     usuarioId,
     conversaId: opts.conversaId || null,
     projetoId: opts.projetoId ?? projetoMeta?.id ?? null,
+    empresaUnidadeId,
+    modoPergunta,
+    tom,
+    frameworkFavorito,
     primeiraMensagem: contentUsuario
   });
 

@@ -240,8 +240,32 @@ export default function AssistenteAgentica() {
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const salvarPrefsTimer = useRef(null);
+  const salvarFiltrosTimer = useRef(null);
   const abortRef = useRef(null);
   const buscaTimer = useRef(null);
+  const conversaIdRef = useRef(null);
+  const prefsPadraoRef = useRef({
+    projetoPadraoId: null,
+    unidadePadraoId: null,
+    tom: 'medio',
+    frameworkFavorito: ''
+  });
+  const filtrosAtuaisRef = useRef({
+    projetoId: '',
+    empresaUnidadeId: '',
+    modoPergunta: 'auto',
+    tom: 'medio',
+    frameworkFavorito: ''
+  });
+
+  conversaIdRef.current = conversaId;
+  filtrosAtuaisRef.current = {
+    projetoId,
+    empresaUnidadeId,
+    modoPergunta,
+    tom,
+    frameworkFavorito
+  };
 
   const carregarListaConversas = useCallback(async (q = '') => {
     try {
@@ -257,6 +281,25 @@ export default function AssistenteAgentica() {
     salvarPrefsTimer.current = setTimeout(() => {
       assistenteApi.salvarPreferencias(patch).catch(() => {});
     }, 400);
+  }, []);
+
+  /** Persiste filtros na conversa aberta (não altera preferências padrão). */
+  const persistirFiltrosConversa = useCallback((patch = {}) => {
+    const cid = conversaIdRef.current;
+    if (!cid) return;
+    if (salvarFiltrosTimer.current) clearTimeout(salvarFiltrosTimer.current);
+    salvarFiltrosTimer.current = setTimeout(() => {
+      const snap = { ...filtrosAtuaisRef.current, ...patch };
+      assistenteApi
+        .atualizarFiltrosConversa(cid, {
+          projetoId: snap.projetoId ? Number(snap.projetoId) : null,
+          empresaUnidadeId: snap.empresaUnidadeId ? Number(snap.empresaUnidadeId) : null,
+          modoPergunta: snap.modoPergunta || 'auto',
+          tom: snap.tom || 'medio',
+          frameworkFavorito: snap.frameworkFavorito || null
+        })
+        .catch(() => {});
+    }, 350);
   }, []);
 
   useEffect(() => {
@@ -278,6 +321,12 @@ export default function AssistenteAgentica() {
         const prefRes = await assistenteApi.obterPreferencias();
         const p = prefRes.preferencias || {};
         if (!cancel) {
+          prefsPadraoRef.current = {
+            projetoPadraoId: p.projetoPadraoId || null,
+            unidadePadraoId: p.unidadePadraoId || null,
+            tom: p.tom || 'medio',
+            frameworkFavorito: p.frameworkFavorito || ''
+          };
           if (p.projetoPadraoId) setProjetoId(String(p.projetoPadraoId));
           if (p.unidadePadraoId) setEmpresaUnidadeId(String(p.unidadePadraoId));
           if (p.tom) setTom(p.tom);
@@ -292,6 +341,7 @@ export default function AssistenteAgentica() {
     return () => {
       cancel = true;
       if (salvarPrefsTimer.current) clearTimeout(salvarPrefsTimer.current);
+      if (salvarFiltrosTimer.current) clearTimeout(salvarFiltrosTimer.current);
     };
   }, [carregarListaConversas]);
 
@@ -371,6 +421,15 @@ export default function AssistenteAgentica() {
     setProjetoId(valor);
     setEmpresaUnidadeId('');
     if (!prefsCarregadas) return;
+    if (conversaIdRef.current) {
+      persistirFiltrosConversa({ projetoId: valor, empresaUnidadeId: '' });
+      return;
+    }
+    prefsPadraoRef.current = {
+      ...prefsPadraoRef.current,
+      projetoPadraoId: valor ? Number(valor) : null,
+      unidadePadraoId: null
+    };
     persistirPreferencias({
       projetoPadraoId: valor ? Number(valor) : null,
       unidadePadraoId: null
@@ -380,21 +439,66 @@ export default function AssistenteAgentica() {
   function onChangeUnidade(valor) {
     setEmpresaUnidadeId(valor);
     if (!prefsCarregadas) return;
+    if (conversaIdRef.current) {
+      persistirFiltrosConversa({ empresaUnidadeId: valor });
+      return;
+    }
+    prefsPadraoRef.current = {
+      ...prefsPadraoRef.current,
+      unidadePadraoId: valor ? Number(valor) : null
+    };
     persistirPreferencias({
       unidadePadraoId: valor ? Number(valor) : null
     });
   }
 
+  function onChangeModo(valor) {
+    setModoPergunta(valor);
+    if (conversaIdRef.current) {
+      persistirFiltrosConversa({ modoPergunta: valor });
+    }
+  }
+
   function onChangeTom(valor) {
     setTom(valor);
     if (!prefsCarregadas) return;
+    if (conversaIdRef.current) {
+      persistirFiltrosConversa({ tom: valor });
+      return;
+    }
+    prefsPadraoRef.current = { ...prefsPadraoRef.current, tom: valor };
     persistirPreferencias({ tom: valor });
   }
 
   function onChangeFramework(valor) {
     setFrameworkFavorito(valor);
     if (!prefsCarregadas) return;
+    if (conversaIdRef.current) {
+      persistirFiltrosConversa({ frameworkFavorito: valor });
+      return;
+    }
+    prefsPadraoRef.current = {
+      ...prefsPadraoRef.current,
+      frameworkFavorito: valor || ''
+    };
     persistirPreferencias({ frameworkFavorito: valor || null });
+  }
+
+  function aplicarFiltrosDaConversa(c) {
+    setProjetoId(c.projetoId ? String(c.projetoId) : '');
+    setEmpresaUnidadeId(c.empresaUnidadeId ? String(c.empresaUnidadeId) : '');
+    setModoPergunta(c.modoPergunta || 'auto');
+    setTom(c.tom || 'medio');
+    setFrameworkFavorito(c.frameworkFavorito || '');
+  }
+
+  function aplicarFiltrosPadrao() {
+    const p = prefsPadraoRef.current;
+    setProjetoId(p.projetoPadraoId ? String(p.projetoPadraoId) : '');
+    setEmpresaUnidadeId(p.unidadePadraoId ? String(p.unidadePadraoId) : '');
+    setTom(p.tom || 'medio');
+    setFrameworkFavorito(p.frameworkFavorito || '');
+    setModoPergunta('auto');
   }
 
   async function abrirConversa(id) {
@@ -403,7 +507,7 @@ export default function AssistenteAgentica() {
       const res = await assistenteApi.obterConversa(id);
       const c = res.conversa;
       setConversaId(c.id);
-      setProjetoId(c.projetoId ? String(c.projetoId) : '');
+      aplicarFiltrosDaConversa(c);
       setMensagens(
         (c.mensagens || []).map((m) => ({
           id: m.id,
@@ -414,6 +518,10 @@ export default function AssistenteAgentica() {
           feedbackEstado: null
         }))
       );
+      setModoRetrieval('');
+      setAnexo(null);
+      setAnexoErro('');
+      if (fileRef.current) fileRef.current.value = '';
     } catch (e) {
       setErro(e.message || 'Não foi possível abrir a conversa');
     }
@@ -424,6 +532,10 @@ export default function AssistenteAgentica() {
     setMensagens([]);
     setErro('');
     setModoRetrieval('');
+    setAnexo(null);
+    setAnexoErro('');
+    if (fileRef.current) fileRef.current.value = '';
+    aplicarFiltrosPadrao();
     inputRef.current?.focus();
   }
 
@@ -751,7 +863,7 @@ export default function AssistenteAgentica() {
               <button
                 key={m.id}
                 type="button"
-                onClick={() => setModoPergunta(m.id)}
+                onClick={() => onChangeModo(m.id)}
                 title={m.descricao || m.label}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   modoPergunta === m.id

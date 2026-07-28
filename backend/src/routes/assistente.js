@@ -6,7 +6,8 @@ import {
 import {
   listarConversasAssistente,
   obterConversaAssistente,
-  excluirConversaAssistente
+  excluirConversaAssistente,
+  atualizarFiltrosConversaAssistente
 } from '../utils/assistenteHistorico.js';
 import { ensureAssistenteSchema } from '../utils/assistenteSchema.js';
 import { salvarFeedbackAssistente } from '../utils/assistenteFeedback.js';
@@ -219,6 +220,20 @@ router.get('/conversas/:id', async (req, res) => {
   try {
     const conversa = await obterConversaAssistente(req.usuario.id, req.params.id);
     res.json({ ok: true, conversa });
+  } catch (error) {
+    res.status(error.status || 500).json({ ok: false, error: error.message });
+  }
+});
+
+router.patch('/conversas/:id/filtros', async (req, res) => {
+  try {
+    await ensureAssistenteSchema();
+    const filtros = await atualizarFiltrosConversaAssistente(
+      req.usuario.id,
+      req.params.id,
+      req.body || {}
+    );
+    res.json({ ok: true, filtros });
   } catch (error) {
     res.status(error.status || 500).json({ ok: false, error: error.message });
   }

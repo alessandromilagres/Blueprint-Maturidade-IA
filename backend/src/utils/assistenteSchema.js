@@ -95,6 +95,19 @@ export async function ensureAssistenteSchema(prismaClient = prisma) {
       'CREATE UNIQUE INDEX IF NOT EXISTS "AssistentePreferencia_usuarioId_key" ON "AssistentePreferencia" ("usuarioId")'
     );
 
+    await prismaClient.$executeRawUnsafe(
+      'ALTER TABLE "AssistenteConversa" ADD COLUMN IF NOT EXISTS "empresaUnidadeId" INTEGER'
+    );
+    await prismaClient.$executeRawUnsafe(
+      'ALTER TABLE "AssistenteConversa" ADD COLUMN IF NOT EXISTS "modoPergunta" TEXT'
+    );
+    await prismaClient.$executeRawUnsafe(
+      'ALTER TABLE "AssistenteConversa" ADD COLUMN IF NOT EXISTS "tom" TEXT'
+    );
+    await prismaClient.$executeRawUnsafe(
+      'ALTER TABLE "AssistenteConversa" ADD COLUMN IF NOT EXISTS "frameworkFavorito" TEXT'
+    );
+
     console.log('[schema] Assistente (conversa/mensagem/chunk/feedback/preferencia) verificado.');
   } catch (e) {
     console.warn('[schema] Assistente:', e?.message || e);

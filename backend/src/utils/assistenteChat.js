@@ -23,6 +23,13 @@ import {
   normalizarModoAssistente
 } from './assistenteModos.js';
 import { carregarDicasFeedbackAssistente } from './assistenteFeedback.js';
+import {
+  obterPreferenciasAssistente,
+  instrucaoTomNoPrompt,
+  instrucaoFrameworkFavoritoNoPrompt,
+  normalizarTomAssistente
+} from './assistentePreferencias.js';
+import { usuarioPodeFiltrarUnidadeAssistente } from './empresaUnidade.js';
 
 const MAX_HISTORICO = 10;
 const MAX_MSG = 4000;
@@ -75,7 +82,7 @@ function usuarioPodeAcessarProjeto(usuario, projeto) {
   return Number(projeto.empresaId) === Number(eid);
 }
 
-export async function carregarBlocoProjetoAssistente(usuario, projetoId) {
+export async function carregarBlocoProjetoAssistente(usuario, projetoId, { empresaUnidadeId = null, unidadeNome = null } = {}) {
   if (projetoId == null || projetoId === '') return { ok: true, bloco: '', meta: null };
 
   const id = parseInt(projetoId, 10);
@@ -108,22 +115,35 @@ export async function carregarBlocoProjetoAssistente(usuario, projetoId) {
     framework = null;
   }
 
+  const uidFiltro =
+    empresaUnidadeId != null && Number(empresaUnidadeId) > 0
+      ? Math.trunc(Number(empresaUnidadeId))
+      : null;
+
   const meta = {
     id: projeto.id,
     nome: projeto.nome,
     empresa: projeto.empresa?.nome || null,
-    frameworkMaturidade: framework
+    frameworkMaturidade: framework,
+    empresaUnidadeId: uidFiltro,
+    unidadeNome: unidadeNome || null
   };
 
-  const bloco = truncarContexto(
-    [
-      '## Identificação do projeto',
-      `- **Empresa:** ${meta.empresa || '—'}`,
-      `- **Projeto:** ${meta.nome} (id ${meta.id})`,
-      `- **Framework:** ${meta.frameworkMaturidade || 'não informado'}`
-    ].join('\n'),
-    1200
-  );
+  const linhas = [
+    '## Identificação do projeto',
+    `- **Empresa:** ${meta.empresa || '—'}`,
+    `- **Projeto:** ${meta.nome} (id ${meta.id})`,
+    `- **Framework:** ${meta.frameworkMaturidade || 'não informado'}`
+  ];
+  if (uidFiltro != null) {
+    linhas.push(
+      `- **Escopo de unidade:** ${meta.unidadeNome || `Unidade #${uidFiltro}`} (id ${uidFiltro}) — priorizar books/relatórios desta unidade`
+    );
+  } else {
+    linhas.push('- **Escopo de unidade:** Geral (empresa/projeto) — sem filtro explícito de unidade');
+  }
+
+  const bloco = truncarContexto(linhas.join('\n'), 1400);
 
   return { ok: true, bloco, meta };
 }
@@ -134,13 +154,18 @@ async function montarPromptAssistente({
   blocoProjeto,
   chunks,
   modoPergunta = 'auto',
-  dicasFeedback = ''
+  dicasFeedback = '',
+  tom = 'medio',
+  frameworkFavorito = null
 }) {
   return [
     '# CATÁLOGO RÁPIDO (referência)',
     catalogoDimensoesMarkdown(),
     '',
     instrucaoModoNoPrompt(modoPergunta),
+    '',
+    instrucaoTomNoPrompt(tom),
+    instrucaoFrameworkFavoritoNoPrompt(frameworkFavorito),
     '',
     '# FONTES RECUPERADAS (RAG)',
     formatarChunksParaPrompt(chunks),
@@ -195,9 +220,37 @@ async function prepararContextoChat(opts) {
 
   const modoPergunta = normalizarModoAssistente(opts.modoPergunta);
 
+  const prefs = await obterPreferenciasAssistente(usuarioId);
+  const tom = normalizarTomAssistente(opts.tom ?? prefs.tom);
+  const frameworkFavorito = opts.frameworkFavorito ?? prefs.frameworkFavorito;
+
+  let empresaUnidadeId =
+    opts.empresaUnidadeId != null && Number(opts.empresaUnidadeId) > 0
+      ? Math.trunc(Number(opts.empresaUnidadeId))
+      : null;
+  if (empresaUnidadeId != null && !usuarioPodeFiltrarUnidadeAssistente(opts.usuario, empresaUnidadeId)) {
+    const err = new Error('Sem permissão para filtrar por esta unidade');
+    err.status = 403;
+    throw err;
+  }
+
+  let unidadeNome = opts.unidadeNome || null;
+  if (empresaUnidadeId != null && !unidadeNome) {
+    try {
+      const u = await prisma.unidadeEmpresa.findUnique({
+        where: { id: empresaUnidadeId },
+        select: { nome: true }
+      });
+      unidadeNome = u?.nome || null;
+    } catch {
+      /* ignore */
+    }
+  }
+
   const { bloco: blocoProjeto, meta: projetoMeta } = await carregarBlocoProjetoAssistente(
     opts.usuario,
-    opts.projetoId
+    opts.projetoId,
+    { empresaUnidadeId, unidadeNome }
   );
 
   const conversa = await garantirConversaAssistente({
@@ -221,7 +274,8 @@ async function prepararContextoChat(opts) {
   const retrieval = await recuperarChunksRelevantes(mensagem, {
     projetoId: projetoIdEfetivo,
     modoPergunta,
-    usuario: opts.usuario
+    usuario: opts.usuario,
+    empresaUnidadeId
   });
 
   const dicasFeedback = await carregarDicasFeedbackAssistente(usuarioId);
@@ -232,7 +286,9 @@ async function prepararContextoChat(opts) {
     blocoProjeto,
     chunks: retrieval.chunks,
     modoPergunta,
-    dicasFeedback
+    dicasFeedback,
+    tom,
+    frameworkFavorito
   });
 
   await salvarMensagemAssistente({

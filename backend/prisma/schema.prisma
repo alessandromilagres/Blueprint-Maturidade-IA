@@ -907,3 +907,14 @@ model AssistenteFeedback {
   @@unique([mensagemId, usuarioId])
   @@index([usuarioId])
 }
+
+model AssistentePreferencia {
+  id                Int      @id @default(autoincrement())
+  usuarioId         Int      @unique
+  projetoPadraoId   Int?
+  unidadePadraoId   Int?
+  frameworkFavorito String?
+  tom               String   @default("medio")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

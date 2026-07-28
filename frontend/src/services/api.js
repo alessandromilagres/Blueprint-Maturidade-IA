@@ -127,7 +127,16 @@ export const usuariosApi = {
 };
 
 export const assistenteApi = {
-  chat: ({ mensagem, historico = [], projetoId = null, conversaId = null, modoPergunta = 'auto' }) =>
+  chat: ({
+    mensagem,
+    historico = [],
+    projetoId = null,
+    conversaId = null,
+    modoPergunta = 'auto',
+    empresaUnidadeId = null,
+    tom = null,
+    frameworkFavorito = null
+  }) =>
     request('/assistente/chat', {
       method: 'POST',
       body: JSON.stringify({
@@ -135,7 +144,10 @@ export const assistenteApi = {
         historico,
         projetoId: projetoId || null,
         conversaId: conversaId || null,
-        modoPergunta
+        modoPergunta,
+        empresaUnidadeId: empresaUnidadeId || null,
+        tom,
+        frameworkFavorito
       })
     }),
 
@@ -143,6 +155,12 @@ export const assistenteApi = {
   obterConversa: (id) => request(`/assistente/conversas/${id}`),
   excluirConversa: (id) => request(`/assistente/conversas/${id}`, { method: 'DELETE' }),
   listarModos: () => request('/assistente/modos'),
+  obterPreferencias: () => request('/assistente/preferencias'),
+  salvarPreferencias: (data) =>
+    request('/assistente/preferencias', {
+      method: 'PUT',
+      body: JSON.stringify(data || {})
+    }),
   feedback: ({ mensagemId, util, motivo = null, conversaId = null }) =>
     request('/assistente/feedback', {
       method: 'POST',
@@ -154,7 +172,15 @@ export const assistenteApi = {
    * handlers: { onStart, onToken, onDone, onError, onMeta }
    */
   async chatStream(
-    { mensagem, projetoId = null, conversaId = null, modoPergunta = 'auto' },
+    {
+      mensagem,
+      projetoId = null,
+      conversaId = null,
+      modoPergunta = 'auto',
+      empresaUnidadeId = null,
+      tom = null,
+      frameworkFavorito = null
+    },
     handlers = {}
   ) {
     const token = localStorage.getItem('token');
@@ -168,7 +194,10 @@ export const assistenteApi = {
         mensagem,
         projetoId: projetoId || null,
         conversaId: conversaId || null,
-        modoPergunta
+        modoPergunta,
+        empresaUnidadeId: empresaUnidadeId || null,
+        tom,
+        frameworkFavorito
       })
     });
 

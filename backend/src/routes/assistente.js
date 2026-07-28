@@ -11,6 +11,10 @@ import {
 import { ensureAssistenteSchema } from '../utils/assistenteSchema.js';
 import { salvarFeedbackAssistente } from '../utils/assistenteFeedback.js';
 import { MODOS_ASSISTENTE } from '../utils/assistenteModos.js';
+import {
+  obterPreferenciasAssistente,
+  salvarPreferenciasAssistente
+} from '../utils/assistentePreferencias.js';
 
 const router = express.Router();
 
@@ -18,24 +22,65 @@ function sseWrite(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+function parseEmpresaUnidadeIdBody(body) {
+  const raw = body?.empresaUnidadeId ?? body?.unidadeId;
+  if (raw == null || raw === '' || raw === '0' || raw === 'todas' || raw === 'all') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.trunc(n);
+}
+
 router.get('/modos', (_req, res) => {
   res.json({ ok: true, modos: MODOS_ASSISTENTE });
 });
 
+router.get('/preferencias', async (req, res) => {
+  try {
+    await ensureAssistenteSchema();
+    const prefs = await obterPreferenciasAssistente(req.usuario.id);
+    res.json({ ok: true, preferencias: prefs });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+router.put('/preferencias', async (req, res) => {
+  try {
+    await ensureAssistenteSchema();
+    const prefs = await salvarPreferenciasAssistente(req.usuario.id, req.body || {});
+    res.json({ ok: true, preferencias: prefs });
+  } catch (error) {
+    res.status(error.status || 500).json({ ok: false, error: error.message });
+  }
+});
+
 /**
  * POST /api/assistente/chat
- * Body: { mensagem, historico?, projetoId?, conversaId?, modoPergunta? }
+ * Body: { mensagem, historico?, projetoId?, conversaId?, modoPergunta?, empresaUnidadeId?, tom?, frameworkFavorito? }
  */
 router.post('/chat', async (req, res) => {
   try {
     await ensureAssistenteSchema();
-    const { mensagem, historico, projetoId, conversaId, modoPergunta } = req.body || {};
+    const {
+      mensagem,
+      historico,
+      projetoId,
+      conversaId,
+      modoPergunta,
+      tom,
+      frameworkFavorito,
+      unidadeNome
+    } = req.body || {};
     const out = await responderAssistenteChat({
       mensagem,
       historico,
       projetoId: projetoId ?? null,
       conversaId: conversaId ?? null,
       modoPergunta,
+      empresaUnidadeId: parseEmpresaUnidadeIdBody(req.body),
+      unidadeNome: unidadeNome || null,
+      tom,
+      frameworkFavorito,
       usuario: req.usuario
     });
     res.json({
@@ -67,7 +112,16 @@ router.post('/chat', async (req, res) => {
 router.post('/chat/stream', async (req, res) => {
   try {
     await ensureAssistenteSchema();
-    const { mensagem, historico, projetoId, conversaId, modoPergunta } = req.body || {};
+    const {
+      mensagem,
+      historico,
+      projetoId,
+      conversaId,
+      modoPergunta,
+      tom,
+      frameworkFavorito,
+      unidadeNome
+    } = req.body || {};
 
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -81,6 +135,10 @@ router.post('/chat/stream', async (req, res) => {
         projetoId: projetoId ?? null,
         conversaId: conversaId ?? null,
         modoPergunta,
+        empresaUnidadeId: parseEmpresaUnidadeIdBody(req.body),
+        unidadeNome: unidadeNome || null,
+        tom,
+        frameworkFavorito,
         usuario: req.usuario
       },
       (evt) => {

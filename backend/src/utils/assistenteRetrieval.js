@@ -216,9 +216,12 @@ async function chunksProjeto(projetoId) {
 }
 
 /** Delegado à indexação (última versão por tipo + DB). */
-export async function chunksRelatoriosIAProjeto(projetoId, { usuario = null } = {}) {
+export async function chunksRelatoriosIAProjeto(
+  projetoId,
+  { usuario = null, empresaUnidadeId = null } = {}
+) {
   const { obterChunksRelatoriosIAProjeto } = await import('./assistenteIndexacao.js');
-  return obterChunksRelatoriosIAProjeto(projetoId, { usuario });
+  return obterChunksRelatoriosIAProjeto(projetoId, { usuario, empresaUnidadeId });
 }
 
 function boostRelatorioNaQuery(queryTokens, scoreKw, fonte) {
@@ -243,11 +246,17 @@ function boostRelatorioNaQuery(queryTokens, scoreKw, fonte) {
 /**
  * Retrieval híbrido: keyword + embeddings persistidos (só gera embedding da query / faltantes).
  * @param {string} pergunta
- * @param {{ projetoId?: number|null, topK?: number, modoPergunta?: string, usuario?: object|null }} opts
+ * @param {{ projetoId?: number|null, topK?: number, modoPergunta?: string, usuario?: object|null, empresaUnidadeId?: number|null }} opts
  */
 export async function recuperarChunksRelevantes(
   pergunta,
-  { projetoId = null, topK = TOP_K, modoPergunta = 'auto', usuario = null } = {}
+  {
+    projetoId = null,
+    topK = TOP_K,
+    modoPergunta = 'auto',
+    usuario = null,
+    empresaUnidadeId = null
+  } = {}
 ) {
   const q = String(pergunta || '').trim();
   const queryTokens = tokenizar(q);
@@ -256,7 +265,7 @@ export async function recuperarChunksRelevantes(
   let pool = [
     ...obterChunksGlobaisMemoria(),
     ...(await chunksProjeto(projetoId)),
-    ...(await chunksRelatoriosIAProjeto(projetoId, { usuario }))
+    ...(await chunksRelatoriosIAProjeto(projetoId, { usuario, empresaUnidadeId }))
   ];
   pool = filtrarCandidatosPorModo(pool, modoNorm);
 

@@ -184,3 +184,22 @@ describe('assistente system prompt', () => {
     assert.match(SYSTEM_PROMPT_ASSISTENTE, /FONTES RECUPERADAS/i);
   });
 });
+
+describe('assistente preferências (#6)', () => {
+  it('normaliza tom e framework favorito', async () => {
+    const {
+      normalizarTomAssistente,
+      normalizarFrameworkFavoritoAssistente,
+      instrucaoTomNoPrompt,
+      instrucaoFrameworkFavoritoNoPrompt
+    } = await import('../src/utils/assistentePreferencias.js');
+    assert.equal(normalizarTomAssistente('CURTO'), 'curto');
+    assert.equal(normalizarTomAssistente('long'), 'longo');
+    assert.equal(normalizarTomAssistente(null), 'medio');
+    assert.equal(normalizarFrameworkFavoritoAssistente('SATF_TI_V3'), 'satf');
+    assert.equal(normalizarFrameworkFavoritoAssistente('blueprint'), 'blueprint16');
+    assert.equal(normalizarFrameworkFavoritoAssistente(''), null);
+    assert.match(instrucaoTomNoPrompt('curto'), /curtas/i);
+    assert.match(instrucaoFrameworkFavoritoNoPrompt('satf'), /SATF/i);
+  });
+});

@@ -15,7 +15,7 @@ import {
   ThumbsUp,
   ThumbsDown
 } from 'lucide-react';
-import { assistenteApi, projetosApi } from '../services/api';
+import { assistenteApi, projetosApi, empresaUnidadesApi } from '../services/api';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 
 const SUGESTOES = [
@@ -32,6 +32,18 @@ const MODOS_DEFAULT = [
   { id: 'metodologia', label: 'Metodologia' },
   { id: 'projeto', label: 'Este projeto' },
   { id: 'book', label: 'Deste book' }
+];
+
+const TOMS = [
+  { id: 'curto', label: 'Tom curto' },
+  { id: 'medio', label: 'Tom médio' },
+  { id: 'longo', label: 'Tom longo' }
+];
+
+const FRAMEWORKS_PREF = [
+  { id: '', label: 'Framework: automático' },
+  { id: 'blueprint16', label: 'Pref. Blueprint 16' },
+  { id: 'satf', label: 'Pref. SATF' }
 ];
 
 function Bolha({
@@ -203,6 +215,11 @@ function Bolha({
 export default function AssistenteAgentica() {
   const [projetos, setProjetos] = useState([]);
   const [projetoId, setProjetoId] = useState('');
+  const [unidades, setUnidades] = useState([]);
+  const [empresaUnidadeId, setEmpresaUnidadeId] = useState('');
+  const [tom, setTom] = useState('medio');
+  const [frameworkFavorito, setFrameworkFavorito] = useState('');
+  const [prefsCarregadas, setPrefsCarregadas] = useState(false);
   const [conversaId, setConversaId] = useState(null);
   const [conversas, setConversas] = useState([]);
   const [mensagens, setMensagens] = useState([]);
@@ -214,6 +231,7 @@ export default function AssistenteAgentica() {
   const [modos, setModos] = useState(MODOS_DEFAULT);
   const fimRef = useRef(null);
   const inputRef = useRef(null);
+  const salvarPrefsTimer = useRef(null);
 
   const carregarListaConversas = useCallback(async () => {
     try {
@@ -222,6 +240,13 @@ export default function AssistenteAgentica() {
     } catch {
       /* ignore */
     }
+  }, []);
+
+  const persistirPreferencias = useCallback((patch) => {
+    if (salvarPrefsTimer.current) clearTimeout(salvarPrefsTimer.current);
+    salvarPrefsTimer.current = setTimeout(() => {
+      assistenteApi.salvarPreferencias(patch).catch(() => {});
+    }, 400);
   }, []);
 
   useEffect(() => {
@@ -239,16 +264,91 @@ export default function AssistenteAgentica() {
       } catch {
         /* keep defaults */
       }
+      try {
+        const prefRes = await assistenteApi.obterPreferencias();
+        const p = prefRes.preferencias || {};
+        if (!cancel) {
+          if (p.projetoPadraoId) setProjetoId(String(p.projetoPadraoId));
+          if (p.unidadePadraoId) setEmpresaUnidadeId(String(p.unidadePadraoId));
+          if (p.tom) setTom(p.tom);
+          if (p.frameworkFavorito) setFrameworkFavorito(p.frameworkFavorito);
+          setPrefsCarregadas(true);
+        }
+      } catch {
+        if (!cancel) setPrefsCarregadas(true);
+      }
       if (!cancel) await carregarListaConversas();
     })();
     return () => {
       cancel = true;
+      if (salvarPrefsTimer.current) clearTimeout(salvarPrefsTimer.current);
     };
   }, [carregarListaConversas]);
 
   useEffect(() => {
+    let cancel = false;
+    (async () => {
+      if (!projetoId) {
+        setUnidades([]);
+        return;
+      }
+      const proj = projetos.find((p) => String(p.id) === String(projetoId));
+      const empresaId = proj?.empresaId || proj?.empresa?.id;
+      if (!empresaId) {
+        setUnidades([]);
+        return;
+      }
+      try {
+        const lista = await empresaUnidadesApi.listar(empresaId);
+        if (cancel) return;
+        const arr = Array.isArray(lista) ? lista : [];
+        setUnidades(arr);
+        setEmpresaUnidadeId((atual) => {
+          if (!atual) return atual;
+          return arr.some((u) => String(u.id) === String(atual)) ? atual : '';
+        });
+      } catch {
+        if (!cancel) setUnidades([]);
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [projetoId, projetos]);
+
+  useEffect(() => {
     fimRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensagens, enviando]);
+
+  function onChangeProjeto(valor) {
+    setProjetoId(valor);
+    setEmpresaUnidadeId('');
+    if (!prefsCarregadas) return;
+    persistirPreferencias({
+      projetoPadraoId: valor ? Number(valor) : null,
+      unidadePadraoId: null
+    });
+  }
+
+  function onChangeUnidade(valor) {
+    setEmpresaUnidadeId(valor);
+    if (!prefsCarregadas) return;
+    persistirPreferencias({
+      unidadePadraoId: valor ? Number(valor) : null
+    });
+  }
+
+  function onChangeTom(valor) {
+    setTom(valor);
+    if (!prefsCarregadas) return;
+    persistirPreferencias({ tom: valor });
+  }
+
+  function onChangeFramework(valor) {
+    setFrameworkFavorito(valor);
+    if (!prefsCarregadas) return;
+    persistirPreferencias({ frameworkFavorito: valor || null });
+  }
 
   async function abrirConversa(id) {
     setErro('');
@@ -332,7 +432,10 @@ export default function AssistenteAgentica() {
             mensagem: texto,
             conversaId,
             projetoId: projetoId ? Number(projetoId) : null,
-            modoPergunta
+            empresaUnidadeId: empresaUnidadeId ? Number(empresaUnidadeId) : null,
+            modoPergunta,
+            tom,
+            frameworkFavorito: frameworkFavorito || null
           },
           {
             onStart: (data) => {
@@ -407,11 +510,14 @@ export default function AssistenteAgentica() {
     [
       carregarListaConversas,
       conversaId,
+      empresaUnidadeId,
       enviando,
+      frameworkFavorito,
       input,
       mensagens,
       modoPergunta,
-      projetoId
+      projetoId,
+      tom
     ]
   );
 
@@ -477,7 +583,7 @@ export default function AssistenteAgentica() {
                 Assistente Agentica
               </h1>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Fontes clicáveis · modos de busca · feedback
+                Unidade · preferências · fontes clicáveis
                 {modoRetrieval ? ` · ${modoRetrieval}` : ''}
                 {conversaId ? ` · #${conversaId}` : ''}
               </p>
@@ -493,23 +599,43 @@ export default function AssistenteAgentica() {
             </div>
           </div>
 
-          <label className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <FolderKanban className="h-4 w-4 shrink-0 text-slate-500" />
-            <span className="shrink-0">Projeto:</span>
-            <select
-              value={projetoId}
-              onChange={(e) => setProjetoId(e.target.value)}
-              className="min-w-[14rem] flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-            >
-              <option value="">Sem projeto — só base global</option>
-              {projetos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.empresa?.nome ? `${p.empresa.nome} — ` : ''}
-                  {p.nome}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <label className="flex min-w-[14rem] flex-1 items-center gap-2">
+              <FolderKanban className="h-4 w-4 shrink-0 text-slate-500" />
+              <select
+                value={projetoId}
+                onChange={(e) => onChangeProjeto(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="">Sem projeto — só base global</option>
+                {projetos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.empresa?.nome ? `${p.empresa.nome} — ` : ''}
+                    {p.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {projetoId && unidades.length > 0 && (
+              <label className="flex min-w-[12rem] flex-1 items-center gap-2">
+                <span className="shrink-0 text-xs text-slate-500">Unidade:</span>
+                <select
+                  value={empresaUnidadeId}
+                  onChange={(e) => onChangeUnidade(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                >
+                  <option value="">Geral (empresa)</option>
+                  {unidades.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nome}
+                      {u.ehPadrao ? ' (padrão)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
 
           <div className="flex flex-wrap gap-1.5">
             {modos.map((m) => (
@@ -525,6 +651,37 @@ export default function AssistenteAgentica() {
                 }`}
               >
                 {m.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {TOMS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onChangeTom(t.id)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  tom === t.id
+                    ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+            {FRAMEWORKS_PREF.map((f) => (
+              <button
+                key={f.id || 'auto'}
+                type="button"
+                onClick={() => onChangeFramework(f.id)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  (frameworkFavorito || '') === f.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:border-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
+                }`}
+              >
+                {f.label}
               </button>
             ))}
           </div>

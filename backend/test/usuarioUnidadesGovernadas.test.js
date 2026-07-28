@@ -9,6 +9,7 @@ import {
   usuarioTemRestricaoUnidadesAssistente,
   idsUnidadesVisiveisAssistente,
   usuarioPodeAcessarEscopoRelatorioAssistente,
+  usuarioPodeFiltrarUnidadeAssistente,
   PESO_AVALIACAO_UNIDADE_HOME,
   PESO_AVALIACAO_UNIDADE_GOVERNADA
 } from '../src/utils/empresaUnidade.js';
@@ -178,6 +179,25 @@ describe('Assistente — permissões finas por unidade', () => {
     assert.equal(
       usuarioPodeAcessarEscopoRelatorioAssistente(gestor, { escopo: 'unidade', empresaUnidadeId: 99 }),
       false
+    );
+  });
+
+  it('filtro explícito por unidade respeita home∪governadas', () => {
+    const gestor = {
+      role: 'gestor',
+      empresaUnidadeId: 10,
+      unidadesGovernadasIds: '[20]'
+    };
+    assert.equal(usuarioPodeFiltrarUnidadeAssistente(gestor, 10), true);
+    assert.equal(usuarioPodeFiltrarUnidadeAssistente(gestor, 20), true);
+    assert.equal(usuarioPodeFiltrarUnidadeAssistente(gestor, 99), false);
+    assert.equal(usuarioPodeFiltrarUnidadeAssistente({ role: 'admin' }, 99), true);
+    assert.equal(
+      usuarioPodeFiltrarUnidadeAssistente(
+        { role: 'gestor', empresaUnidadeId: null, unidadesGovernadasIds: null },
+        99
+      ),
+      true
     );
   });
 });

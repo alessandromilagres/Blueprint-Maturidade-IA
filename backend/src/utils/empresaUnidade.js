@@ -839,6 +839,21 @@ export function usuarioPodeAcessarEscopoRelatorioAssistente(usuario, escopoMeta,
 }
 
 /**
+ * Assistente item 2: o usuário pode pedir filtro explícito por unidade?
+ * admin/sysmap: qualquer id > 0. Restritos: só home ∪ governadas.
+ * Sem restrição de unidade: qualquer id > 0 da empresa (validação de empresa fica na rota/UI).
+ */
+export function usuarioPodeFiltrarUnidadeAssistente(usuario, empresaUnidadeId) {
+  if (empresaUnidadeId == null || empresaUnidadeId === '') return true;
+  const alvo = Number(empresaUnidadeId);
+  if (!Number.isFinite(alvo) || alvo <= 0) return false;
+  const role = String(usuario?.role || '').trim().toLowerCase();
+  if (role === 'admin' || role === 'sysmap') return true;
+  if (!usuarioTemRestricaoUnidadesAssistente(usuario)) return true;
+  return idsUnidadesVisiveisAssistente(usuario).includes(Math.trunc(alvo));
+}
+
+/**
  * Anota cada avaliação com papel/peso de inclusão na unidade filtrada.
  * Sem filtro (enterprise): não altera — média simples entre avaliações.
  */

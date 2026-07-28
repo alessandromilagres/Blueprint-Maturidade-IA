@@ -79,7 +79,23 @@ export async function ensureAssistenteSchema(prismaClient = prisma) {
       'CREATE INDEX IF NOT EXISTS "AssistenteFeedback_usuarioId_idx" ON "AssistenteFeedback" ("usuarioId")'
     );
 
-    console.log('[schema] Assistente (conversa/mensagem/chunk/feedback) verificado.');
+    await prismaClient.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "AssistentePreferencia" (
+        "id" SERIAL PRIMARY KEY,
+        "usuarioId" INTEGER NOT NULL UNIQUE,
+        "projetoPadraoId" INTEGER,
+        "unidadePadraoId" INTEGER,
+        "frameworkFavorito" TEXT,
+        "tom" TEXT NOT NULL DEFAULT 'medio',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await prismaClient.$executeRawUnsafe(
+      'CREATE UNIQUE INDEX IF NOT EXISTS "AssistentePreferencia_usuarioId_key" ON "AssistentePreferencia" ("usuarioId")'
+    );
+
+    console.log('[schema] Assistente (conversa/mensagem/chunk/feedback/preferencia) verificado.');
   } catch (e) {
     console.warn('[schema] Assistente:', e?.message || e);
   }

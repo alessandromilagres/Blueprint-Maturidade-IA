@@ -16,9 +16,13 @@ import {
 } from './assistenteRetrieval.js';
 import {
   usuarioTemRestricaoUnidadesAssistente,
-  usuarioPodeAcessarEscopoRelatorioAssistente
+  usuarioPodeAcessarEscopoRelatorioAssistente,
+  usuarioPodeFiltrarUnidadeAssistente
 } from './empresaUnidade.js';
-import { extrairEscopoBibliotecaRelatorio } from './relatorioUnidadeIA.js';
+import {
+  extrairEscopoBibliotecaRelatorio,
+  filtroUnidadeRelatorioIACompativel
+} from './relatorioUnidadeIA.js';
 
 const MAX_CHARS_POR_RELATORIO = 35000;
 const EMBED_BATCH = 16;
@@ -252,10 +256,14 @@ async function carregarChunksIndexadosPorIds(projetoId, ids) {
 /**
  * Chunks dos relatórios do projeto: prioriza última versão por tipo + índice persistido.
  * Com usuário restrito a unidades, remove books/relatórios de outras unidades (escopo geral permanece).
+ * Com empresaUnidadeId explícito (#2), prioriza books daquela unidade (exclui gerais).
  * @param {number} projetoId
- * @param {{ usuario?: object|null }} [opts]
+ * @param {{ usuario?: object|null, empresaUnidadeId?: number|null }} [opts]
  */
-export async function obterChunksRelatoriosIAProjeto(projetoId, { usuario = null } = {}) {
+export async function obterChunksRelatoriosIAProjeto(
+  projetoId,
+  { usuario = null, empresaUnidadeId = null } = {}
+) {
   const id = parseInt(projetoId, 10);
   if (!Number.isFinite(id) || id <= 0) return [];
 
@@ -309,16 +317,42 @@ export async function obterChunksRelatoriosIAProjeto(projetoId, { usuario = null
     cacheMemoria.set(id, { chunks: out, builtAt: now });
   }
 
-  return filtrarChunksRelatorioPorUnidadesUsuario(out, usuario);
+  return filtrarChunksRelatorioPorUnidadesUsuario(out, usuario, { empresaUnidadeId });
+}
+
+function parseSnapshotRelatorio(dadosSnapshot) {
+  if (!dadosSnapshot) return null;
+  try {
+    return typeof dadosSnapshot === 'string' ? JSON.parse(dadosSnapshot) : dadosSnapshot;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Remove chunks de RelatorioIA fora das unidades home∪governadas do usuário.
+ * Remove chunks de RelatorioIA fora das unidades home∪governadas do usuário (#8).
+ * Com empresaUnidadeId (#2), mantém só books compatíveis com a unidade (não inclui gerais).
  * Cache permanece por projeto; o filtro é aplicado por requisição.
  */
-export async function filtrarChunksRelatorioPorUnidadesUsuario(chunks, usuario) {
+export async function filtrarChunksRelatorioPorUnidadesUsuario(
+  chunks,
+  usuario,
+  { empresaUnidadeId = null } = {}
+) {
   const list = Array.isArray(chunks) ? chunks : [];
-  if (!list.length || !usuarioTemRestricaoUnidadesAssistente(usuario)) return list;
+  if (!list.length) return list;
+
+  const filtroId =
+    empresaUnidadeId != null && Number(empresaUnidadeId) > 0
+      ? Math.trunc(Number(empresaUnidadeId))
+      : null;
+
+  if (filtroId != null && !usuarioPodeFiltrarUnidadeAssistente(usuario, filtroId)) {
+    return [];
+  }
+
+  const precisaPermissao = usuarioTemRestricaoUnidadesAssistente(usuario);
+  if (!precisaPermissao && filtroId == null) return list;
 
   const ids = [
     ...new Set(
@@ -342,18 +376,22 @@ export async function filtrarChunksRelatorioPorUnidadesUsuario(chunks, usuario) 
 
   const allowed = new Set();
   for (const r of rows) {
-    let snap = null;
-    if (r.dadosSnapshot) {
-      try {
-        snap = typeof r.dadosSnapshot === 'string' ? JSON.parse(r.dadosSnapshot) : r.dadosSnapshot;
-      } catch {
-        snap = null;
-      }
-    }
+    const snap = parseSnapshotRelatorio(r.dadosSnapshot);
     const escopoMeta = extrairEscopoBibliotecaRelatorio(r.tipo, snap);
-    if (usuarioPodeAcessarEscopoRelatorioAssistente(usuario, escopoMeta, null)) {
-      allowed.add(Number(r.id));
+
+    if (precisaPermissao && !usuarioPodeAcessarEscopoRelatorioAssistente(usuario, escopoMeta, null)) {
+      continue;
     }
+
+    if (filtroId != null) {
+      // Escopo explícito por unidade: só books daquela unidade (não misturar Geral)
+      const compativel =
+        filtroUnidadeRelatorioIACompativel(snap, filtroId) ||
+        (escopoMeta.escopo === 'unidade' && Number(escopoMeta.empresaUnidadeId) === filtroId);
+      if (!compativel || escopoMeta.escopo === 'geral') continue;
+    }
+
+    allowed.add(Number(r.id));
   }
 
   return list.filter((c) => {

@@ -9,6 +9,7 @@ import {
   excluirConversaAssistente,
   atualizarFiltrosConversaAssistente
 } from '../utils/assistenteHistorico.js';
+import { processarAnexoAssistente } from '../utils/assistenteAnexo.js';
 import { ensureAssistenteSchema } from '../utils/assistenteSchema.js';
 import { salvarFeedbackAssistente } from '../utils/assistenteFeedback.js';
 import { MODOS_ASSISTENTE } from '../utils/assistenteModos.js';
@@ -134,9 +135,16 @@ router.post('/chat/stream', async (req, res) => {
       anexo
     } = req.body || {};
 
+    // Extrai o anexo ANTES do SSE: falha vira HTTP 400 JSON (não 502 / processo morto)
+    let anexoProcessado = null;
+    if (anexo) {
+      anexoProcessado = await processarAnexoAssistente(anexo);
+    }
+
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
 
     await responderAssistenteChatStream(
@@ -150,7 +158,7 @@ router.post('/chat/stream', async (req, res) => {
         unidadeNome: unidadeNome || null,
         tom,
         frameworkFavorito,
-        anexo: anexo || null,
+        anexoProcessado,
         usuario: req.usuario,
         signal: abort.signal
       },

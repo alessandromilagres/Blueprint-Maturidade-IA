@@ -243,4 +243,30 @@ describe('assistente título e anexo (#10/#11)', () => {
     assert.equal(mimeAnexoAssistentePermitido('a.md', ''), 'text/markdown');
     assert.equal(mimeAnexoAssistentePermitido('a.docx', 'application/msword'), null);
   });
+
+  it('PDF inválido não derruba o processo (await parseOffice)', async () => {
+    const { promises: fs } = await import('fs');
+    const os = await import('os');
+    const path = await import('path');
+    const { extrairConteudoTexto } = await import('../src/utils/projetoContexto.js');
+    const { processarAnexoAssistente } = await import('../src/utils/assistenteAnexo.js');
+
+    const bad = path.join(os.tmpdir(), `assistente-test-bad-${Date.now()}.pdf`);
+    await fs.writeFile(bad, '%PDF-1.4\nbogus');
+    try {
+      const texto = await extrairConteudoTexto(bad, 'application/pdf');
+      assert.equal(texto, null);
+      await assert.rejects(
+        () =>
+          processarAnexoAssistente({
+            nomeOriginal: 'ruim.pdf',
+            mimeType: 'application/pdf',
+            arquivo: Buffer.from('%PDF-1.4\nbogus').toString('base64')
+          }),
+        (err) => err.status === 400
+      );
+    } finally {
+      await fs.unlink(bad).catch(() => {});
+    }
+  });
 });

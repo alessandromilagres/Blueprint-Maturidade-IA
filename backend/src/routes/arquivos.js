@@ -11,8 +11,6 @@ import path from 'path';
 import crypto from 'crypto';
 import { parseOffice } from 'officeparser';
 
-const officeparser = { parseOffice };
-
 const router = express.Router();
 
 // Diretório de uploads
@@ -125,17 +123,9 @@ async function extrairConteudoTexto(filePath, mimeType) {
     // Documentos Office (Word, PowerPoint) e PDF usando officeparser
     if (TIPOS_OFFICE.includes(mimeType)) {
       try {
-        // officeparser usa callback, convertemos para Promise
-        const resultado = await new Promise((resolve, reject) => {
-          officeparser.parseOffice(filePath, (data, err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(data);
-            }
-          });
-        });
-        
+        // officeparser v6: await da Promise (evitar callback — rejection dupla derruba o Node)
+        const resultado = await parseOffice(filePath);
+
         // officeparser retorna objeto com método toText() ou string direta
         let conteudo;
         if (resultado && typeof resultado.toText === 'function') {
@@ -143,7 +133,7 @@ async function extrairConteudoTexto(filePath, mimeType) {
         } else if (typeof resultado === 'string') {
           conteudo = resultado;
         }
-        
+
         if (conteudo && typeof conteudo === 'string') {
           // Limpa espaços excessivos e limita tamanho
           const conteudoLimpo = conteudo

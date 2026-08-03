@@ -11,7 +11,6 @@ import path from 'path';
 import crypto from 'crypto';
 import { parseOffice } from 'officeparser';
 
-const officeparser = { parseOffice };
 const router = express.Router();
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
@@ -120,12 +119,7 @@ async function extrairConteudoTexto(filePath, mimeType) {
     }
     if (TIPOS_OFFICE.includes(mimeType)) {
       try {
-        const resultado = await new Promise((resolve, reject) => {
-          officeparser.parseOffice(filePath, (data, err) => {
-            if (err) reject(err);
-            else resolve(data);
-          });
-        });
+        const resultado = await parseOffice(filePath);
         let conteudo;
         if (resultado && typeof resultado.toText === 'function') {
           conteudo = resultado.toText();

@@ -25,8 +25,6 @@ import {
   blocoFatosCanonicosUnidadePrompt
 } from './fatosCanonicosUnidade.js';
 
-const officeparser = { parseOffice };
-
 export const UPLOAD_DIR_PROJETO_CONTEXTO = path.join(process.cwd(), 'uploads', 'projeto-contexto');
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_CONTEUDO_DB = 50000;
@@ -122,9 +120,8 @@ export async function extrairConteudoTexto(filePath, mimeType) {
       return conteudo.substring(0, MAX_CONTEUDO_DB);
     }
     if (TIPOS_OFFICE.includes(mimeType)) {
-      const resultado = await new Promise((resolve, reject) => {
-        officeparser.parseOffice(filePath, (data, err) => (err ? reject(err) : resolve(data)));
-      });
+      // officeparser v6: await da Promise (callback + reject duplicado derruba o Node → 502)
+      const resultado = await parseOffice(filePath);
       let conteudo;
       if (resultado && typeof resultado.toText === 'function') conteudo = resultado.toText();
       else if (typeof resultado === 'string') conteudo = resultado;

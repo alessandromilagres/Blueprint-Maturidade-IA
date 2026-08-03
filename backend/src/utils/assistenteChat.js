@@ -262,8 +262,8 @@ async function prepararContextoChat(opts) {
     { empresaUnidadeId, unidadeNome }
   );
 
-  let anexoProcessado = null;
-  if (opts.anexo) {
+  let anexoProcessado = opts.anexoProcessado || null;
+  if (!anexoProcessado && opts.anexo) {
     anexoProcessado = await processarAnexoAssistente(opts.anexo);
   }
 

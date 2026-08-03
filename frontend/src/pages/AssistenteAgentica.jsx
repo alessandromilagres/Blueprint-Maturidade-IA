@@ -391,8 +391,9 @@ export default function AssistenteAgentica() {
     setAnexoErro('');
     const nome = file.name || 'anexo';
     const ext = nome.toLowerCase().split('.').pop();
-    if (!['pdf', 'md', 'txt', 'markdown'].includes(ext)) {
-      setAnexoErro('Use PDF, Markdown (.md) ou texto (.txt).');
+    const ok = ['pdf', 'md', 'txt', 'markdown', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+    if (!ok) {
+      setAnexoErro('Use PDF, imagem (JPG/PNG/GIF/WebP), Markdown (.md) ou texto (.txt).');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -1002,7 +1003,7 @@ export default function AssistenteAgentica() {
             <input
               ref={fileRef}
               type="file"
-              accept=".pdf,.md,.txt,text/plain,text/markdown,application/pdf"
+              accept=".pdf,.md,.txt,.jpg,.jpeg,.png,.gif,.webp,text/plain,text/markdown,application/pdf,image/jpeg,image/png,image/gif,image/webp"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -1014,7 +1015,7 @@ export default function AssistenteAgentica() {
               disabled={enviando}
               onClick={() => fileRef.current?.click()}
               className="inline-flex items-center justify-center self-end rounded-xl border border-slate-200 px-3 py-2.5 text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-900"
-              title="Anexar PDF, MD ou TXT (só nesta pergunta)"
+              title="Anexar PDF, imagem, MD ou TXT (só nesta pergunta)"
             >
               <Paperclip className="h-4 w-4" />
             </button>

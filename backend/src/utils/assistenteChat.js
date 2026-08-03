@@ -34,7 +34,8 @@ import { usuarioPodeFiltrarUnidadeAssistente } from './empresaUnidade.js';
 import {
   processarAnexoAssistente,
   formatarMarcadorAnexoUsuario,
-  blocoAnexoNoPrompt
+  blocoAnexoNoPrompt,
+  imagensParaIA
 } from './assistenteAnexo.js';
 
 const MAX_HISTORICO = 10;
@@ -339,7 +340,8 @@ async function prepararContextoChat(opts) {
     projetoMeta,
     fontes,
     modoRetrieval: retrieval.modo,
-    modoPergunta
+    modoPergunta,
+    imagens: imagensParaIA(anexoProcessado)
   };
 }
 
@@ -350,7 +352,8 @@ export async function responderAssistenteChat(opts) {
   const ctx = await prepararContextoChat(opts);
 
   const resultado = await callAI(ctx.prompt, SYSTEM_PROMPT_ASSISTENTE, {
-    maxTokens: 4096
+    maxTokens: 4096,
+    imagens: ctx.imagens
   });
 
   const resposta = String(resultado?.content || resultado?.text || '').trim();
@@ -416,7 +419,8 @@ export async function responderAssistenteChatStream(opts, onEvent) {
 
   for await (const evt of streamAI(ctx.prompt, SYSTEM_PROMPT_ASSISTENTE, {
     maxTokens: 4096,
-    signal
+    signal,
+    imagens: ctx.imagens
   })) {
     if (evt.type === 'meta') {
       provider = evt.provider;

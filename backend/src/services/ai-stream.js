@@ -18,6 +18,22 @@ async function* streamAnthropic(prompt, systemPrompt, options = {}) {
   const apiKey = process.env[provider.envKey];
   if (!apiKey) throw new Error(`${provider.envKey} não configurada`);
 
+  let messageContent = prompt;
+  if (options.imagens?.length) {
+    messageContent = [];
+    for (const img of options.imagens) {
+      messageContent.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: img.mimeType,
+          data: img.base64
+        }
+      });
+    }
+    messageContent.push({ type: 'text', text: prompt });
+  }
+
   const response = await fetch(provider.apiUrl, {
     method: 'POST',
     headers: {
@@ -29,7 +45,7 @@ async function* streamAnthropic(prompt, systemPrompt, options = {}) {
       model: options.model || provider.defaultModel,
       max_tokens: options.maxTokens || 4096,
       system: systemPrompt,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: messageContent }],
       stream: true
     }),
     signal: options.signal || undefined
@@ -53,6 +69,22 @@ async function* streamOpenAICompatible(providerId, prompt, systemPrompt, options
   const apiKey = process.env[provider.envKey];
   if (!apiKey) throw new Error(`${provider.envKey} não configurada`);
 
+  if (providerId === 'groq' && options.imagens?.length) {
+    throw new Error('Groq não suporta imagens; use Anthropic ou OpenAI');
+  }
+
+  let userContent = prompt;
+  if (options.imagens?.length) {
+    userContent = [];
+    for (const img of options.imagens) {
+      userContent.push({
+        type: 'image_url',
+        image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+      });
+    }
+    userContent.push({ type: 'text', text: prompt });
+  }
+
   const response = await fetch(provider.apiUrl, {
     method: 'POST',
     headers: {
@@ -64,7 +96,7 @@ async function* streamOpenAICompatible(providerId, prompt, systemPrompt, options
       max_tokens: options.maxTokens || 4096,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt }
+        { role: 'user', content: userContent }
       ],
       stream: true
     }),
@@ -151,8 +183,12 @@ export async function* streamAI(prompt, systemPrompt, options = {}) {
 
   const providersToTry = [];
   const configured = process.env.AI_PROVIDER || 'anthropic';
-  if (isProviderConfigured(configured)) providersToTry.push(configured);
-  for (const p of ['anthropic', 'openai', 'groq']) {
+  const temImagens = Array.isArray(options.imagens) && options.imagens.length > 0;
+  const ordem = temImagens ? ['anthropic', 'openai'] : ['anthropic', 'openai', 'groq'];
+  if (isProviderConfigured(configured) && (!temImagens || configured !== 'groq')) {
+    providersToTry.push(configured);
+  }
+  for (const p of ordem) {
     if (!providersToTry.includes(p) && isProviderConfigured(p)) providersToTry.push(p);
   }
   if (!providersToTry.length) {

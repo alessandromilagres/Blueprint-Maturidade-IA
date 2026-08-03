@@ -241,6 +241,7 @@ describe('assistente título e anexo (#10/#11)', () => {
     const { mimeAnexoAssistentePermitido } = await import('../src/utils/assistenteAnexo.js');
     assert.equal(mimeAnexoAssistentePermitido('a.pdf', 'application/pdf'), 'application/pdf');
     assert.equal(mimeAnexoAssistentePermitido('a.md', ''), 'text/markdown');
+    assert.equal(mimeAnexoAssistentePermitido('a.jpg', 'image/jpeg'), 'image/jpeg');
     assert.equal(mimeAnexoAssistentePermitido('a.docx', 'application/msword'), null);
   });
 
@@ -268,5 +269,27 @@ describe('assistente título e anexo (#10/#11)', () => {
     } finally {
       await fs.unlink(bad).catch(() => {});
     }
+  });
+
+  it('aceita JPG mesmo se o arquivo se chama .pdf', async () => {
+    const {
+      detectarMimePorMagicBytes,
+      processarAnexoAssistente,
+      imagensParaIA
+    } = await import('../src/utils/assistenteAnexo.js');
+    // JPEG mínimo (SOI + APP0 stub) — FF D8 FF
+    const jpeg = Buffer.from([
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+      0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9
+    ]);
+    assert.equal(detectarMimePorMagicBytes(jpeg), 'image/jpeg');
+    const out = await processarAnexoAssistente({
+      nomeOriginal: 'fluxo.pdf',
+      mimeType: 'application/pdf',
+      arquivo: jpeg.toString('base64')
+    });
+    assert.equal(out.mime, 'image/jpeg');
+    assert.ok(out.imagem?.base64);
+    assert.equal(imagensParaIA(out)?.[0]?.mimeType, 'image/jpeg');
   });
 });

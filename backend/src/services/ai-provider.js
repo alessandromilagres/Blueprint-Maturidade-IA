@@ -488,11 +488,20 @@ async function callAI(prompt, systemPrompt, options = {}) {
   }
   
   // Adiciona outros provedores configurados como fallback
-  const fallbackOrder = ['openai', 'groq', 'anthropic'];
+  const temImagens = Array.isArray(options.imagens) && options.imagens.length > 0;
+  const fallbackOrder = temImagens
+    ? ['openai', 'anthropic']
+    : ['openai', 'groq', 'anthropic'];
   for (const provider of fallbackOrder) {
     if (!providersToTry.includes(provider) && isProviderConfigured(provider)) {
       providersToTry.push(provider);
     }
+  }
+
+  // Groq não vê imagens — tira da fila se houver anexo visual
+  if (temImagens) {
+    const idx = providersToTry.indexOf('groq');
+    if (idx >= 0) providersToTry.splice(idx, 1);
   }
   
   if (providersToTry.length === 0) {
